@@ -108,7 +108,7 @@ export function parseOpponents(text: string): TeamSet[] {
     isPaste
       ? trimmed
       : trimmed
-          .split(/[,\n\r]+/)
+          .split(/[,;/\n\r\t]+/)
           .map(x => x.trim())
           .filter(Boolean)
           .join("\n\n")

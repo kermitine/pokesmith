@@ -2,7 +2,7 @@
 
 A local Pokémon VGC workbench built from [VGC Multi Calc](https://github.com/robsonbittencourt/vgc-multicalc).
 
-Paste a Showdown export to see each Pokémon's resistances, weaknesses, immunities, and super-effective coverage from its actual moves. Explore a team-wide defensive matrix, search covered species and forms, preview one member's Tera typing, and adjust weather for moves such as Weather Ball.
+Paste a Showdown export to see each Pokémon's resistances, weaknesses, immunities, and super-effective coverage from its actual moves. Explore a team-wide defensive matrix, search covered species and forms, preview one member's Tera typing, and adjust weather for moves such as Weather Ball. The workbench uses a dark purple theme.
 
 ## Docker: build directly from GitHub
 
@@ -65,9 +65,18 @@ The preview command serves the production build and usage API together on port 5
 
 ## Opponent scouting
 
-The Opponents tab accepts comma-separated species names or a full Showdown paste. Edit moves and abilities directly, or request common moves from MunchStats. Choose the usage format and rating explicitly. The adapter caches requests for 15 minutes, revalidates with ETags, and keeps queries restricted to MunchStats' documented endpoints.
+Open **Team matchup** to compare your entire team with the opposing roster. Add species using autocomplete and Enter, or paste names separated by commas, newlines, slashes, or semicolons. A full Showdown export works too. Common moves, abilities, and items load automatically from MunchStats, with up to three parallel lookups. **Load common movesets for all** refreshes the whole roster in one action.
 
-Usage percentages describe move inclusion, not a prediction of the next action. Suggested components are assembled from separate frequencies and are labeled as estimates. Known moves are preserved when fetching usage. No fallback silently substitutes another game or regulation. The versioned source currently advertises the months and formats available from its metadata.
+Two grids show every team member against every entered opponent at once:
+
+- **Your coverage** compares all your imported damaging moves, including the opposing ability and item. Each cell highlights the strongest type matchup and the moves that provide it.
+- **Their coverage against your team** shows the strongest type matchup from each opponent's common or supplied attacks into each of your Pokémon. Unknown opposing moves are marked as unknown, rather than neutral or safe.
+
+Use **Show every damaging move** for the full per-cell breakdown. A single Tera preview applies to both grids. On small screens, the grids scroll horizontally and keep your team labels pinned on the left. Both grids include all team members even when the separate defensive-fit ranking excludes unavailable switch candidates.
+
+Expand **Review & edit opposing movesets** to enter known moves, abilities, and items. Known fields always override usage guesses; changing the usage format or rating removes only the generated fields. Choose the usage format and rating explicitly. The adapter caches requests for 15 minutes, revalidates with ETags, and keeps queries restricted to MunchStats' documented endpoints.
+
+Usage percentages describe move inclusion, not a prediction of the next action. Suggested components are assembled from separate frequencies and are labeled as estimates. Supplied moves are preserved when fetching usage. No fallback silently substitutes another game or regulation. The versioned source currently advertises the months and formats available from its metadata. A failed lookup leaves that opponent's missing moves unknown and available for manual entry.
 
 Defensive fits compare all entered opponents' damaging moves against eligible team members. Uncheck members that are active, fainted, or not brought. This is a **type-based screen**, not a safe-switch survival calculator: it does not model HP, investment, damage rolls, speed, targeting, status pressure, or the full sequence of switch-in effects. Use the retained Damage calculator for detailed calculations.
 

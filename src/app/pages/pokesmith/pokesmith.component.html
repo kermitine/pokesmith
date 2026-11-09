@@ -22,7 +22,7 @@
       </div>
       <div class="intro-art" aria-hidden="true">
         <div class="orbit"></div>
-        <img [src]="sprite('Scizor')" alt="" /><span class="art-note"><i></i> BUILT FOR TEAM PREP</span>
+        <img [src]="sprite('Gengar')" alt="" /><span class="art-note"><i></i> BUILT FOR TEAM PREP</span>
       </div>
     </section>
 
@@ -70,7 +70,7 @@
         } @else {
           <div class="team-strip" aria-label="Select a Pokémon">
             @for (member of team(); track $index; let index = $index) {
-              <button class="team-slot" [class.selected]="selected() === index" [attr.aria-pressed]="selected() === index" (click)="select(index)">
+              <button class="team-slot" [class.selected]="tab() !== 'opponents' && selected() === index" [attr.aria-pressed]="tab() !== 'opponents' && selected() === index" (click)="select(index)">
                 <img [src]="sprite(member.species)" alt="" (error)="$any($event.target).style.visibility = 'hidden'" /><strong>{{ member.species }}</strong
                 ><span>
                   @for (type of effectiveTypes(member, teraIndex() === index); track type) {
@@ -84,7 +84,7 @@
             <div class="tabs" role="tablist" aria-label="Analysis views">
               <button role="tab" [attr.aria-selected]="tab() === 'overview'" [class.active]="tab() === 'overview'" (click)="showTab('overview')">Overview</button
               ><button role="tab" [attr.aria-selected]="tab() === 'coverage'" [class.active]="tab() === 'coverage'" (click)="showTab('coverage')">Move coverage</button
-              ><button role="tab" [attr.aria-selected]="tab() === 'opponents'" [class.active]="tab() === 'opponents'" (click)="showTab('opponents')">Opponents</button>
+              ><button role="tab" [attr.aria-selected]="tab() === 'opponents'" [class.active]="tab() === 'opponents'" (click)="showTab('opponents')">Team matchup</button>
             </div>
             <label class="weather-label"
               >Weather<select aria-label="Weather for move coverage" [ngModel]="weather()" (ngModelChange)="weather.set($event)">
@@ -97,7 +97,303 @@
             >
           </div>
 
-          @if (current(); as pokemon) {
+          @if (tab() === "opponents") {
+            <section class="opponent-workspace" aria-label="Whole-team opponent analysis">
+              <section class="panel opponent-entry">
+                <div class="opponent-title">
+                  <div>
+                    <p class="eyebrow">SEE THE WHOLE MATCHUP</p>
+                    <h2>Your team vs. their team</h2>
+                    <p>Every Pokémon. Every opposing slot. Coverage in both directions.</p>
+                  </div>
+                  <span class="team-count">{{ team().length }} vs {{ enemies().length || "—" }}</span>
+                </div>
+
+                <form class="quick-add" (ngSubmit)="addOpponent()">
+                  <label for="opponent-name">Add an opponent</label>
+                  <div>
+                    <input id="opponent-name" name="opponentName" [(ngModel)]="opponentName" list="pokemon-species" autocomplete="off" placeholder="Start typing a Pokémon, then press Enter…" [disabled]="enemies().length >= 6" /><button
+                      class="primary-button"
+                      type="submit"
+                      [disabled]="!opponentName.trim() || enemies().length >= 6">
+                      Add <span aria-hidden="true">+</span>
+                    </button>
+                  </div>
+                  <datalist id="pokemon-species">
+                    @for (name of species; track name) {
+                      <option [value]="name"></option>
+                    }
+                  </datalist>
+                </form>
+                <div class="opponent-roster" aria-label="Opposing team">
+                  @for (enemy of enemies(); track enemy.species; let index = $index) {
+                    <div class="opponent-chip">
+                      <img [src]="sprite(enemy.species)" alt="" />
+                      <div>
+                        <strong>{{ enemy.species }}</strong
+                        ><small [class.pending]="usageLoading().includes(enemy.species)">{{
+                          usageLoading().includes(enemy.species) ? "Loading moves…" : usageErrors()[enemy.species] ? "Enter moves manually" : enemy.estimated ? "Common set estimate" : enemy.moves.length ? "Supplied moves" : "Moves unknown"
+                        }}</small>
+                      </div>
+                      <button type="button" [attr.aria-label]="'Remove ' + enemy.species" (click)="removeOpponent(index)">×</button>
+                    </div>
+                  } @empty {
+                    <p class="muted roster-hint">Add up to six names. Common moves, ability, and item load automatically.</p>
+                  }
+                </div>
+
+                <details class="paste-opponents" [open]="!enemies().length">
+                  <summary>Paste names or a Showdown team</summary>
+                  <label class="sr-only" for="opponent-input">Opponent team paste or names</label
+                  ><textarea
+                    class="opponent-input"
+                    id="opponent-input"
+                    [(ngModel)]="enemyText"
+                    placeholder="Incineroar, Rillaboom, Garchomp, Milotic, Rotom-Wash, Sneasler&#10;&#10;A full Showdown export works too. Supplied moves are preserved."></textarea>
+                  <div class="paste-actions">
+                    <button class="secondary-button" (click)="importEnemies()" [disabled]="!enemyText.trim()">Scout opposing team <span aria-hidden="true">→</span></button
+                    ><button class="text-button" (click)="exampleOpponents()">Try an example matchup</button>
+                  </div>
+                </details>
+                @if (enemyError()) {
+                  <p class="error-message" role="alert">{{ enemyError() }}</p>
+                }
+
+                <div class="scout-controls">
+                  <div class="usage-controls">
+                    <label
+                      >Usage format<select aria-label="Usage format" [ngModel]="selectedFormat()" (ngModelChange)="changeFormat($event)">
+                        @for (format of formats(); track format.code) {
+                          <option [value]="format.code">{{ format.name }}</option>
+                        } @empty {
+                          <option value="">Manual entry available</option>
+                        }
+                      </select></label
+                    ><label
+                      >Rating<select aria-label="Usage rating" [ngModel]="rating()" (ngModelChange)="changeRating($event)">
+                        @for (value of activeRatings(); track value) {
+                          <option [value]="value">{{ value }}</option>
+                        }
+                      </select></label
+                    >
+                  </div>
+                  <button class="secondary-button bulk-scout" [disabled]="scouting() || usageLoading().length > 0 || !enemies().length" (click)="scoutTeam()">
+                    {{ scouting() || usageLoading().length ? "Loading common movesets…" : "Load common movesets for all" }}
+                  </button>
+                </div>
+                <div class="scout-status">
+                  <span aria-live="polite"
+                    >{{ usageLoading().length ? "Loading " + usageLoading().length + " opposing sets…" : enemies().length ? knownOpponents() + " of " + enemies().length + " opposing movesets available" : "MunchStats usage data" }}
+                    @if (month()) {
+                      · {{ month() }}
+                    }
+                  </span>
+                  @if (enemies().length) {
+                    <button class="text-button" (click)="clearOpponents()">Clear opponents</button>
+                  }
+                </div>
+                @if (usageError()) {
+                  <p class="error-message" role="status">{{ usageError() }}</p>
+                }
+              </section>
+
+              @if (enemies().length) {
+                <div class="matchup-summary" aria-label="Team matchup summary">
+                  <div>
+                    <strong
+                      >{{ coveredOpponents() }}<small>/{{ enemies().length }}</small></strong
+                    ><span>Opponents hit super effectively</span>
+                  </div>
+                  <div>
+                    <strong
+                      >{{ threatenedMembers() }}<small>/{{ team().length }}</small></strong
+                    ><span>Your members with a known weakness</span>
+                  </div>
+                  <div>
+                    <strong
+                      >{{ knownOpponents() }}<small>/{{ enemies().length }}</small></strong
+                    ><span>Opposing movesets available</span>
+                  </div>
+                </div>
+                <div class="matrix-options">
+                  <label><input type="checkbox" [ngModel]="showAllMoves()" (ngModelChange)="showAllMoves.set($event)" />Show every damaging move</label
+                  ><label
+                    >Your Tera preview<select aria-label="Your team Tera preview" [ngModel]="teraIndex()" (ngModelChange)="teraIndex.set($event)">
+                      <option [ngValue]="-1">None</option>
+                      @for (member of team(); track $index; let index = $index) {
+                        @if (member.teraType) {
+                          <option [ngValue]="index">{{ member.species }} · {{ member.teraType }}</option>
+                        }
+                      }
+                    </select></label
+                  >
+                </div>
+
+                @for (direction of matchupDirections; track direction.id) {
+                  <section [class]="'panel team-matchup-panel ' + (direction.incoming ? 'incoming-matrix' : 'outgoing-matrix')" [attr.aria-labelledby]="direction.id">
+                    <div class="team-matrix-heading">
+                      <div>
+                        <p class="eyebrow">{{ direction.incoming ? "WHAT THREATENS YOU" : "WHERE YOU HAVE THE EDGE" }}</p>
+                        <h2 [id]="direction.id">{{ direction.title }}</h2>
+                        <p>{{ direction.subtitle }}</p>
+                      </div>
+                      <span class="matrix-dimension">{{ team().length }} × {{ enemies().length }}</span>
+                    </div>
+                    <div class="matchup-legend">
+                      @if (direction.incoming) {
+                        <span class="legend-danger">2× / 4× Weak</span><span class="legend-safe">½× / ¼× Resist</span><span class="legend-immune">0× Immune</span>
+                      } @else {
+                        <span class="legend-safe">2× / 4× Super effective</span><span>1× Neutral</span><span class="legend-danger">½× / 0× Resisted or blocked</span>
+                      }
+                      <span>— Unknown moves</span>
+                    </div>
+                    <div class="table-scroll matchup-scroll" tabindex="0" [attr.aria-label]="direction.title + ' matchup grid'">
+                      <table class="full-matchup-table">
+                        <caption class="sr-only">
+                          {{
+                            direction.title
+                          }}: all your Pokémon against every entered opponent
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th scope="col" class="own-team-heading">YOUR TEAM <span aria-hidden="true">↓</span><small>OPPONENTS →</small></th>
+                            @for (enemy of enemies(); track enemy.species) {
+                              <th scope="col">
+                                <img [src]="sprite(enemy.species)" alt="" /><strong>{{ enemy.species }}</strong
+                                ><small>{{ usageLoading().includes(enemy.species) ? "Loading…" : enemy.estimated ? "Estimated set" : enemy.moves.length ? "Entered set" : "Moves unknown" }}</small>
+                              </th>
+                            }
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (row of matchupRows(); track $index; let rowIndex = $index) {
+                            <tr>
+                              <th scope="row">
+                                <img [src]="sprite(row.pokemon.species)" alt="" /><strong>{{ row.pokemon.species }}</strong>
+                                @if (teraIndex() === rowIndex) {
+                                  <small class="tera-label">✧ Tera {{ row.pokemon.teraType }}</small>
+                                }
+                              </th>
+                              @for (cell of direction.incoming ? row.incoming : row.outgoing; track $index; let enemyIndex = $index) {
+                                <td [class]="matchupClass(cell, direction.incoming)" [attr.title]="cellDescription(cell)">
+                                  @if (cell.best !== null) {
+                                    <strong class="cell-multiplier">{{ label(cell.best) }}</strong>
+                                    <div class="cell-moves">
+                                      @for (move of visibleMoves(cell); track move.name) {
+                                        <span [class.super-move]="move.multiplier > 1"
+                                          ><span>{{ move.name }}</span
+                                          ><b>{{ label(move.multiplier) }}</b></span
+                                        >
+                                      }
+                                    </div>
+                                    @if (!showAllMoves() && cell.highlights.length > 2) {
+                                      <button class="more-moves" (click)="showAllMoves.set(true)">+{{ cell.highlights.length - 2 }} more</button>
+                                    }
+                                  } @else {
+                                    <strong class="cell-multiplier">—</strong
+                                    ><small class="unknown-caption">{{
+                                      cell.state === "no-damage" ? "Status / special damage only" : direction.incoming && usageLoading().includes(enemies()[enemyIndex].species) ? "Loading common moves…" : "Moves unknown"
+                                    }}</small>
+                                  }
+                                </td>
+                              }
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                    <p class="matrix-explainer">
+                      {{
+                        direction.incoming
+                          ? "Each cell shows the strongest type matchup among that opponent’s known or estimated damaging moves."
+                          : "Each cell compares all imported attacking moves. Unknown defensive abilities or items can change coverage."
+                      }}
+                      All {{ team().length }} members stay visible; scroll the grid horizontally on small screens.
+                    </p>
+                  </section>
+                }
+                <p class="matchup-caveat">Type effectiveness, not predicted damage or KO chances. Common sets combine independent usage rankings; they aren’t confirmed opposing sets. Unknown moves stay unknown.</p>
+
+                <details class="panel opponent-editors">
+                  <summary><span>Review & edit opposing movesets</span><small>Known details always override estimates</small></summary>
+                  <div class="enemy-editor-list">
+                    @for (enemy of enemies(); track enemy.species; let index = $index) {
+                      <article class="enemy-card">
+                        <div class="enemy-heading">
+                          <img [src]="sprite(enemy.species)" alt="" />
+                          <div>
+                            <h3>{{ enemy.species }}</h3>
+                            <small>{{ enemy.estimated ? "Estimated fields · editable" : enemy.moves.length ? "Supplied set" : "Moves unknown" }}</small>
+                          </div>
+                          <button class="text-button" [disabled]="usageLoading().includes(enemy.species)" (click)="estimate(index)">{{ usageLoading().includes(enemy.species) ? "Loading…" : "Reload common set" }}</button>
+                        </div>
+                        <div class="enemy-fields">
+                          <label
+                            >Ability<select [attr.aria-label]="enemy.species + ' ability'" [ngModel]="enemy.ability" (ngModelChange)="editEnemy(index, 'ability', $event)">
+                              <option value="">Unknown</option>
+                              @for (ability of abilities(enemy.species); track ability) {
+                                <option>{{ ability }}</option>
+                              }
+                            </select></label
+                          ><label>Item<input [attr.aria-label]="enemy.species + ' item'" [ngModel]="enemy.item" (change)="editEnemy(index, 'item', $any($event.target).value)" placeholder="Unknown" /></label
+                          ><label class="moves-field"
+                            >Moves, separated by commas<input
+                              [attr.aria-label]="enemy.species + ' moves'"
+                              [ngModel]="enemy.moves.join(', ')"
+                              (change)="editEnemy(index, 'moves', $any($event.target).value)"
+                              placeholder="Earthquake, Rock Slide, Protect"
+                          /></label>
+                        </div>
+                        @if (usageErrors()[enemy.species]) {
+                          <p class="error-message" role="status">{{ usageErrors()[enemy.species] }}</p>
+                        }
+                        @if (usage()[enemy.species]; as stats) {
+                          <div class="usage-moves">
+                            @for (move of stats.moves.slice(0, 6); track move.name) {
+                              <span
+                                >{{ move.name }} <b>{{ move.percent.toFixed(1) }}%</b></span
+                              >
+                            }
+                          </div>
+                          <p class="fineprint">MunchStats · {{ stats.month }} · rating {{ stats.rating }}. Percentages describe moves carried, not which move will be selected this turn.</p>
+                        }
+                      </article>
+                    }
+                  </div>
+                </details>
+                <details class="panel fit-section">
+                  <summary>Defensive fits across the opposing team</summary>
+                  <div class="fit-content">
+                    <p class="fineprint">A type-based screen across all entered opponents, without damage rolls, current HP, targeting, or turn order. Uncheck members already active, fainted, or not brought.</p>
+                    <div class="availability">
+                      @for (member of team(); track $index; let index = $index) {
+                        <label><input type="checkbox" [checked]="!excluded().includes(index)" (change)="toggleExcluded(index)" />{{ member.species }}</label>
+                      }
+                    </div>
+                    @for (fit of fits(); track $index; let rank = $index) {
+                      <div class="fit-row">
+                        <span class="fit-rank">{{ rank + 1 }}</span
+                        ><strong>{{ fit.set.species }}</strong
+                        ><span [class]="'fit-result ' + cellClass(fit.worst)">{{ fit.worst === Infinity ? "No damaging moves" : "Worst matchup: " + label(fit.worst) }}</span
+                        ><small>
+                          @for (check of fit.checks.slice(0, 4); track $index) {
+                            <span>{{ check.species }} · {{ check.move }} {{ label(check.multiplier) }}</span>
+                          }
+                          {{ fit.unknown ? "Some opposing moves are estimated or unknown." : "Based on supplied damaging moves." }}</small
+                        >
+                      </div>
+                    }
+                  </div>
+                </details>
+              } @else {
+                <div class="panel matchup-empty">
+                  <span aria-hidden="true">⇄</span>
+                  <h3>One view. Your entire matchup.</h3>
+                  <p>Add or paste the opposing team to see two complete grids: what all your Pokémon can hit, and which opposing moves threaten them.</p>
+                </div>
+              }
+            </section>
+          } @else if (current(); as pokemon) {
             <section class="member-panel panel">
               <div class="member-heading">
                 <div>
@@ -230,102 +526,6 @@
                 </div>
                 @if (targets().length > 48) {
                   <p class="fineprint">Showing up to 48 results. Search to find any covered species or form.</p>
-                }
-              }
-              @if (tab() === "opponents") {
-                <p class="section-help">Type enemy names separated by commas, or paste their Showdown sets. Known moves and abilities give better comparisons.</p>
-                <label class="field-label" for="opponent-input">Opponent Pokémon or team paste</label
-                ><textarea class="opponent-input" id="opponent-input" [(ngModel)]="enemyText" placeholder="Garchomp, Rotom-Wash&#10;or paste a full opposing team"></textarea
-                ><button class="secondary-button" (click)="importEnemies()">Compare opponents <span aria-hidden="true">→</span></button>
-                @if (enemyError()) {
-                  <p class="error-message" role="alert">{{ enemyError() }}</p>
-                }
-                <div class="usage-controls">
-                  <label
-                    >Usage format<select aria-label="Usage format" [ngModel]="selectedFormat()" (ngModelChange)="changeFormat($event)">
-                      @for (format of formats(); track format.code) {
-                        <option [value]="format.code">{{ format.name }}</option>
-                      } @empty {
-                        <option value="">Manual entry available</option>
-                      }
-                    </select></label
-                  ><label
-                    >Rating<select aria-label="Usage rating" [ngModel]="rating()" (ngModelChange)="changeRating($event)">
-                      @for (value of activeRatings(); track value) {
-                        <option [value]="value">{{ value }}</option>
-                      }
-                    </select></label
-                  >
-                </div>
-                @if (usageError()) {
-                  <p class="error-message" role="status">{{ usageError() }}</p>
-                }
-                @for (enemy of enemies(); track $index; let index = $index) {
-                  <article class="enemy-card">
-                    <div class="enemy-heading">
-                      <img [src]="sprite(enemy.species)" alt="" />
-                      <div>
-                        <h3>{{ enemy.species }}</h3>
-                        <small>{{ enemy.estimated ? "Estimated components · editable" : "Manually supplied set" }}</small>
-                      </div>
-                      <button class="text-button" [disabled]="usageLoading().includes(enemy.species)" (click)="estimate(index)">{{ usageLoading().includes(enemy.species) ? "Loading…" : "Estimate common moves" }}</button>
-                    </div>
-                    <div class="enemy-fields">
-                      <label
-                        >Ability<select [attr.aria-label]="enemy.species + ' ability'" [ngModel]="enemy.ability" (ngModelChange)="editEnemy(index, 'ability', $event)">
-                          <option value="">Unknown</option>
-                          @for (ability of abilities(enemy.species); track ability) {
-                            <option>{{ ability }}</option>
-                          }
-                        </select></label
-                      ><label
-                        >Moves, separated by commas<input [attr.aria-label]="enemy.species + ' moves'" [ngModel]="enemy.moves.join(', ')" (change)="editEnemy(index, 'moves', $any($event.target).value)" placeholder="Earthquake, Rock Slide, Protect"
-                      /></label>
-                    </div>
-                    @if (usage()[enemy.species]; as stats) {
-                      <div class="usage-moves">
-                        @for (move of stats.moves.slice(0, 6); track move.name) {
-                          <span
-                            >{{ move.name }} <b>{{ move.percent.toFixed(1) }}%</b></span
-                          >
-                        }
-                      </div>
-                      <p class="fineprint">MunchStats · {{ stats.month }} · rating {{ stats.rating }}. Percentages describe moves carried, not this turn’s action. Components are independent frequencies, not an observed complete set.</p>
-                    }
-                    <div class="enemy-coverage">
-                      <strong>{{ pokemon.species }} can hit with:</strong>
-                      @for (move of bestAgainst(enemy); track move.name) {
-                        <span class="positive-chip">{{ move.name }} {{ label(move.value) }}</span>
-                      } @empty {
-                        <span class="muted">No known super-effective move</span>
-                      }
-                    </div>
-                  </article>
-                }
-                @if (enemies().length) {
-                  <section class="fit-section">
-                    <h3>Defensive fits against these moves</h3>
-                    <p class="fineprint">Type-based screening, not a survival calculation. All entered opponents are considered. HP, damage, targeting, status, and turn order are not modeled here.</p>
-                    <div class="availability">
-                      @for (member of team(); track $index; let index = $index) {
-                        <label><input type="checkbox" [checked]="!excluded().includes(index)" (change)="toggleExcluded(index)" />{{ member.species }}</label>
-                      }
-                    </div>
-                    <p class="fineprint">Uncheck Pokémon already on the field, fainted, or not brought.</p>
-                    @for (fit of fits(); track $index; let rank = $index) {
-                      <div class="fit-row">
-                        <span class="fit-rank">{{ rank + 1 }}</span
-                        ><strong>{{ fit.set.species }}</strong
-                        ><span [class]="'fit-result ' + cellClass(fit.worst)">{{ fit.worst === Infinity ? "No damaging moves" : "Worst matchup: " + label(fit.worst) }}</span
-                        ><small>
-                          @for (check of fit.checks.slice(0, 4); track $index) {
-                            <span>{{ check.species }} ? {{ check.move }} {{ label(check.multiplier) }}</span>
-                          }
-                          {{ fit.unknown ? "Some opposing moves are unknown." : "Based on entered damaging moves." }}</small
-                        >
-                      </div>
-                    }
-                  </section>
                 }
               }
               @for (note of pokemon.notes; track note) {
