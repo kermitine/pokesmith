@@ -1,0 +1,48 @@
+import { DOCUMENT, isPlatformBrowser } from "@angular/common"
+import { Component, inject, input, OnInit, PLATFORM_ID, ViewEncapsulation } from "@angular/core"
+import { Router } from "@angular/router"
+import { MatIconModule } from "@angular/material/icon"
+
+@Component({
+  selector: "app-how-to-use-subpage",
+  standalone: true,
+  imports: [MatIconModule],
+  template: `
+    <div class="subpage-container">
+      <div class="back-nav">
+        <div class="back-button" (click)="onBack()" data-cy="how-to-use-back">
+          <mat-icon>arrow_back_ios_new</mat-icon>
+          <span>Back</span>
+        </div>
+      </div>
+
+      <div class="header">
+        <h2 data-cy="how-to-use-subpage-title">{{ title() }}</h2>
+      </div>
+
+      <div class="content">
+        <ng-content></ng-content>
+      </div>
+    </div>
+  `,
+  styleUrl: "./how-to-use-subpage.component.scss",
+  encapsulation: ViewEncapsulation.None
+})
+export class HowToUseSubpageComponent implements OnInit {
+  private router = inject(Router)
+  private document = inject(DOCUMENT)
+  private platformId = inject(PLATFORM_ID)
+
+  title = input.required<string>()
+
+  ngOnInit() {
+    if (!isPlatformBrowser(this.platformId)) return
+
+    this.document.body.scrollTo({ top: 0, behavior: "instant" })
+    this.document.documentElement.scrollTo({ top: 0, behavior: "instant" })
+  }
+
+  onBack() {
+    this.router.navigate(["/how-to-use"])
+  }
+}

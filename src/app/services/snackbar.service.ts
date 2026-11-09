@@ -1,0 +1,18 @@
+import { Injectable, inject } from "@angular/core"
+import { MatSnackBar } from "@angular/material/snack-bar"
+
+@Injectable({
+  providedIn: "root"
+})
+export class SnackbarService {
+  private _snackBar = inject(MatSnackBar)
+
+  open(message: string) {
+    this._snackBar.open(message, "", { duration: 1500, panelClass: ["center", "not-clickable"], verticalPosition: "bottom" })
+  }
+
+  openWithAction(message: string, action: string, callback: () => void) {
+    const ref = this._snackBar.open(message, action, { panelClass: "center", verticalPosition: "bottom" })
+    ref.onAction().subscribe(callback)
+  }
+}

@@ -1,0 +1,215 @@
+@use "shared/mobile-calc-shell/attacker-header";
+
+:host {
+  --header-offset: 4em;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  height: 100dvh;
+  margin-top: -4em;
+  overflow: hidden;
+}
+
+:host(.header-hidden) {
+  --header-offset: 0em;
+}
+
+.scrollable-content {
+  flex: 0 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-top: var(--header-offset);
+  padding-bottom: 6em;
+  transition: padding-top 0.2s ease;
+
+  &.header-scroll {
+    padding-top: 4em;
+  }
+
+  &.table-open {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--header-offset);
+    padding-bottom: 0;
+  }
+}
+
+.team-tabs-sticky {
+  position: sticky;
+  top: calc(var(--header-offset) - 4em);
+  z-index: 50;
+  transition: top 0.2s ease;
+  background-color: var(--background);
+}
+
+:host ::ng-deep app-pokemon-moves-mobile.sticky.stuck {
+  padding-top: var(--space-2xs);
+}
+
+.scrollable-content.table-open > .attacker-build {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.attacker-build {
+  padding-bottom: var(--space-sm);
+
+  &:has(app-pokemon-moves-mobile.sticky) {
+    display: contents;
+  }
+
+  .table-open & {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+.table-open ::ng-deep .table-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  app-pokemon-table,
+  app-moves-table,
+  app-abilities-table,
+  app-items-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+.results-list {
+  border-top: 1px solid var(--widget-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.result-card {
+  width: 100%;
+}
+
+.result-card app-pokemon-card {
+  display: block;
+  width: 100%;
+}
+
+.results-list ::ng-deep .card {
+  .collapsed-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+
+    .collapsed-description {
+      flex: 1;
+    }
+
+    &:has(.collapsed-description) {
+      justify-content: space-between;
+    }
+  }
+}
+
+.team-tabs {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--background);
+  border-bottom: 1px solid var(--widget-border);
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.team-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s ease;
+  flex: 1;
+  position: relative;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent !important;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.active-tab {
+  border-color: var(--primary);
+  background-color: var(--highlight);
+}
+
+.add-tab {
+  opacity: 1;
+}
+
+.field-tab {
+  padding: calc(var(--header-offset) + var(--space-lg)) var(--space-lg) 6em var(--space-lg);
+
+  .modifiers-title {
+    color: var(--text-strong);
+    font-weight: 500;
+    font-size: var(--font-size-lg);
+  }
+
+  .settings-widget {
+    display: block;
+    height: auto;
+
+    ::ng-deep > .container {
+      height: auto;
+    }
+  }
+
+  .field-configs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+
+    .roll-config-section {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
+
+.role-widget {
+  ::ng-deep .header {
+    display: none !important;
+  }
+
+  ::ng-deep .container {
+    height: auto !important;
+    padding: var(--space-lg) !important;
+  }
+}
+
+.button-group {
+  display: flex !important;
+  width: 100%;
+  gap: var(--space-xs);
+
+  mat-button-toggle {
+    flex: 1;
+    font-weight: 500 !important;
+  }
+}

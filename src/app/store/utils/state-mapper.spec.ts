@@ -1,0 +1,180 @@
+import { PokemonState } from "@store/calc-store"
+import { Ability, Move, MoveSet, Pokemon, Status } from "@multicalc/model"
+import { pokemonToState, stateToPokemon } from "./state-mapper"
+
+describe("State Mapper", () => {
+  describe("stateToPokemon", () => {
+    it("should build Pokémon using state", () => {
+      const result = stateToPokemon(pikachuState)
+
+      expect(result.name).toBe("Pikachu")
+      expect(result.nature).toBe("Timid")
+      expect(result.item).toBe("Light Ball")
+      expect(result.status).toBe(Status.HEALTHY)
+      expect(result.ability.name).toBe("Static")
+      expect(result.ability.on).toBe(false)
+      expect(result.commanderActive).toBe(true)
+      expect(result.teraType).toBe("Electric")
+      expect(result.teraTypeActive).toBe(true)
+      expect(result.activeMoveName).toBe("Thunderbolt")
+      expect(result.move1Name).toEqual("Thunderbolt")
+      expect(result.move2Name).toEqual("Quick Attack")
+      expect(result.move3Name).toEqual("Volt Tackle")
+      expect(result.move4Name).toEqual("Iron Tail")
+      expect(result.boosts).toEqual({ atk: -1, def: -2, spa: 1, spd: 2, spe: 3 })
+      expect(result.bonusBoosts).toEqual({ atk: -1, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.sps).toEqual({ hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 })
+      expect(result.ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+    })
+
+    it("should fill missing move slots with empty moves when the state has a short moveSet", () => {
+      const shortState: PokemonState = { ...pikachuState, moveSet: [{ name: "Thunderbolt" }, { name: "Quick Attack" }] }
+
+      const result = stateToPokemon(shortState)
+
+      expect(result.move1Name).toEqual("Thunderbolt")
+      expect(result.move2Name).toEqual("Quick Attack")
+      expect(result.move3Name).toEqual("")
+      expect(result.move4Name).toEqual("")
+    })
+  })
+
+  describe("pokemonToState", () => {
+    it("should map Pikachu back to state correctly", () => {
+      const result = pokemonToState(pikachu)
+
+      expect(result.id).toBe("123")
+      expect(result.name).toBe("Pikachu")
+      expect(result.nature).toBe("Timid")
+      expect(result.item).toBe("Light Ball")
+      expect(result.status).toBe(Status.HEALTHY.description)
+      expect(result.ability).toBe("Static")
+      expect(result.abilityOn).toBe(false)
+      expect(result.commanderActive).toBe(true)
+      expect(result.teraType).toBe("Electric")
+      expect(result.teraTypeActive).toBe(true)
+      expect(result.activeMove).toBe(0)
+
+      expect(result.moveSet[0].name).toBe("Thunderbolt")
+      expect(result.moveSet[1].name).toBe("Quick Attack")
+      expect(result.moveSet[2].name).toBe("Volt Tackle")
+      expect(result.moveSet[3].name).toBe("Iron Tail")
+
+      expect(result.boosts).toEqual({ atk: -1, def: -2, spa: 1, spd: 2, spe: 3 })
+      expect(result.bonusBoosts).toEqual({ atk: -1, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.evs).toEqual({ hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 })
+      expect(result.ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+      expect(result.hpPercentage).toBe(100)
+    })
+  })
+
+  describe("Stamina", () => {
+    it("should carry Stamina turned off from state to Pokémon", () => {
+      const archaludonState: PokemonState = { ...pikachuState, name: "Archaludon", ability: "Stamina", staminaOff: true }
+
+      expect(stateToPokemon(archaludonState).abilityActive).toBe(false)
+    })
+
+    it("should keep Stamina on when the state has no Stamina flag", () => {
+      const archaludonState: PokemonState = { ...pikachuState, name: "Archaludon", ability: "Stamina" }
+
+      expect(stateToPokemon(archaludonState).abilityActive).toBe(true)
+    })
+
+    it("should carry Stamina turned off from Pokémon to state", () => {
+      const archaludon = new Pokemon("Archaludon", { id: "456", ability: new Ability("Stamina"), staminaOff: true })
+
+      expect(pokemonToState(archaludon).staminaOff).toBe(true)
+      expect(pokemonToState(archaludon).abilityOn).toBe(false)
+    })
+  })
+
+  describe("base form ability", () => {
+    it("should carry the base form ability from state to Pokémon", () => {
+      const megaState: PokemonState = { ...pikachuState, name: "Salamence-Mega", ability: "Aerilate", baseFormAbility: "Moxie" }
+
+      expect(stateToPokemon(megaState).baseFormAbility).toBe("Moxie")
+    })
+
+    it("should leave the base form ability undefined when the state has none", () => {
+      expect(stateToPokemon(pikachuState).baseFormAbility).toBeUndefined()
+    })
+
+    it("should carry the base form ability from Pokémon to state", () => {
+      const mega = new Pokemon("Salamence-Mega", { id: "456", baseFormAbility: "Moxie" })
+
+      expect(pokemonToState(mega).baseFormAbility).toBe("Moxie")
+    })
+
+    it("should leave the base form ability undefined in state when the Pokémon has none", () => {
+      expect(pokemonToState(pikachu).baseFormAbility).toBeUndefined()
+    })
+  })
+
+  describe("added type", () => {
+    it("should apply the offered added type to the Pokémon", () => {
+      const pokemon = stateToPokemon({ ...pikachuState, teraTypeActive: false }, false, { type: "Ghost", optional: false })
+
+      expect(pokemon.addedType).toBe("Ghost")
+    })
+
+    it("should build the Pokémon without an added type when nothing is offered", () => {
+      expect(stateToPokemon({ ...pikachuState, teraTypeActive: false }).addedType).toBeUndefined()
+    })
+
+    it("should carry the type adding move used and the added type turned on from state to Pokémon", () => {
+      const pokemon = stateToPokemon({ ...pikachuState, typeAddingMove: "Trick-or-Treat", addedTypeOn: true })
+
+      expect(pokemon.typeAddingMove).toBe("Trick-or-Treat")
+      expect(pokemon.addedTypeOn).toBe(true)
+    })
+
+    it("should carry the type adding move used and the added type turned on from Pokémon to state", () => {
+      const gourgeist = new Pokemon("Gourgeist", { id: "456", typeAddingMove: "Trick-or-Treat", addedTypeOn: true })
+
+      const state = pokemonToState(gourgeist)
+
+      expect(state.typeAddingMove).toBe("Trick-or-Treat")
+      expect(state.addedTypeOn).toBe(true)
+    })
+  })
+})
+
+const pikachuState: PokemonState = {
+  id: "123",
+  name: "Pikachu",
+  nature: "Timid",
+  item: "Light Ball",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Static",
+  abilityOn: false,
+  commanderActive: true,
+  teraType: "Electric",
+  teraTypeActive: true,
+  activeMove: 0,
+  moveSet: [{ name: "Thunderbolt" }, { name: "Quick Attack" }, { name: "Volt Tackle" }, { name: "Iron Tail" }],
+  boosts: { atk: -1, def: -2, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: -1, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const pikachu = new Pokemon("Pikachu", {
+  id: "123",
+  nature: "Timid",
+  item: "Light Ball",
+  status: Status.HEALTHY,
+  ability: new Ability("Static", false),
+  commanderActive: true,
+  teraType: "Electric",
+  teraTypeActive: true,
+  moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Volt Tackle"), new Move("Iron Tail"), 1),
+  boosts: { atk: -1, def: -2, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: -1, def: 0, spa: 0, spd: 0, spe: 0 },
+  sps: { hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 },
+  hpPercentage: 100
+})

@@ -1,0 +1,314 @@
+import { CalcAdjuster } from "./calc-adjuster/calc-adjuster"
+import { RuinsAbilityAdjuster } from "./calc-adjuster/ruins-ability-adjuster"
+import { FairyAuraAdjuster } from "./calc-adjuster/fairy-aura-adjuster"
+import { ZacianZamazentaAdjuster } from "./calc-adjuster/zacian-zamazenta-adjuster"
+import { NeutralizingGasAdjuster } from "./calc-adjuster/neutralizing-gas-adjuster"
+import { StrongWeatherAdjuster } from "./calc-adjuster/strong-weather-adjuster"
+import { OgerponAdjuster } from "./calc-adjuster/ogerpon-adjuster"
+import { UnnerveAdjuster } from "./calc-adjuster/unnerve-adjuster"
+import { FlowerGiftAdjuster } from "./calc-adjuster/flower-gift-adjuster"
+import { SteelySpiritAdjuster } from "./calc-adjuster/steely-spirit-adjuster"
+import { CriticalHitAdjuster } from "./calc-adjuster/critical-hit-adjuster"
+import { DamageResult } from "@multicalc/damage-calc/damage-result"
+import { FieldMapper, fromExisting } from "@calc-bridge"
+import { Field } from "@multicalc/model/field"
+import { Move } from "@multicalc/model/move"
+import { Pokemon } from "@multicalc/model/pokemon"
+import { SpeedCalc } from "@multicalc/speed-calc"
+import { calculate, calculateMulti, Move as MoveCalc, Result, MultiResult } from "@calc"
+import { spToEv } from "@multicalc/utils"
+import { PokemonType, PokemonTypes } from "@multicalc/types"
+import { RollLevelConfig } from "./roll-level-config"
+
+export class DamageCalc {
+  ZERO_RESULT_DAMAGE = Array(RollLevelConfig.ROLLS_NUMBER).fill(0)
+
+  adjusters: CalcAdjuster[] = [
+    new RuinsAbilityAdjuster(),
+    new FairyAuraAdjuster(),
+    new ZacianZamazentaAdjuster(),
+    new NeutralizingGasAdjuster(),
+    new StrongWeatherAdjuster(),
+    new OgerponAdjuster(),
+    new UnnerveAdjuster(),
+    new FlowerGiftAdjuster(),
+    new SteelySpiritAdjuster(),
+    new CriticalHitAdjuster()
+  ]
+  fieldMapper = new FieldMapper()
+  speedCalc = new SpeedCalc()
+
+  private usesInARow: number | undefined
+
+  constructor(usesInARow?: number) {
+    this.usesInARow = usesInARow
+  }
+
+  considerUsesInARow(uses: number): void {
+    this.usesInARow = uses
+  }
+
+  calcDamage(attacker: Pokemon, target: Pokemon, field: Field, rightIsDefender = true, useSpsMode = false): DamageResult {
+    const result = this.calculateResult(attacker, target, attacker.move, field, rightIsDefender)
+
+    return new DamageResult(
+      attacker,
+      target,
+      attacker.move.name,
+      result.moveDesc(),
+      this.koChance(result),
+      this.maxPercentageDamage(result),
+      this.damageDescription(result, useSpsMode),
+      result.shownDamage(),
+      undefined,
+      undefined,
+      result.afterTurn().residualHpInTurn(1),
+      this.moveType(result.move)
+    )
+  }
+
+  private moveType(move: MoveCalc): PokemonType | undefined {
+    return PokemonTypes.find(type => type === move.type)
+  }
+
+  calcDamageAllAttacks(attacker: Pokemon, target: Pokemon, field: Field, rightIsDefender: boolean, useSpsMode = false, ally?: Pokemon): DamageResult[] {
+    return attacker.moveSet.moves.map(move => {
+      const result = this.calculateResult(attacker, target, move, field, rightIsDefender, ally)
+
+      return new DamageResult(
+        attacker,
+        target,
+        move.name,
+        result.moveDesc(),
+        this.koChance(result),
+        this.maxPercentageDamage(result),
+        this.damageDescription(result, useSpsMode),
+        result.shownDamage(),
+        undefined,
+        undefined,
+        result.afterTurn().residualHpInTurn(1),
+        this.moveType(result.move)
+      )
+    })
+  }
+
+  calcDamageForTwoAttackers(attacker: Pokemon, secondAttacker: Pokemon, target: Pokemon, field: Field, rightIsDefender = true, useSpsMode = false): DamageResult {
+    const { firstAttacker, secondAttackerOrdered, prepOne, prepTwo } = this.prepareOrderedPair(attacker, secondAttacker, target, field, rightIsDefender)
+
+    const multiResult = calculateMulti(prepOne.calcAttacker, prepTwo.calcAttacker, prepOne.moveCalc, prepTwo.moveCalc, prepOne.calcTarget, prepOne.calcField)
+
+    const firstResult = multiResult.results[0]
+    const secondResult = multiResult.results[1]
+
+    if (!firstResult.damage) firstResult.damage = this.ZERO_RESULT_DAMAGE
+    if (!secondResult.damage) secondResult.damage = this.ZERO_RESULT_DAMAGE
+
+    if (typeof firstResult.damage === "number") firstResult.damage = Array(RollLevelConfig.ROLLS_NUMBER).fill(firstResult.damage)
+    if (typeof secondResult.damage === "number") secondResult.damage = Array(RollLevelConfig.ROLLS_NUMBER).fill(secondResult.damage)
+
+    return new DamageResult(
+      firstAttacker,
+      target,
+      firstAttacker.move.name,
+      multiResult.resultString(),
+      multiResult.getHKO(),
+      multiResult.rangePercentage().max,
+      this.formatDescription(multiResult.description(), useSpsMode),
+      this.sixteenRolls(multiResult.rollsFor(0)),
+      secondAttackerOrdered,
+      this.sixteenRolls(multiResult.rollsFor(1)),
+      firstResult.afterTurn().residualHpInTurn(1),
+      this.moveType(firstResult.move)
+    )
+  }
+
+  private sixteenRolls(rolls: number[][]): number[][] {
+    return rolls.map(row => (row.length === 1 ? Array(RollLevelConfig.ROLLS_NUMBER).fill(row[0]) : row))
+  }
+
+  protected prepareOrderedPair(attacker: Pokemon, secondAttacker: Pokemon, target: Pokemon, field: Field, rightIsDefender: boolean) {
+    const [firstAttacker, secondAttackerOrdered] = this.speedCalc.orderPairBySpeed(attacker, secondAttacker, field)
+
+    const prepOne = this.prepareCalculation(firstAttacker, target, firstAttacker.move, field, rightIsDefender, secondAttackerOrdered)
+    const prepTwo = this.prepareCalculation(secondAttackerOrdered, target, secondAttackerOrdered.move, field, rightIsDefender, firstAttacker)
+
+    prepOne.moveCalc.allyMovesLater = true
+
+    if (firstAttacker.move.combinesPledgeWith(secondAttackerOrdered.move)) {
+      prepOne.moveCalc.waitsForAllyPledge = true
+      prepTwo.moveCalc.allyPledge = firstAttacker.move.name
+    }
+
+    if (prepOne.moveCalc.named("Round") && prepTwo.moveCalc.named("Round")) {
+      prepTwo.moveCalc.allyUsedRound = true
+    }
+
+    if (this.needsAllyDamage(prepTwo)) {
+      prepTwo.moveCalc.targetDamaged = this.dealsDamage(firstAttacker, target, prepOne, rightIsDefender)
+    }
+
+    return { firstAttacker, secondAttackerOrdered, prepOne, prepTwo }
+  }
+
+  assuranceIsDoubledByAlly(pokemon: Pokemon, ally: Pokemon, target: Pokemon, field: Field, rightIsDefender = true): boolean {
+    if (pokemon.move.name !== "Assurance") return false
+
+    if (!this.movesAfter(pokemon, ally, field)) return false
+
+    const allyPrep = this.prepareCalculation(ally, target, ally.move, field, rightIsDefender, pokemon)
+
+    return this.dealsDamage(ally, target, allyPrep, rightIsDefender)
+  }
+
+  analyticBlockedByAlly(pokemon: Pokemon, ally: Pokemon, field: Field): boolean {
+    return pokemon.hasAbility("Analytic") && !this.movesAfter(pokemon, ally, field)
+  }
+
+  pledgeCombinedByAlly(pokemon: Pokemon, ally: Pokemon, field: Field): string {
+    if (!pokemon.move.combinesPledgeWith(ally.move)) return ""
+
+    return this.movesAfter(pokemon, ally, field) ? ally.move.name : ""
+  }
+
+  roundDoubledByAlly(pokemon: Pokemon, ally: Pokemon, field: Field): boolean {
+    if (!pokemon.move.dependsOnRoundUsedBefore() || !ally.move.dependsOnRoundUsedBefore()) return false
+
+    return this.movesAfter(pokemon, ally, field)
+  }
+
+  protected needsAllyDamage(prep: ReturnType<DamageCalc["prepareCalculation"]>): boolean {
+    return prep.moveCalc.named("Assurance") && !prep.moveCalc.targetDamaged
+  }
+
+  protected movesAfter(pokemon: Pokemon, ally: Pokemon, field: Field): boolean {
+    const [firstAttacker] = this.speedCalc.orderPairBySpeed(pokemon, ally, field)
+
+    return firstAttacker !== pokemon
+  }
+
+  protected dealsDamage(_attacker: Pokemon, _target: Pokemon, prep: ReturnType<DamageCalc["prepareCalculation"]>, _rightIsDefender: boolean): boolean {
+    const damage = calculate(prep.calcAttacker, prep.calcTarget, prep.moveCalc, prep.calcField).damage
+
+    if (typeof damage === "number") return damage > 0
+
+    return damage.flat().some(roll => roll > 0)
+  }
+
+  protected prepareCalculation(attacker: Pokemon, target: Pokemon, move: Move, field: Field, rightIsDefender: boolean, secondAttacker?: Pokemon) {
+    const calcField = this.fieldMapper.toCalc(field, rightIsDefender)
+
+    const moveCalc = new MoveCalc(move.name)
+    moveCalc.isCrit = rightIsDefender ? field.attackerSide.isCriticalHit : field.defenderSide.isCriticalHit
+    moveCalc.isStellarFirstUse = true
+    moveCalc.hits = +move.hits
+    moveCalc.hitsTaken = +move.hitsTaken
+    moveCalc.lastMoveFailed = move.lastMoveFailed
+    moveCalc.allyUsedRound = move.roundUsedBefore
+    moveCalc.targetDamaged = move.targetDamaged
+    moveCalc.targetAlreadyMoved = move.targetAlreadyMoved
+    moveCalc.allyPledge = move.allyPledge
+    moveCalc.damagedByTarget = move.damagedByTarget
+    moveCalc.timesUsed = +move.timesUsed > 1 ? (this.usesInARow ?? +move.timesUsed) : 1
+
+    const calcAttacker = fromExisting(attacker, true)
+    const calcTarget = fromExisting(target, true)
+
+    calcAttacker.alliesFainted = +move.alliesFainted
+
+    this.adjusters.forEach(a => a.adjust(calcAttacker, calcTarget, move, moveCalc, calcField, secondAttacker, field))
+
+    return { calcAttacker, calcTarget, moveCalc, calcField }
+  }
+
+  koChanceForOneAttacker(attacker: Pokemon, target: Pokemon, field: Field, rightIsDefender = true): string {
+    const result = this.calculateResult(attacker, target, attacker.move, field, rightIsDefender)
+    return this.koChance(result)
+  }
+
+  koChanceForTwoAttackers(attacker: Pokemon, secondAttacker: Pokemon, target: Pokemon, field: Field, rightIsDefender = true): string {
+    return this.calcDamageForTwoAttackers(attacker, secondAttacker, target, field, rightIsDefender, false).koChance
+  }
+
+  calcDamageValueForTwoAttackers(attacker: Pokemon, secondAttacker: Pokemon, target: Pokemon, field: Field, rightIsDefender: boolean): MultiResult {
+    const { prepOne, prepTwo } = this.prepareOrderedPair(attacker, secondAttacker, target, field, rightIsDefender)
+
+    return calculateMulti(prepOne.calcAttacker, prepTwo.calcAttacker, prepOne.moveCalc, prepTwo.moveCalc, prepOne.calcTarget, prepOne.calcField)
+  }
+
+  calculateResult(attacker: Pokemon, target: Pokemon, move: Move, field: Field, rightIsDefender: boolean, secondAttacker?: Pokemon): Result {
+    const prep = this.prepareCalculation(attacker, target, move, field, rightIsDefender, secondAttacker)
+
+    if (secondAttacker && !this.movesAfter(attacker, secondAttacker, field)) {
+      prep.moveCalc.allyMovesLater = true
+    }
+
+    if (secondAttacker && move.combinesPledgeWith(secondAttacker.move) && this.movesAfter(attacker, secondAttacker, field)) {
+      prep.moveCalc.allyPledge = secondAttacker.move.name
+    }
+
+    if (secondAttacker && prep.moveCalc.named("Round") && secondAttacker.move.name === "Round" && this.movesAfter(attacker, secondAttacker, field)) {
+      prep.moveCalc.allyUsedRound = true
+    }
+
+    if (secondAttacker && this.needsAllyDamage(prep) && this.movesAfter(attacker, secondAttacker, field)) {
+      const allyPrep = this.prepareCalculation(secondAttacker, target, secondAttacker.move, field, rightIsDefender, attacker)
+      prep.moveCalc.targetDamaged = this.dealsDamage(secondAttacker, target, allyPrep, rightIsDefender)
+    }
+
+    const result = calculate(prep.calcAttacker, prep.calcTarget, prep.moveCalc, prep.calcField)
+
+    if (!result.damage) {
+      result.damage = this.ZERO_RESULT_DAMAGE
+    }
+
+    if (typeof result.damage === "number") {
+      result.damage = Array(RollLevelConfig.ROLLS_NUMBER).fill(result.damage)
+    }
+
+    return result
+  }
+
+  dealsNoDamage(result: Result): boolean {
+    return this.maxDamage(result) === 0
+  }
+
+  private maxDamage(result: Result): number {
+    const damage = result.damage as number[] | number[][]
+
+    return damage.reduce((max: number, roll) => {
+      const value = typeof roll === "number" ? roll : Math.max(...roll)
+
+      return value > max ? value : max
+    }, 0)
+  }
+
+  private koChance(result: Result): string {
+    try {
+      return result.koChance().text
+    } catch (ex) {
+      return "Does not cause any damage"
+    }
+  }
+
+  private maxPercentageDamage(result: Result): number {
+    return +result.moveDesc().substring(result.moveDesc().indexOf("- ") + 1, result.moveDesc().indexOf("%"))
+  }
+
+  private damageDescription(result: Result, useSpsMode: boolean): string {
+    try {
+      return this.formatDescription(result.description(), useSpsMode)
+    } catch (error) {
+      return this.formatDescription(`${result.attacker.name} ${result.move.name} vs. ${result.defender.name}: 0-0 (0 - 0%) -- possibly the worst move ever`, useSpsMode)
+    }
+  }
+
+  private formatDescription(description: string, useSpsMode: boolean): string {
+    if (useSpsMode) {
+      return description
+    }
+
+    return description.replace(/\b(\d+)([+-]?)\s+(HP|Atk|Def|SpA|SpD|Spe)\b/g, (_match, sp, nature, stat) => {
+      return `${spToEv(+sp)}${nature} ${stat}`
+    })
+  }
+}

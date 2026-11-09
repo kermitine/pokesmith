@@ -1,0 +1,89 @@
+import { MOBILE_SUITE, goToMobile } from "@cy-support/setup"
+import { BottomNav } from "@page-object/bottom-nav"
+import { SpeedCalc } from "@page-object/speed-calc"
+
+const bottomNav = new BottomNav()
+const speedCalc = new SpeedCalc()
+
+describe("Tabs of the Speed Calc", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToMobile("Speed Calc")
+  })
+
+  it("Should offer Speed, Insights, Teams and Modifiers", () => {
+    bottomNav.tabsAre(["Speed", "Insights", "Teams", "Modifiers"])
+    bottomNav.onlyActiveTabIs("Speed")
+  })
+
+  it("Should switch between the four tabs", () => {
+    bottomNav.goTo("Insights")
+    bottomNav.onlyActiveTabIs("Insights")
+
+    bottomNav.goTo("Teams")
+    bottomNav.onlyActiveTabIs("Teams")
+
+    bottomNav.goTo("Modifiers")
+    bottomNav.onlyActiveTabIs("Modifiers")
+
+    bottomNav.goTo("Speed")
+    bottomNav.onlyActiveTabIs("Speed")
+  })
+
+  it("Should keep the filters and the Opponent side inside Modifiers", () => {
+    speedCalc.filtersAreHidden()
+
+    bottomNav.goTo("Modifiers")
+
+    speedCalc.filtersAreVisible()
+  })
+})
+
+describe("Tabs of the Probability Calc", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToMobile("Probability Calc")
+  })
+
+  it("Should offer Detailed, General, Build and Teams", () => {
+    bottomNav.tabsAre(["Detailed", "General", "Build", "Teams"])
+    bottomNav.onlyActiveTabIs("Detailed")
+  })
+
+  it("Should switch between the four tabs", () => {
+    bottomNav.goTo("General")
+    bottomNav.onlyActiveTabIs("General")
+
+    bottomNav.goTo("Build")
+    bottomNav.onlyActiveTabIs("Build")
+
+    bottomNav.goTo("Teams")
+    bottomNav.onlyActiveTabIs("Teams")
+
+    bottomNav.goTo("Detailed")
+    bottomNav.onlyActiveTabIs("Detailed")
+  })
+})
+
+describe("Tabs of the Type Calc", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToMobile("Type Calc")
+  })
+
+  it("Should offer Coverage, Insights, Build and Teams", () => {
+    bottomNav.tabsAre(["Coverage", "Insights", "Build", "Teams"])
+    bottomNav.onlyActiveTabIs("Coverage")
+  })
+
+  it("Should switch between the four tabs", () => {
+    bottomNav.goTo("Insights")
+    bottomNav.onlyActiveTabIs("Insights")
+
+    bottomNav.goTo("Build")
+    bottomNav.onlyActiveTabIs("Build")
+
+    bottomNav.goTo("Teams")
+    bottomNav.onlyActiveTabIs("Teams")
+
+    bottomNav.goTo("Coverage")
+    bottomNav.onlyActiveTabIs("Coverage")
+  })
+})

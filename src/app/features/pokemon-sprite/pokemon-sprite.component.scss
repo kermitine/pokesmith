@@ -1,0 +1,22 @@
+:host {
+  display: inline-block;
+  width: var(--sprite-size, var(--sprite-sm));
+  height: var(--sprite-size, var(--sprite-sm));
+}
+
+img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pokemon-name-fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}

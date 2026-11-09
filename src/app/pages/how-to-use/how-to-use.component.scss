@@ -1,0 +1,226 @@
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/outfit-v15-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../assets/fonts/outfit-v15-latin-500.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../assets/fonts/outfit-v15-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../assets/fonts/outfit-v15-latin-700.woff2") format("woff2");
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+  text-align: center;
+  color: var(--text);
+  min-height: 50vh;
+}
+
+.faq-section {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 3rem;
+  text-align: left;
+}
+
+.faq-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+
+.faq-item {
+  padding: 0.75rem 0;
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+    color: var(--text);
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 2rem;
+}
+
+.how-to-card-link {
+  display: flex;
+  color: inherit;
+  text-decoration: none;
+}
+
+.how-to-card-link .how-to-card {
+  flex: 1;
+}
+
+.how-to-card {
+  cursor: pointer;
+  transition:
+    transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    border-color 0.3s ease;
+  background-color: var(--widget-background);
+  color: var(--text);
+  border: 1px solid var(--widget-border);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 0 0 4px var(--primary);
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+
+    &::after {
+      opacity: 1;
+    }
+  }
+
+  .card-hero-image {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+    aspect-ratio: 2 / 1;
+    object-fit: contain;
+    object-position: center;
+    background-color: var(--widget-background);
+    margin: 0;
+    display: block;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--widget-border);
+  }
+
+  mat-card-header {
+    padding: 1.5rem 1.5rem 0.5rem;
+    display: block;
+    text-align: left;
+  }
+
+  mat-card-title {
+    font-family:
+      "Outfit",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  mat-card-content {
+    padding: 0 1.5rem 2rem;
+    text-align: left;
+    font-family:
+      "Outfit",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    opacity: 0.85;
+
+    p {
+      margin: 0;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .faq-title {
+    font-size: 1.6rem;
+  }
+
+  .faq-item {
+    h3,
+    p {
+      font-size: 1.4rem;
+    }
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .how-to-card {
+    mat-card-header {
+      padding: 1.25rem 1rem 0.5rem;
+    }
+
+    mat-card-title {
+      font-size: 1.8rem;
+    }
+
+    mat-card-content {
+      padding: 0 1rem 1.5rem;
+      font-size: 1.5rem;
+    }
+  }
+}

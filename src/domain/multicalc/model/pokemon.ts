@@ -1,0 +1,456 @@
+import { getAbilityData } from "@data/ability-data"
+import { getPokemonData } from "@data/pokemon-data"
+import { getPrimalOrb } from "@data/primal-data"
+import { getStrongWeather } from "@data/strong-weather-data"
+import { uuid } from "@multicalc/utils"
+import { Ability } from "@multicalc/model/ability"
+import { Move } from "@multicalc/model/move"
+import { increasedStatByNature } from "@multicalc/model/nature"
+import { MoveSet } from "@multicalc/model/moveset"
+import { Status } from "@multicalc/model/status"
+import { terastalize } from "@multicalc/model/terastal"
+import { higherStat } from "@multicalc/stat-calc"
+import { Jumps, OverrideTypes, PokemonParameters } from "@multicalc/model/pokemon-parameters"
+import { fromScratch } from "@calc-bridge"
+import { Stats } from "@multicalc/types"
+import { MAX_SPS_PER_STAT } from "@multicalc/utils"
+import { Pokemon as CalcPokemon } from "@calc"
+import { NatureName, TypeName, StatID, StatIDExceptHP, Weather } from "@data/types"
+
+export { Jumps, OverrideTypes, PokemonParameters } from "@multicalc/model/pokemon-parameters"
+
+const MASKED_OGERPON_FORMS = ["Ogerpon-Wellspring", "Ogerpon-Hearthflame", "Ogerpon-Cornerstone"]
+
+export class Pokemon {
+  readonly id: string
+  readonly moveSet: MoveSet
+  readonly ability: Ability
+  readonly teraType: string
+  readonly hpPercentage: number
+  readonly commanderActive: boolean
+  readonly staminaOff: boolean
+  readonly higherStat: StatIDExceptHP
+  readonly bonusBoosts: Partial<Stats>
+  readonly isAttacker: boolean
+  readonly overrideTypes?: OverrideTypes
+  readonly baseFormAbility?: string
+  readonly typeAddingMove?: string
+  readonly addedTypeOn: boolean
+
+  private calcPokemon: CalcPokemon
+
+  constructor(name: string, options: PokemonParameters = {}) {
+    this.calcPokemon = fromScratch(Pokemon.resolveFormeName(name), options)
+
+    this.id = options.id ?? uuid()
+    this.moveSet = options.moveSet ?? new MoveSet(new Move("Struggle"), new Move("Struggle"), new Move("Struggle"), new Move("Struggle"))
+    this.ability = new Ability(this.calcPokemon.ability as string, options.ability?.on ?? false)
+    this.teraType = options.teraType || this.calcPokemon.types[0]
+    this.hpPercentage = options.hpPercentage ?? 100
+    this.commanderActive = options.commanderActive ?? false
+    this.staminaOff = options.staminaOff ?? false
+    this.higherStat = options.higherStat ?? higherStat(this.calcPokemon)
+    this.bonusBoosts = options.bonusBoosts ?? { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }
+    this.isAttacker = options.isAttacker ?? false
+    this.overrideTypes = options.overrideTypes
+    this.baseFormAbility = options.baseFormAbility
+    this.typeAddingMove = options.typeAddingMove
+    this.addedTypeOn = options.addedTypeOn ?? false
+  }
+
+  private static resolveFormeName(name: string): string {
+    if (name === "Aegislash") return "Aegislash-Shield"
+
+    return name
+  }
+
+  get name(): string {
+    return this.calcPokemon.name
+  }
+
+  get displayName(): string {
+    if (this.isNameWithHiphen()) {
+      return this.calcPokemon.name
+    }
+
+    return this.calcPokemon.name.replaceAll("-", " ")
+  }
+
+  get displayNameWithoutSuffix(): string {
+    if (this.isNameWithHiphen()) {
+      return this.calcPokemon.name
+    }
+
+    if (this.calcPokemon.name.includes("-")) {
+      return this.calcPokemon.name.substring(0, this.calcPokemon.name.indexOf("-"))
+    }
+
+    return this.calcPokemon.name
+  }
+
+  private isNameWithHiphen(): boolean {
+    const namesWithHiphen = ["Porygon-Z", "Ho-Oh", "Jangmo-o", "Hakamo-o", "Kommo-o", "Ting-Lu", "Chien-Pao", "Wo-Chien", "Chi-Yu"]
+
+    return namesWithHiphen.includes(this.calcPokemon.name)
+  }
+
+  get unreleased(): boolean {
+    return getPokemonData(this.name)?.unreleased == true
+  }
+
+  get type1(): TypeName {
+    return this.calcPokemon.types[0]
+  }
+
+  get type2(): TypeName | undefined {
+    return this.calcPokemon.types[1]
+  }
+
+  get hasTypeOverride(): boolean {
+    return this.overrideTypes !== undefined
+  }
+
+  get addedType(): TypeName | undefined {
+    return this.calcPokemon.activeAddedType()
+  }
+
+  acceptsAddedType(type: TypeName): boolean {
+    return this.calcPokemon.acceptsAddedType(type)
+  }
+
+  get typeAddingMoves(): string[] {
+    return this.moveSet.moves.filter(move => move.addedTypeOnTarget()).map(move => move.name)
+  }
+
+  hasType(type: TypeName): boolean {
+    if (this.teraTypeActive) {
+      return this.teraType == type
+    }
+
+    return this.type1 == type || this.type2 == type
+  }
+
+  get level(): number {
+    return this.calcPokemon.level
+  }
+
+  get nature(): string {
+    return this.calcPokemon.nature as string
+  }
+
+  get item(): string {
+    if (!this.calcPokemon.item) {
+      return "(none)"
+    }
+
+    return this.calcPokemon.item as string
+  }
+
+  get sps(): Stats {
+    return this.calcPokemon.sps
+  }
+
+  get totalSps(): number {
+    return this.calcPokemon.sps.hp + this.calcPokemon.sps.atk + this.calcPokemon.sps.def + this.calcPokemon.sps.spa + this.calcPokemon.sps.spd + this.calcPokemon.sps.spe
+  }
+
+  get jumps(): Jumps {
+    const stat = increasedStatByNature(this.nature)
+    if (!stat) return [0, 0, 0, 0]
+
+    let sp = 0
+    let actualStatValue = this.rawStatWithSp(stat, sp)
+
+    const jumps = []
+
+    while (sp < MAX_SPS_PER_STAT) {
+      sp++
+
+      const statValue = this.rawStatWithSp(stat, sp)
+      const isJump = statValue - actualStatValue == 2
+
+      if (isJump) {
+        jumps.push(sp)
+      }
+
+      actualStatValue = statValue
+    }
+
+    return jumps as Jumps
+  }
+
+  get ivs(): Partial<Stats> {
+    return this.calcPokemon.ivs
+  }
+
+  get boosts(): Partial<Stats> {
+    return {
+      atk: this.calcPokemon.boosts.atk,
+      def: this.calcPokemon.boosts.def,
+      spa: this.calcPokemon.boosts.spa,
+      spd: this.calcPokemon.boosts.spd,
+      spe: this.calcPokemon.boosts.spe
+    }
+  }
+
+  get status(): Status {
+    return Status.byCode(this.calcPokemon.status)
+  }
+
+  get toxicCounter(): number {
+    return this.calcPokemon.toxicCounter
+  }
+
+  get teraTypeActive(): boolean {
+    return this.calcPokemon.teraType != undefined
+  }
+
+  get move(): Move {
+    return this.moveSet.activeMove
+  }
+
+  get activeMoveName(): string {
+    return this.moveSet.activeMove.name
+  }
+
+  get activeMoveIndex() {
+    return this.moveSet.activeMovePosition - 1
+  }
+
+  get activeMovePosition() {
+    return this.moveSet.activeMovePosition
+  }
+
+  get move1Name(): string {
+    return this.moveSet.move1.name
+  }
+
+  get move2Name(): string {
+    return this.moveSet.move2.name
+  }
+
+  get move3Name(): string {
+    return this.moveSet.move3.name
+  }
+
+  get move4Name(): string {
+    return this.moveSet.move4.name
+  }
+
+  get hp(): number {
+    return this.calcPokemon.stats.hp
+  }
+
+  get actualHp(): number {
+    return this.calcPokemon.currentHp()
+  }
+
+  get modifiedHp(): number {
+    return Math.round((this.hp * this.hpPercentage) / 100)
+  }
+
+  get baseHp(): number {
+    return this.calcPokemon.pokemonData.baseStats.hp
+  }
+
+  get baseAtk(): number {
+    return this.calcPokemon.pokemonData.baseStats.atk
+  }
+
+  get atk(): number {
+    return this.calcPokemon.stats.atk
+  }
+
+  get baseDef(): number {
+    return this.calcPokemon.pokemonData.baseStats.def
+  }
+
+  get def(): number {
+    return this.calcPokemon.stats.def
+  }
+
+  get baseSpa(): number {
+    return this.calcPokemon.pokemonData.baseStats.spa
+  }
+
+  get spa(): number {
+    return this.calcPokemon.stats.spa
+  }
+
+  get baseSpd(): number {
+    return this.calcPokemon.pokemonData.baseStats.spd
+  }
+
+  get spd(): number {
+    return this.calcPokemon.stats.spd
+  }
+
+  get baseSpe(): number {
+    return this.calcPokemon.pokemonData.baseStats.spe
+  }
+
+  get spe(): number {
+    return this.calcPokemon.stats.spe
+  }
+
+  get bst(): number {
+    return this.baseHp + this.baseAtk + this.baseDef + this.baseSpa + this.baseSpd + this.baseSpe
+  }
+
+  get abilityOn(): boolean {
+    return this.ability.on
+  }
+
+  get abilityActive(): boolean {
+    if (this.ability.is("Stamina")) return !this.staminaOff
+
+    return this.ability.on
+  }
+
+  get isParadoxAbility(): boolean {
+    return this.isCalcParadoxAbility(this.calcPokemon)
+  }
+
+  get isOgerpon(): boolean {
+    return this.name.startsWith("Ogerpon")
+  }
+
+  get isPrimal(): boolean {
+    return getPrimalOrb(this.name) !== undefined
+  }
+
+  get strongWeather(): Weather | undefined {
+    return getStrongWeather(this.ability.name)
+  }
+
+  get hasFixedItem(): boolean {
+    return MASKED_OGERPON_FORMS.includes(this.name) || this.isPrimal
+  }
+
+  get isTerapagosForm(): boolean {
+    return this.name.startsWith("Terapagos")
+  }
+
+  get availableAbilities() {
+    if (this.name.startsWith("Ogerpon") && this.teraTypeActive) {
+      const isTealForm = this.name === "Ogerpon"
+      const form = isTealForm ? "teal" : this.name.replace("Ogerpon-", "").toLowerCase()
+      return [getAbilityData(`embodyaspect${form}`)!]
+    }
+
+    const pokemonData = getPokemonData(this.name)!
+    return pokemonData.abilities!.map(ability => getAbilityData(ability)).filter(ability => ability !== undefined)
+  }
+
+  get rawStats(): Partial<Stats> {
+    return this.calcPokemon.rawStats
+  }
+
+  get isAffectedByNeutralizingGas(): boolean {
+    if (this.item == "Ability Shield") {
+      return false
+    }
+
+    const notAffectedAbilities = ["Neutralizing Gas", "Multitype", "Power Construct", "Disguise", "Ice Face", "As One (Spectrier)", "Tera Shift"]
+
+    return !notAffectedAbilities.includes(this.ability.name)
+  }
+
+  hasAbility(ability: string): boolean {
+    return ability == this.ability.name
+  }
+
+  hasItem(item: string): boolean {
+    return this.item == item
+  }
+
+  terastalized(): Pokemon {
+    return terastalize(this)
+  }
+
+  clone(options: PokemonParameters = {}): Pokemon {
+    return new Pokemon(options.name ?? this.name, {
+      id: options.id,
+      ability: options.ability ?? this.ability,
+      nature: options.nature ?? this.nature,
+      item: options.item ?? this.item,
+      teraType: options.teraType ?? this.teraType,
+      teraTypeActive: options.teraTypeActive ?? this.teraTypeActive,
+      sps: options.sps ?? this.sps,
+      ivs: options.ivs ?? this.ivs,
+      moveSet: options.moveSet ?? this.moveSet.clone(),
+      boosts: options.boosts ?? this.boosts,
+      bonusBoosts: options.bonusBoosts ?? this.bonusBoosts,
+      status: options.status ?? this.status,
+      toxicCounter: options.toxicCounter ?? this.toxicCounter,
+      hpPercentage: options.hpPercentage ?? this.hpPercentage,
+      higherStat: options.higherStat ?? this.higherStat,
+      baseFormAbility: options.baseFormAbility ?? this.baseFormAbility,
+      staminaOff: options.staminaOff ?? this.staminaOff,
+      addedType: options.addedType ?? this.calcPokemon.addedType,
+      typeAddingMove: options.typeAddingMove ?? this.typeAddingMove,
+      addedTypeOn: options.addedTypeOn ?? this.addedTypeOn
+    })
+  }
+
+  equals(toCompare: Pokemon): boolean {
+    return (
+      this.calcPokemon.name === toCompare.calcPokemon.name &&
+      this.calcPokemon.nature === toCompare.calcPokemon.nature &&
+      this.calcPokemon.item === toCompare.calcPokemon.item &&
+      this.calcPokemon.ability === toCompare.calcPokemon.ability &&
+      this.teraType === toCompare.teraType &&
+      this.teraTypeActive === toCompare.teraTypeActive &&
+      this.calcPokemon.sps.hp === toCompare.calcPokemon.sps.hp &&
+      this.calcPokemon.sps.atk === toCompare.calcPokemon.sps.atk &&
+      this.calcPokemon.sps.def === toCompare.calcPokemon.sps.def &&
+      this.calcPokemon.sps.spa === toCompare.calcPokemon.sps.spa &&
+      this.calcPokemon.sps.spd === toCompare.calcPokemon.sps.spd &&
+      this.calcPokemon.sps.spe === toCompare.calcPokemon.sps.spe &&
+      this.move1Name === toCompare.move1Name &&
+      this.move2Name === toCompare.move2Name &&
+      this.move3Name === toCompare.move3Name &&
+      this.move4Name === toCompare.move4Name
+    )
+  }
+
+  private isCalcParadoxAbility(calcPokemon: CalcPokemon): boolean {
+    return calcPokemon.ability == "Protosynthesis" || calcPokemon.ability == "Quark Drive"
+  }
+
+  private rawStatWithSp(stat: StatID, sp: number): number {
+    return this.clone({ sps: { [stat]: sp } }).calcPokemon.rawStats[stat]
+  }
+
+  setSps(sps: Stats) {
+    const currentSps = this.calcPokemon.sps
+    let hpChanged = false
+
+    for (const stat of Object.keys(sps) as StatID[]) {
+      if (currentSps[stat] !== sps[stat]) {
+        currentSps[stat] = sps[stat]
+        if (stat === "hp") hpChanged = true
+      }
+    }
+
+    this.calcPokemon.recalculateStats()
+
+    if (hpChanged) {
+      this.calcPokemon.originalCurrentHp = this.calcPokemon.stats.hp
+    }
+  }
+
+  setNature(nature: string) {
+    this.calcPokemon.nature = nature as NatureName
+    this.recalculateStats()
+  }
+
+  get stats(): Stats {
+    return this.calcPokemon.stats
+  }
+
+  private recalculateStats() {
+    this.calcPokemon.recalculateStats()
+    this.calcPokemon.originalCurrentHp = this.calcPokemon.stats.hp
+  }
+}

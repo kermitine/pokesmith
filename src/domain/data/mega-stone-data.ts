@@ -1,0 +1,121 @@
+import { toID } from "@data/id"
+
+export const MEGA_STONE_TO_POKEMON_NAME: Record<string, string> = {
+  abomasite: "Abomasnow",
+  absolite: "Absol",
+  absolitez: "Absol",
+  aerodactylite: "Aerodactyl",
+  aggronite: "Aggron",
+  alakazite: "Alakazam",
+  altarianite: "Altaria",
+  ampharosite: "Ampharos",
+  audinite: "Audino",
+  banettite: "Banette",
+  baxcalibrite: "Baxcalibur",
+  beedrillite: "Beedrill",
+  blastoisinite: "Blastoise",
+  blazikenite: "Blaziken",
+  cameruptite: "Camerupt",
+  charizarditex: "Charizard",
+  charizarditey: "Charizard",
+  chesnaughtite: "Chesnaught",
+  chandelurite: "Chandelure",
+  chimechite: "Chimecho",
+  clefablite: "Clefable",
+  crabominite: "Crabominable",
+  darkranite: "Darkrai",
+  delphoxite: "Delphox",
+  dragalgite: "Dragalge",
+  dragoninite: "Dragonite",
+  diancite: "Diancie",
+  drampanite: "Drampa",
+  eelektrossite: "Eelektross",
+  emboarite: "Emboar",
+  excadrite: "Excadrill",
+  falinksite: "Falinks",
+  feraligite: "Feraligatr",
+  floettite: "Floette-Eternal",
+  froslassite: "Froslass",
+  galladite: "Gallade",
+  garchompite: "Garchomp",
+  garchompitez: "Garchomp",
+  gardevoirite: "Gardevoir",
+  gengarite: "Gengar",
+  glalitite: "Glalie",
+  glimmoranite: "Glimmora",
+  golisopite: "Golisopod",
+  golurkite: "Golurk",
+  greninjite: "Greninja",
+  gyaradosite: "Gyarados",
+  hawluchanite: "Hawlucha",
+  heatranite: "Heatran",
+  heracronite: "Heracross",
+  houndoominite: "Houndoom",
+  kangaskhanite: "Kangaskhan",
+  latiasite: "Latias",
+  latiosite: "Latios",
+  lopunnite: "Lopunny",
+  lucarionite: "Lucario",
+  lucarionitez: "Lucario",
+  barbaracite: "Barbaracle",
+  magearnite: "Magearna",
+  malamarite: "Malamar",
+  mawilite: "Mawile",
+  manectite: "Manectric",
+  medichamite: "Medicham",
+  meganiumite: "Meganium",
+  metagrossite: "Metagross",
+  meowsticite: "Meowstic",
+  mewtwonitex: "Mewtwo",
+  mewtwonitey: "Mewtwo",
+  pidgeotite: "Pidgeot",
+  pinsirite: "Pinsir",
+  pyroarite: "Pyroar",
+  raichunitex: "Raichu",
+  raichunitey: "Raichu",
+  sablenite: "Sableye",
+  salamencite: "Salamence",
+  sceptilite: "Sceptile",
+  scizorite: "Scizor",
+  scraftinite: "Scrafty",
+  scolipite: "Scolipede",
+  scovillainite: "Scovillain",
+  sharpedonite: "Sharpedo",
+  skarmorite: "Skarmory",
+  slowbronite: "Slowbro",
+  starminite: "Starmie",
+  staraptite: "Staraptor",
+  steelixite: "Steelix",
+  swampertite: "Swampert",
+  tatsugirinite: "Tatsugiri",
+  tyranitarite: "Tyranitar",
+  venusaurite: "Venusaur",
+  victreebelite: "Victreebel",
+  zeraorite: "Zeraora",
+  zygardite: "Zygarde-Complete"
+}
+
+export const MEGA_FORM_MAPPING: Record<string, string> = {
+  "Floette-Eternal": "Floette-Mega",
+  Meowstic: "Meowstic-M-Mega",
+  "Meowstic-F": "Meowstic-F-Mega",
+  "Zygarde-Complete": "Zygarde-Mega"
+}
+
+export const MEGA_FORM_REVERSE_MAPPING: Record<string, string> = {
+  "Floette-Mega": "Floette-Eternal",
+  "Meowstic-M-Mega": "Meowstic",
+  "Meowstic-F-Mega": "Meowstic-F",
+  "Zygarde-Mega": "Zygarde-Complete"
+}
+
+export function getMegaEvolutionName(pokemonName: string, megaStoneLetter: string | null): string {
+  if (megaStoneLetter) {
+    return `${pokemonName}-Mega-${megaStoneLetter}`
+  }
+  return `${pokemonName}-Mega`
+}
+
+export function getBasePokemonNameFromItem(itemName: string): string | null {
+  return MEGA_STONE_TO_POKEMON_NAME[toID(itemName)] || null
+}

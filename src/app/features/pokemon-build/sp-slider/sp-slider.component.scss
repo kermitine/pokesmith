@@ -1,0 +1,156 @@
+@use "@angular/material" as mat;
+
+.sp-slider-container {
+  display: grid;
+  grid-template-columns: 64px 64px 67px 64px 1fr 64px 40px;
+  grid-auto-rows: 3.5em;
+  column-gap: var(--space-xl);
+}
+
+.mod {
+  margin-top: var(--space-xs);
+}
+
+.sp-value {
+  width: 100%;
+  margin-top: var(--space-xs);
+}
+
+.sp-slider {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 95%;
+  height: 2.5em;
+  margin-top: var(--space-xs);
+}
+
+.slider-pipe {
+  position: absolute;
+  top: 50%;
+  bottom: 23%;
+  width: 2px;
+  background-color: var(--mat-sys-primary);
+  z-index: 0;
+  cursor: pointer;
+}
+
+.tooltip-container {
+  position: absolute;
+  top: 70%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  z-index: 2;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.mat-sp-field {
+  width: 100%;
+}
+
+.mat-sp-stat-modifier {
+  width: 100%;
+}
+
+.mat-sp-slider {
+  z-index: 0;
+  width: 100%;
+}
+
+.sp-slider.optimized {
+  @include mat.slider-overrides(
+    (
+      active-track-color: var(--neutral-value),
+      focus-handle-color: var(--neutral-value),
+      handle-color: var(--neutral-value)
+    )
+  );
+
+  .slider-pipe {
+    background-color: var(--neutral-value);
+  }
+}
+
+.stat-value {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-name {
+  display: flex;
+  align-items: center;
+  justify-content: right;
+}
+
+.base-stat {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sp-value-input {
+  text-align: center;
+}
+
+::ng-deep .mat-mdc-option {
+  min-height: 3em !important;
+}
+
+input[matinput][type="number"] {
+  -moz-appearance: textfield;
+}
+
+@media only screen and (max-width: 1279px) {
+  .sp-slider-container {
+    column-gap: var(--space-sm);
+  }
+
+  .sp-value {
+    width: 100%;
+  }
+
+  .mat-sp-stat-modifier {
+    width: 100%;
+  }
+
+  .sp-slider {
+    width: 94%;
+  }
+
+  .mat-sp-slider {
+    min-width: 0;
+  }
+
+  .mat-sp-slider ::ng-deep .mdc-slider__input {
+    touch-action: none;
+  }
+}
+
+.sp-value-input.clamped {
+  color: var(--negative-value);
+  animation: clamp-flash 0.3s ease-in-out;
+}
+
+@keyframes clamp-flash {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}

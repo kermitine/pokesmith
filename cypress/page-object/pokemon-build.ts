@@ -1,0 +1,1252 @@
+import { ImportModal } from "./import-modal"
+
+export class PokemonBuild {
+  constructor(private selector: string) {}
+
+  selectPokemon(pokemonName: string): PokemonBuild {
+    this.container().find('[data-cy="pokemon-select"] input').click({ force: true })
+    this.filterAndSelect(pokemonName)
+
+    return this
+  }
+
+  selectPokemonByFilter(filter: string, pokemonName: string): PokemonBuild {
+    this.inputPokemonName(filter)
+    cy.get(`[data-cy="table-entry-${pokemonName}"]`).click({ force: true })
+
+    return this
+  }
+
+  openPokemonTable(): PokemonBuild {
+    this.container().find('[data-cy="pokemon-select"] input').click({ force: true })
+    return this
+  }
+
+  pokemonSelectorIsFocused(): PokemonBuild {
+    this.container().find('[data-cy="pokemon-select"] input').should("be.focused")
+    return this
+  }
+
+  inputPokemonName(filter: string): PokemonBuild {
+    this.container().find('[data-cy="pokemon-select"] input').click({ force: true }).type(filter)
+    return this
+  }
+
+  tableEntryIsSelected(name: string): PokemonBuild {
+    cy.get(`[data-cy="table-entry-${name}"]`).should("have.class", "entry-active")
+    return this
+  }
+
+  pressArrowDown(times = 1): PokemonBuild {
+    for (let i = 0; i < times; i++) {
+      cy.realPress("ArrowDown")
+    }
+
+    return this
+  }
+
+  pressArrowUp(times = 1): PokemonBuild {
+    for (let i = 0; i < times; i++) {
+      cy.realPress("ArrowUp")
+    }
+
+    return this
+  }
+
+  pressEnter(): PokemonBuild {
+    cy.realPress("Enter")
+    return this
+  }
+
+  tableEntryIsVisible(name: string): PokemonBuild {
+    cy.get(`[data-cy="table-entry-${name}"]`).should("exist")
+    return this
+  }
+
+  openMoveTable(position: number): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).click({ force: true })
+    return this
+  }
+
+  openItemTable(): PokemonBuild {
+    this.container().find('[data-cy="item"] input').click({ force: true })
+    return this
+  }
+
+  openAbilityTable(): PokemonBuild {
+    this.container().find('[data-cy="ability"] input').click({ force: true })
+    return this
+  }
+
+  tableIsClosed(): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']").should("not.exist")
+    return this
+  }
+
+  moveHasFocus(position: number): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).should("be.focused")
+    return this
+  }
+
+  noMoveHasFocus(): PokemonBuild {
+    this.container().find('[data-cy^="pokemon-attack-"] input').should("not.be.focused")
+    return this
+  }
+
+  firstGroupsAre(groups: string[]): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']")
+      .find(".entries-section-title")
+      .then($titles => {
+        const rendered = [...$titles].map(el => el.textContent!.trim())
+        expect(rendered.slice(0, groups.length)).to.deep.eq(groups)
+      })
+
+    return this
+  }
+
+  clickTableHeader(header: string): PokemonBuild {
+    cy.get(`[data-cy="table-header-${header}"]`).click({ force: true })
+    return this
+  }
+
+  storeFirstTableEntry(alias: string): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']")
+      .find(".entry")
+      .first()
+      .then($entry => cy.wrap($entry.attr("data-cy")).as(alias))
+
+    return this
+  }
+
+  firstTableEntryIsNotTheStored(alias: string): PokemonBuild {
+    cy.get(`@${alias}`).then(stored => {
+      cy.get("[data-cy='scroll-viewport']").find(".entry").first().should("not.have.attr", "data-cy", String(stored))
+    })
+
+    return this
+  }
+
+  firstTableEntryIsNot(name: string): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']").find(".entry").first().should("not.have.attr", "data-cy", `table-entry-${name}`)
+    return this
+  }
+
+  allTableEntriesHaveCategory(category: string): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']")
+      .find(".entry .image-icon")
+      .should("have.length.greaterThan", 0)
+      .each($icon => expect($icon.attr("src")).to.eq(`assets/icons/${category.toLowerCase()}.png`))
+
+    return this
+  }
+
+  filterTagIs(value: string): PokemonBuild {
+    cy.get(".filter-tag").should("contain.text", value)
+    return this
+  }
+
+  hasNoFilterTag(): PokemonBuild {
+    cy.get(".filter-tag").should("not.exist")
+    return this
+  }
+
+  filterTagsAre(values: string[]): PokemonBuild {
+    cy.get(".filter-tag").should("have.length", values.length)
+    values.forEach((value, index) => cy.get(".filter-tag").eq(index).should("contain.text", value))
+
+    return this
+  }
+
+  removeFilterTagOf(value: string): PokemonBuild {
+    cy.get(".filter-tag").contains(value).parent().find(".remove-filter").click({ force: true })
+    return this
+  }
+
+  removeFilterTag(): PokemonBuild {
+    cy.get(".filter-tag .remove-filter").first().click({ force: true })
+    return this
+  }
+
+  selectFilterOption(value: string): PokemonBuild {
+    cy.get(".filter-option").contains(value).click({ force: true })
+    return this
+  }
+
+  filterListIsVisible(): PokemonBuild {
+    cy.get(".filter-list-section").should("be.visible")
+    return this
+  }
+
+  backFromFilterList(): PokemonBuild {
+    cy.get(".filter-list-header button").click({ force: true })
+    return this
+  }
+
+  tableIsVisible(): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']").should("be.visible")
+    return this
+  }
+
+  noResultsMessageIsVisible(): PokemonBuild {
+    cy.get(".no-types").should("have.text", "No results found for the selected filters.")
+    return this
+  }
+
+  expandTable(): PokemonBuild {
+    cy.get(".expand-icon mat-icon").click({ force: true })
+    return this
+  }
+
+  storeVisibleTableEntriesCount(alias: string): PokemonBuild {
+    this.countEntriesInsideViewport().then(count => cy.wrap(count).as(alias))
+    return this
+  }
+
+  private countEntriesInsideViewport() {
+    return cy.get("[data-cy='scroll-viewport']").then($viewport => {
+      const viewport = $viewport[0].getBoundingClientRect()
+
+      return $viewport
+        .find(".entry")
+        .toArray()
+        .filter(entry => {
+          const rect = entry.getBoundingClientRect()
+
+          return rect.top >= viewport.top - 1 && rect.bottom <= viewport.bottom + 1
+        }).length
+    })
+  }
+
+  showsMoreTableEntriesThan(alias: string): PokemonBuild {
+    cy.get(`@${alias}`).then(previous => {
+      this.countEntriesInsideViewport().should(count => {
+        expect(count).to.be.greaterThan(Number(previous))
+      })
+    })
+
+    return this
+  }
+
+  closeTableByHeaderButton(): PokemonBuild {
+    cy.get(".close-button-desktop").click({ force: true })
+    return this
+  }
+
+  scrollTableToBottom(): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']").scrollTo("bottom", { ensureScrollable: false })
+    return this
+  }
+
+  abilityIsActivated(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"] input').should("be.checked")
+    return this
+  }
+
+  abilityIsNotActivated(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"] input').should("not.be.checked")
+    return this
+  }
+
+  abilityCheckIsVisible(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"]').should("exist")
+    return this
+  }
+
+  abilityCheckIsHidden(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"]').should("not.exist")
+    return this
+  }
+
+  abilityCheckIsDisabled(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"] input').should("be.disabled")
+    return this
+  }
+
+  abilityCheckIsEnabled(): PokemonBuild {
+    this.container().find('[data-cy="activate-ability"] input').should("not.be.disabled")
+    return this
+  }
+
+  paradoxStatSelectIsVisible(): PokemonBuild {
+    this.container().find('[data-cy="paradox-stat-select"]').should("exist")
+    return this
+  }
+
+  tableIsScrolled(): PokemonBuild {
+    cy.get("[data-cy='scroll-viewport']").invoke("scrollTop").should("be.greaterThan", 0)
+    return this
+  }
+
+  selectAttackOne(): PokemonBuild {
+    this.container().find('[data-cy="attack1"] input').click({ force: true })
+    this.closeTable()
+    return this
+  }
+
+  selectAttackTwo(): PokemonBuild {
+    this.container().find('[data-cy="attack2"] input').click({ force: true })
+    this.closeTable()
+    return this
+  }
+
+  selectAttackThree(): PokemonBuild {
+    this.container().find('[data-cy="attack3"] input').click({ force: true })
+    this.closeTable()
+    return this
+  }
+
+  selectAttackFour(): PokemonBuild {
+    this.container().find('[data-cy="attack4"] input').click({ force: true })
+    this.closeTable()
+    return this
+  }
+
+  changeAttackOne(attackName: string): PokemonBuild {
+    this.container().find('[data-cy="pokemon-attack-1"] input').click()
+    this.filterAndSelect(attackName)
+    return this
+  }
+
+  changeAttackOneByFilter(filter: string, attackName: string): PokemonBuild {
+    return this.changeAttackByFilter(filter, attackName, 1)
+  }
+
+  changeAttackTwoByFilter(filter: string, attackName: string): PokemonBuild {
+    return this.changeAttackByFilter(filter, attackName, 2)
+  }
+
+  changeAttackFourByFilter(filter: string, attackName: string): PokemonBuild {
+    return this.changeAttackByFilter(filter, attackName, 4)
+  }
+
+  private changeAttackByFilter(filter: string, attackName: string, position: number): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).click().type(filter)
+    cy.get(`[data-cy="table-entry-${attackName}"]`).click({ force: true })
+    return this
+  }
+
+  private inputPokemonMove(filter: string, position: number): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).click().type(filter)
+    return this
+  }
+
+  typeAttack(position: number, moveName: string): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).click().clear().type(moveName)
+    return this
+  }
+
+  clearAttack(position: number): PokemonBuild {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).click().clear()
+    return this
+  }
+
+  tab(): PokemonBuild {
+    cy.realPress("Tab")
+    return this
+  }
+
+  clickOutside(): PokemonBuild {
+    cy.get("body").click(0, 0)
+    return this
+  }
+
+  selectItem(itemName: string): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="item"] input').click()
+    this.filterAndSelect(itemName)
+    return this
+  }
+
+  cleanItem(): PokemonBuild {
+    this.closeTable()
+    ;(this.container().find('[data-cy="item"] input').click().clear() as any).realPress("Tab")
+    return this
+  }
+
+  selectItemByFilter(filter: string, itemName: string): PokemonBuild {
+    this.container().find('[data-cy="item"] input').click().type(filter)
+    cy.get(`[data-cy="table-entry-${itemName}"]`).click({ force: true })
+    return this
+  }
+
+  selectStatsModifier(stat: string, modifier: string): PokemonBuild {
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="stat-modifier"]').click().get("mat-option").contains(modifier).scrollIntoView().click()
+    return this
+  }
+
+  terastalyze(): PokemonBuild {
+    this.container().find('[data-cy="terastal-button"]').click({ force: true })
+    return this
+  }
+
+  isTerastalyzed(): PokemonBuild {
+    this.container().find('[data-cy="terastal-button"]').find('[data-cy="terastal-activated"]').should("exist")
+    return this
+  }
+
+  isNotTerastalyzed(): PokemonBuild {
+    this.container().find('[data-cy="terastal-button"]').find('[data-cy="terastal-deactivated"]').should("exist")
+    return this
+  }
+
+  burned() {
+    this.container().find('[data-cy="pokemon-status"]').click().get("mat-option").contains("Burn").click()
+  }
+
+  paralyzed() {
+    this.container().find('[data-cy="pokemon-status"]').click().get("mat-option").contains("Paralysis").click()
+  }
+
+  badlyPoisoned() {
+    this.container().find('[data-cy="pokemon-status"]').find('[data-cy="input-select"]').click()
+    cy.get("mat-option").contains("Badly Poison").click()
+    cy.get("mat-option").should("not.exist")
+  }
+
+  selectToxicTurn(turn: number): PokemonBuild {
+    this.container().find('[data-cy="toxic-counter"]').find('[data-cy="input-select"]').click()
+    cy.get("mat-option")
+      .contains(new RegExp(`^${turn}$`))
+      .click()
+    cy.get("mat-option").should("not.exist")
+
+    return this
+  }
+
+  toxicTurnIs(turn: number): PokemonBuild {
+    this.container().find('[data-cy="toxic-counter"]').should("contain.text", `${turn}`)
+    return this
+  }
+
+  hasNoToxicTurn(): PokemonBuild {
+    this.container().find('[data-cy="toxic-counter"]').should("not.exist")
+    return this
+  }
+
+  selectNature(name: string): PokemonBuild {
+    this.container().find('[data-cy="nature"]').click()
+    cy.get("mat-option").contains(name).click()
+    cy.get("mat-option").should("not.exist")
+
+    return this
+  }
+
+  selectAbility(name: string): PokemonBuild {
+    this.container().find('[data-cy="ability"] input').click()
+    cy.get(`[data-cy="table-entry-${name}"]`).click()
+    return this
+  }
+
+  selectParadoxStat(stat: string): PokemonBuild {
+    this.container().find('[data-cy="paradox-stat-select"]').click().get("mat-option").contains(stat).click({ force: true }).wait(100)
+    return this
+  }
+
+  selectAbilityByFilter(filter: string, abilityName: string): PokemonBuild {
+    this.container().find('[data-cy="ability"] input').click().type(filter)
+    cy.get(`[data-cy="table-entry-${abilityName}"]`).click({ force: true })
+    return this
+  }
+
+  toggleAllAbilities(): PokemonBuild {
+    cy.get('[data-cy="all-abilities-toggle"] button').click({ force: true })
+    return this
+  }
+
+  allAbilitiesToggleIsOn(): PokemonBuild {
+    cy.get('[data-cy="all-abilities-toggle"] button').should("have.attr", "aria-checked", "true")
+    return this
+  }
+
+  allAbilitiesToggleIsOff(): PokemonBuild {
+    cy.get('[data-cy="all-abilities-toggle"] button').should("have.attr", "aria-checked", "false")
+    return this
+  }
+
+  allAbilitiesToggleIsDisabled(): PokemonBuild {
+    cy.get('[data-cy="all-abilities-toggle"] button').should("be.disabled")
+    return this
+  }
+
+  allAbilitiesToggleIsEnabled(): PokemonBuild {
+    cy.get('[data-cy="all-abilities-toggle"] button').should("not.be.disabled")
+    return this
+  }
+
+  tableGroupIsVisible(groupName: string): PokemonBuild {
+    cy.get(".entries-section-title").contains(groupName).should("be.visible")
+    return this
+  }
+
+  tableHasNoGroups(): PokemonBuild {
+    cy.get(".entries-section-title").should("not.exist")
+    return this
+  }
+
+  tableEntryDoesNotExist(abilityName: string): PokemonBuild {
+    cy.get(`[data-cy="table-entry-${abilityName}"]`).should("not.exist")
+    return this
+  }
+
+  activateAbility() {
+    this.container().find('[data-cy="activate-ability"] input').click({ force: true })
+  }
+
+  activateCommander() {
+    this.container().find('[data-cy="commander"]').click({ force: true })
+  }
+
+  commanderNotActivated() {
+    this.closeTable()
+    this.container().find('[data-cy="commander-deactivated"]')
+  }
+
+  nameIs(pokemonName: string) {
+    this.container().find('[data-cy="pokemon-select"] input').invoke("val").should("eq", `${pokemonName}`)
+  }
+
+  abilityIs(abilityName: string) {
+    this.container().find('[data-cy="ability"] input').invoke("val").should("eq", `${abilityName}`)
+  }
+
+  itemIs(itemName: string) {
+    this.container().find('[data-cy="item"] input').invoke("val").should("eq", `${itemName}`)
+  }
+
+  attackIs(position: number, attackName: string) {
+    this.container().find(`[data-cy="pokemon-attack-${position}"] input`).invoke("val").should("eq", `${attackName}`)
+  }
+
+  itemIsDisabled() {
+    this.container().find('[data-cy="item"] input').should("be.disabled")
+  }
+
+  teraIsDisabled() {
+    this.container().find('[data-cy="tera-type"]').find('[data-cy="input-select"]').should("have.attr", "aria-disabled", "true")
+  }
+
+  teraControlsAreHidden() {
+    this.container().find('[data-cy="tera-type"]').should("not.exist")
+    this.container().find('[data-cy="terastal-button"]').should("not.exist")
+  }
+
+  statModifiedTooltipIs(stat: string, tooltip: string) {
+    const modified = () => this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="stat-modified"]')
+
+    modified().trigger("mouseenter", { force: true })
+    cy.get("mat-tooltip-component").should("contain.text", tooltip)
+
+    modified().trigger("mouseleave", { force: true })
+    cy.get("mat-tooltip-component").should("not.exist")
+  }
+
+  selectTeraType(teraType: string): PokemonBuild {
+    cy.get(".cdk-overlay-pane").should("not.exist")
+    this.container().find('[data-cy="tera-type"]').find('[data-cy="input-select"]').click()
+    cy.get("mat-option").should("be.visible").contains(teraType).click()
+    return this
+  }
+
+  spsIs(hp: number, atk: number, def: number, spa: number, spd: number, spe: number) {
+    this.ensureEvMode()
+    this.container().find(`[data-cy="stat-hp"]`).find('[data-cy="sp-value"]').should("have.value", hp)
+    this.container().find(`[data-cy="stat-atk"]`).find('[data-cy="sp-value"]').should("have.value", atk)
+    this.container().find(`[data-cy="stat-def"]`).find('[data-cy="sp-value"]').should("have.value", def)
+    this.container().find(`[data-cy="stat-spa"]`).find('[data-cy="sp-value"]').should("have.value", spa)
+    this.container().find(`[data-cy="stat-spd"]`).find('[data-cy="sp-value"]').should("have.value", spd)
+    this.container().find(`[data-cy="stat-spe"]`).find('[data-cy="sp-value"]').should("have.value", spe)
+  }
+
+  boostsIs(atk: number, def: number, spa: number, spd: number, spe: number) {
+    this.closeTable()
+    this.boostIs("atk", atk)
+    this.boostIs("def", def)
+    this.boostIs("spa", spa)
+    this.boostIs("spd", spd)
+    this.boostIs("spe", spe)
+  }
+
+  private boostIs(stat: string, statValue: number) {
+    const adjustedStatValue = this.adjustedBoostStat(statValue)
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="stat-modifier"]').contains(adjustedStatValue)
+  }
+
+  private adjustedBoostStat(stat: number): string {
+    return stat == 0 ? "-" : `${stat}`
+  }
+
+  hpPercentage(hpPercentage: number) {
+    this.container().find(`[data-cy="stat-hp"]`).find('[data-cy="hp-percentage-value"]').clear().clear().type(hpPercentage.toString(), { force: true }).blur()
+  }
+
+  hpPercentageIs(hpPercentage: number) {
+    this.closeTable()
+    this.container().find(`[data-cy="stat-hp"]`).find('[data-cy="hp-percentage-value"]').invoke("val").should("eq", `${hpPercentage}`)
+  }
+
+  hpSps(hpSps: number): PokemonBuild {
+    this.container().find(`[data-cy="stat-hp"]`).find('[data-cy="sp-value"]').clear().clear().type(hpSps.toString(), { force: true }).blur()
+    return this
+  }
+
+  atkSps(atkSps: number): PokemonBuild {
+    this.container().find(`[data-cy="stat-atk"]`).find('[data-cy="sp-value"]').clear().clear().type(atkSps.toString(), { force: true }).blur()
+    return this
+  }
+
+  defSps(defSps: number): PokemonBuild {
+    this.container().find(`[data-cy="stat-def"]`).find('[data-cy="sp-value"]').clear().clear().type(defSps.toString(), { force: true }).blur()
+    return this
+  }
+
+  spaSps(spaSps: number): PokemonBuild {
+    this.container().find(`[data-cy="stat-spa"]`).find('[data-cy="sp-value"]').clear().clear().type(spaSps.toString(), { force: true }).blur()
+    return this
+  }
+
+  speedSps(speedSps: number): PokemonBuild {
+    this.ensureEvMode()
+    this.container().find(`[data-cy="stat-spe"]`).find('[data-cy="sp-value"]').clear().clear().type(speedSps.toString(), { force: true }).blur()
+    return this
+  }
+
+  allieFainted(alliesFainted: number) {
+    this.container().find(`[data-cy="allies-fainted-${alliesFainted}"]`).click()
+  }
+
+  timesUsed(timesUsed: number) {
+    this.container().find(`[data-cy="times-used-${timesUsed}"]`).click()
+  }
+
+  hitsTaken(hitsTaken: number) {
+    this.container().find(`[data-cy="hits-taken"]`).click().get("mat-option").contains(hitsTaken.toString()).click()
+  }
+
+  lastMoveFailed() {
+    this.container().find(`[data-cy="last-move-failed"]`).click()
+  }
+
+  roundUsedBefore() {
+    this.container().find(`[data-cy="round-used-before"]`).click()
+  }
+
+  targetDamaged() {
+    this.container().find(`[data-cy="target-damaged"]`).click()
+  }
+
+  targetAlreadyMoved() {
+    this.container().find(`[data-cy="target-already-moved"]`).click()
+  }
+
+  damagedByTarget() {
+    this.container().find(`[data-cy="damaged-by-target"]`).click()
+  }
+
+  allyPledge(pledge: "None" | "Fire" | "Water" | "Grass") {
+    this.container().find(`[data-cy="ally-pledge-${pledge}"] button`).click()
+  }
+
+  importPokemon(pokemonData: string, useEvs = true): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="import-pokemon"]').should("be.visible").click()
+    new ImportModal().import(pokemonData, useEvs)
+
+    return this
+  }
+
+  clearSps() {
+    this.ensureEvMode()
+    this.container().find('[data-cy="clear-sps"]').click({ force: true })
+  }
+
+  ensureEvMode(): PokemonBuild {
+    this.container()
+      .find('[data-cy="points-mode-ev"]')
+      .then($ev => {
+        if ($ev.attr("aria-pressed") !== "true") {
+          cy.wrap($ev).click({ force: true })
+        }
+      })
+
+    this.container().find('[data-cy="points-mode-ev"]').should("have.attr", "aria-pressed", "true")
+
+    return this
+  }
+
+  optimizeBulk() {
+    this.container().find('[data-cy="optimize-sps"]').click({ force: true })
+  }
+
+  optimizeBulkIsVisible() {
+    this.container().find('[data-cy="optimize-sps"]').should("be.visible")
+  }
+
+  optimizeBulkIsHidden() {
+    this.container().find('[data-cy="optimize-sps"]').should("not.exist")
+  }
+
+  toggleUpdateNature() {
+    this.container().find('[data-cy="update-nature-checkbox"] input').click({ force: true })
+  }
+
+  toggleKeepOffensiveSps() {
+    this.container().find('[data-cy="keep-offensive-sps-checkbox"] input').click({ force: true })
+  }
+
+  applyOptimization() {
+    this.container().find('[data-cy="apply-optimization"]').click({ force: true })
+  }
+
+  okNotNeeded() {
+    this.container().find('[data-cy="ok-not-needed"]').click({ force: true })
+  }
+
+  discardOptimization() {
+    this.container().find('[data-cy="discard-optimization"]').click({ force: true })
+  }
+
+  selectSurvivalThreshold(threshold: "OHKO" | "2HKO" | "3HKO" | "4HKO") {
+    this.container().find('[data-cy="survival-threshold-select"]').click().get("mat-option").contains(threshold).click()
+  }
+
+  selectOptimizeMode(mode: "Bulk" | "Damage") {
+    this.container().find(`[data-cy="optimize-mode-${mode.toLowerCase()}"]`).click({ force: true })
+  }
+
+  optimizeModeIs(mode: "Bulk" | "Damage") {
+    this.container().find(`[data-cy="optimize-mode-${mode.toLowerCase()}"]`).should("have.class", "selected")
+  }
+
+  optimizeModeToggleIsHidden() {
+    this.container().find('[data-cy="optimize-mode"]').should("not.exist")
+  }
+
+  thresholdOptionsAre(options: string[]) {
+    this.container().find('[data-cy="survival-threshold-select"]').click()
+    cy.get("mat-option").should("have.length", options.length)
+    options.forEach(option => cy.get("mat-option").contains(option).should("exist"))
+    cy.get("body").type("{esc}")
+  }
+
+  keepOtherSpsCheckboxIs(label: string) {
+    this.container().find('[data-cy="keep-offensive-sps-checkbox"]').should("contain.text", label)
+  }
+
+  updateNatureCheckboxIsVisible() {
+    this.container().find('[data-cy="update-nature-checkbox"]').should("be.visible")
+  }
+
+  updateNatureCheckboxIsHidden() {
+    this.container().find('[data-cy="update-nature-checkbox"]').should("not.exist")
+  }
+
+  optimizationImpossibleIsVisible() {
+    this.container().find('[data-cy="offensive-impossible-label"]').should("be.visible")
+  }
+
+  okOptimizationImpossible() {
+    this.container().find('[data-cy="ok-offensive-impossible"]').click({ force: true })
+  }
+
+  delete(): PokemonBuild {
+    cy.get('[data-cy="delete-team-button"]').click({ force: true })
+    return this
+  }
+
+  closeTable() {
+    cy.get("body").type("{esc}")
+  }
+
+  statModifiedIs(stat: string, statValue: string) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="stat-modified"]').contains(statValue)
+  }
+
+  statModifiedIsHidden(stat: string) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="stat-modified"]').should("not.exist")
+  }
+
+  statValueIs(stat: string, statValue: string) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find(".stat-value label").first().should("have.text", statValue)
+  }
+
+  remainingIs(remaining: number) {
+    this.container().find('[data-cy="remaining-sps"]').should("have.text", `${remaining}`)
+  }
+
+  spLabelIs(label: string) {
+    this.container().find(".sps-titles .sps-title").should("have.text", label)
+  }
+
+  toggleSpsMode(): PokemonBuild {
+    this.container().find('[data-cy="sps-evs-toggle"] button[aria-pressed="false"]').click({ force: true })
+
+    return this
+  }
+
+  spValueIs(stat: string, value: number) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="sp-value"]').should("have.value", `${value}`)
+  }
+
+  spMaxAttributeIs(stat: string, max: number) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find('[data-cy="sp-value"]').should("have.attr", "max", `${max}`)
+  }
+
+  dragSpSlider(stat: string, statName: string, offsetX: number): PokemonBuild {
+    this.sliderThumb(stat, statName).trigger("mousedown", { button: 0, force: true }).trigger("mousemove", { clientX: offsetX, force: true }).trigger("mouseup", { force: true })
+
+    return this
+  }
+
+  setSpSliderValue(stat: string, statName: string, value: number): PokemonBuild {
+    this.sliderThumb(stat, statName).invoke("val", value).trigger("input", { force: true }).trigger("change", { force: true })
+
+    return this
+  }
+
+  pressSpSliderArrowRight(stat: string, statName: string): PokemonBuild {
+    this.sliderThumb(stat, statName).focus().trigger("keydown", { key: "ArrowRight", force: true })
+    return this
+  }
+
+  touchSpSliderToRight(stat: string, statName: string): PokemonBuild {
+    this.sliderThumb(stat, statName)
+      .trigger("touchstart", { touches: [{ clientX: 10 }], force: true })
+      .trigger("touchmove", { touches: [{ clientX: 400 }], force: true })
+      .trigger("touchend", { force: true })
+
+    return this
+  }
+
+  private sliderThumb(stat: string, statName: string) {
+    return this.container().find(`[data-cy="stat-${stat}"]`).find(`mat-slider input[aria-label="${statName} SPs"]`)
+  }
+
+  hasJumps(stat: string) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find(".slider-pipe").should("exist")
+  }
+
+  hasNoJumps(stat: string) {
+    this.container().find(`[data-cy="stat-${stat}"]`).find(".slider-pipe").should("not.exist")
+  }
+
+  moveBpIs(position: number, bp: string) {
+    this.container()
+      .find(".move-bp")
+      .eq(position - 1)
+      .find("label")
+      .should("have.text", bp)
+  }
+
+  moveIsActive(position: number) {
+    this.container().find(`[data-cy="attack${position}"] input`).should("be.checked")
+  }
+
+  moveIsNotActive(position: number) {
+    this.container().find(`[data-cy="attack${position}"] input`).should("not.be.checked")
+  }
+
+  hitsSelectIsVisible() {
+    this.container().find('[data-cy="hits-taken"]').should("exist")
+  }
+
+  hitsSelectIsHidden() {
+    this.container().find('[data-cy="hits-taken"]').should("not.exist")
+  }
+
+  hitsLabelIs(label: string) {
+    this.container().find('[data-cy="hits-taken"]').find("label").should("contain.text", label)
+  }
+
+  alliesFaintedIsVisible() {
+    this.container().find('[data-cy="allies-fainted-1"]').should("exist")
+  }
+
+  timesUsedIsVisible() {
+    this.container().find('[data-cy="times-used"]').should("exist")
+  }
+
+  timesUsedIsNotVisible() {
+    this.container().find('[data-cy="times-used"]').should("not.exist")
+  }
+
+  typeAddingMoveUsed(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="type-adding-move-used"]').click()
+    return this
+  }
+
+  typeAddingMoveUsedIsVisible(moveName: string) {
+    this.container().find('[data-cy="type-adding-move-used"]').should("contain.text", `${moveName} Used`)
+  }
+
+  typeAddingMoveUsedIsNotVisible() {
+    this.container().find('[data-cy="type-adding-move-used"]').should("not.exist")
+  }
+
+  typeAddingMoveUsedIsChecked() {
+    this.container().find('[data-cy="type-adding-move-used"] input').should("be.checked")
+  }
+
+  typeAddingMoveUsedIsNotChecked() {
+    this.container().find('[data-cy="type-adding-move-used"] input').should("not.be.checked")
+  }
+
+  lastMoveFailedIsVisible() {
+    this.container().find('[data-cy="last-move-failed"]').should("exist")
+  }
+
+  roundUsedBeforeIsVisible() {
+    this.container().find('[data-cy="round-used-before"]').should("exist")
+  }
+
+  targetDamagedIsVisible() {
+    this.container().find('[data-cy="target-damaged"]').should("exist")
+  }
+
+  targetDamagedIsCheckedAndDisabled() {
+    this.container().find('[data-cy="target-damaged"] input').should("be.checked").and("be.disabled")
+  }
+
+  targetDamagedIsUncheckedAndEnabled() {
+    this.container().find('[data-cy="target-damaged"] input').should("not.be.checked").and("not.be.disabled")
+  }
+
+  damagedByTargetIsVisible() {
+    this.container().find('[data-cy="damaged-by-target"]').should("exist")
+  }
+
+  targetAlreadyMovedIsVisible() {
+    this.container().find('[data-cy="target-already-moved"]').should("exist")
+  }
+
+  targetAlreadyMovedIsHidden() {
+    this.container().find('[data-cy="target-already-moved"]').should("not.exist")
+  }
+
+  targetAlreadyMovedIsCheckedAndEnabled() {
+    this.container().find('[data-cy="target-already-moved"] input').should("be.checked").and("not.be.disabled")
+  }
+
+  targetAlreadyMovedIsUncheckedAndDisabled() {
+    this.container().find('[data-cy="target-already-moved"] input').should("not.be.checked").and("be.disabled")
+  }
+
+  allyPledgeIsVisible() {
+    this.container().find('[data-cy="ally-pledge"]').should("exist")
+  }
+
+  allyPledgeIsHidden() {
+    this.container().find('[data-cy="ally-pledge"]').should("not.exist")
+  }
+
+  allyPledgeIsSelectedAndDisabled(pledge: "None" | "Fire" | "Water" | "Grass") {
+    this.container().find(`[data-cy="ally-pledge-${pledge}"]`).should("have.class", "mat-button-toggle-checked")
+    this.container().find('[data-cy="ally-pledge"]').find("button").should("be.disabled")
+  }
+
+  hasDuplicateItemWarning() {
+    this.container().find('[data-cy="duplicate-item-warning"]').should("exist")
+  }
+
+  hasNoDuplicateItemWarning() {
+    this.container().find('[data-cy="duplicate-item-warning"]').should("not.exist")
+  }
+
+  toggleAegislashForm(): PokemonBuild {
+    this.container().find('[data-cy="aegislash-form-toggle"]').click({ force: true })
+    return this
+  }
+
+  aegislashToggleIsHidden() {
+    this.container().find('[data-cy="aegislash-form-toggle"]').should("not.exist")
+  }
+
+  togglePalafinForm(): PokemonBuild {
+    this.container().find('[data-cy="palafin-form-toggle"]').click({ force: true })
+    return this
+  }
+
+  toggleMorpekoForm(): PokemonBuild {
+    this.container().find('[data-cy="morpeko-form-toggle"]').click({ force: true })
+    return this
+  }
+
+  morpekoToggleIsHidden() {
+    this.container().find('[data-cy="morpeko-form-toggle"]').should("not.exist")
+  }
+
+  commanderIsActivated() {
+    this.container().find('[data-cy="commander-activated"]').should("exist")
+  }
+
+  toggleMega(): PokemonBuild {
+    this.container().find(".mega-icon").click({ force: true })
+    return this
+  }
+
+  megaIconIsVisible() {
+    this.container().find(".mega-icon").should("exist")
+  }
+
+  megaIconIsHidden() {
+    this.container().find(".mega-icon").should("not.exist")
+  }
+
+  optimizedStats(stats: string[]) {
+    stats.forEach(stat => this.container().find(`[data-cy="stat-${stat}"]`).find(".sp-slider").should("have.class", "optimized"))
+  }
+
+  bestEffortLabelIs(text: string) {
+    this.container().find('[data-cy="best-effort-label"]').should("have.text", text)
+  }
+
+  bestEffortLabelIsHidden() {
+    this.container().find('[data-cy="apply-optimization"]').should("exist")
+    this.container().find('[data-cy="best-effort-label"]').should("not.exist")
+  }
+
+  outOfReachLabelIs(text: string) {
+    this.container().find('[data-cy="out-of-reach-label"]').should("have.text", text)
+  }
+
+  outOfReachLabelIsHidden() {
+    this.container().find('[data-cy="out-of-reach-label"]').should("not.exist")
+  }
+
+  optimizationCostIs(text: string) {
+    this.container().find(".optimizer-cost").should("have.text", text)
+  }
+
+  optimizationVerdictIs(text: string) {
+    this.container().find('[data-cy="optimization-notes"] .optimizer-verdict label').should("have.text", text)
+  }
+
+  optimizationImpossibleLabelIs(text: string) {
+    this.container().find('[data-cy="offensive-impossible-label"]').should("have.text", text)
+  }
+
+  perAttackerOptionsAreVisible() {
+    this.container().find('[data-cy="per-attacker-options"]').should("be.visible")
+  }
+
+  perAttackerOptionsAreHidden() {
+    this.container().find('[data-cy="per-attacker-options"]').should("not.exist")
+  }
+
+  attackerRowNames(names: string[]) {
+    this.container()
+      .find('[data-cy="per-attacker-options"] .attacker-name .attacker-name-value')
+      .should("have.length", names.length)
+      .each(($name, index) => expect($name.text().trim()).to.equal(names[index]))
+  }
+
+  currentAttackerRowIs(name: string) {
+    this.container().find('[data-cy="per-attacker-options"] .attacker-row-current .attacker-name-value').should("have.text", name)
+  }
+
+  combinedCostsAreVisible() {
+    this.container().find('[data-cy="optimizer-combined-costs"]').should("be.visible")
+  }
+
+  combinedCostRowIs(name: string, cost: string) {
+    this.container().find('[data-cy="optimizer-combined-costs"] .optimizer-cost-row').contains(".cost-name", name).parent().should("contain.text", cost)
+  }
+
+  selectSuccessChance(option: string) {
+    this.container().find('[data-cy="success-chance-input"] input').click({ force: true })
+    cy.get("mat-option").contains(option).click()
+  }
+
+  typeSuccessChance(text: string) {
+    this.container().find('[data-cy="success-chance-input"] input').clear({ force: true }).type(text, { force: true }).blur({ force: true })
+  }
+
+  successChanceIs(text: string) {
+    this.container().find('[data-cy="success-chance-input"] input').should("have.value", text)
+  }
+
+  successChanceOptionsAre(options: string[]) {
+    this.container().find('[data-cy="success-chance-input"] input').click({ force: true })
+    cy.get("mat-option").should("have.length", options.length)
+    cy.get("mat-option").each(($option, index) => expect($option.text().trim()).to.equal(options[index]))
+    cy.get("body").type("{esc}")
+  }
+
+  successChancesLabelIs(text: string) {
+    this.container().find('[data-cy="success-chances-label"]').should("have.text", text)
+  }
+
+  successChancesLabelIsHidden() {
+    this.container().find('[data-cy="success-chances-label"]').should("not.exist")
+  }
+
+  solutionNotNeededLabelIs(text: string) {
+    this.container().find(".optimizer-verdict label").should("have.text", text)
+  }
+
+  noSolutionNeededIsVisible() {
+    this.container().find('[data-cy="ok-not-needed"]').should("be.visible")
+    this.container().find(".optimizer-verdict").should("contain.text", "with no")
+  }
+
+  optimizationButtonsAreHidden() {
+    this.container().find('[data-cy="apply-optimization"]').should("not.exist")
+    this.container().find('[data-cy="discard-optimization"]').should("not.exist")
+  }
+
+  openType1Menu(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"] [data-cy="pokemon-type"]').first().click({ force: true })
+    return this
+  }
+
+  openType2Menu(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"] [data-cy="pokemon-type"]').eq(1).click({ force: true })
+    return this
+  }
+
+  openEmptyTypeMenu(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-type-empty"]').click({ force: true })
+    return this
+  }
+
+  selectType1(type: string): PokemonBuild {
+    this.openType1Menu()
+    cy.get(`[data-cy="type1-${type}"]`).click({ force: true })
+    return this
+  }
+
+  selectType2(type: string): PokemonBuild {
+    this.openType2Menu()
+    cy.get(`[data-cy="type2-${type}"]`).click({ force: true })
+    return this
+  }
+
+  addSecondType(type: string): PokemonBuild {
+    this.openEmptyTypeMenu()
+    cy.get(`[data-cy="type2-${type}"]`).click({ force: true })
+    return this
+  }
+
+  selectUnknownType1(): PokemonBuild {
+    this.openType1Menu()
+    cy.get('[data-cy="type1-unknown"]').click({ force: true })
+    return this
+  }
+
+  selectUnknownType2(): PokemonBuild {
+    this.openType2Menu()
+    cy.get('[data-cy="type2-unknown"]').click({ force: true })
+    return this
+  }
+
+  removeType1(): PokemonBuild {
+    this.openType1Menu()
+    cy.get('[data-cy="type1-none"]').click({ force: true })
+    return this
+  }
+
+  removeType2(): PokemonBuild {
+    this.openType2Menu()
+    cy.get('[data-cy="type2-none"]').click({ force: true })
+    return this
+  }
+
+  restoreTypes(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="restore-types"]').click({ force: true })
+    return this
+  }
+
+  typesAre(...types: string[]) {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"] [data-cy="pokemon-type"]').should("have.length", types.length)
+
+    types.forEach((type, index) => {
+      this.container().find('[data-cy="pokemon-types-editable"] [data-cy="pokemon-type"]').eq(index).should("have.text", type)
+    })
+  }
+
+  hasTypeOverride() {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"]').should("have.class", "overridden")
+    this.container().find('[data-cy="restore-types"]').should("exist")
+  }
+
+  addedTypeIs(type: string) {
+    this.closeTable()
+    this.container().find('[data-cy="added-type"]').should("have.text", type).and("not.have.class", "added-type-off")
+  }
+
+  addedTypeIsOff(type: string) {
+    this.closeTable()
+    this.container().find('[data-cy="added-type"]').should("have.text", type).and("have.class", "added-type-off")
+  }
+
+  hasNoAddedType() {
+    this.closeTable()
+    this.container().find('[data-cy="added-type"]').should("not.exist")
+  }
+
+  toggleAddedType(): PokemonBuild {
+    this.closeTable()
+    this.container().find('[data-cy="added-type"]').click({ force: true })
+    return this
+  }
+
+  hasNoTypeOverride() {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"]').should("not.have.class", "overridden")
+    this.container().find('[data-cy="restore-types"]').should("not.exist")
+  }
+
+  typesAreDimmed() {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"]').should("have.class", "tera-active")
+  }
+
+  typesAreNotDimmed() {
+    this.closeTable()
+    this.container().find('[data-cy="pokemon-types-editable"]').should("not.have.class", "tera-active")
+  }
+
+  type1MenuHasNoneOption() {
+    cy.get('[data-cy="type1-none"]').should("exist")
+  }
+
+  type1MenuHasNoNoneOption() {
+    cy.get('[data-cy="type1-none"]').should("not.exist")
+  }
+
+  type2MenuHasNoneOption() {
+    cy.get('[data-cy="type2-none"]').should("exist")
+  }
+
+  type1MenuHasUnknownOption() {
+    cy.get('[data-cy="type1-unknown"]').should("exist")
+  }
+
+  type2MenuHasUnknownOption() {
+    cy.get('[data-cy="type2-unknown"]').should("exist")
+  }
+
+  closeTypeMenu(): PokemonBuild {
+    cy.get("body").type("{esc}")
+    return this
+  }
+
+  natureIs(name: string) {
+    this.container().find('[data-cy="nature"]').should("contain.text", name)
+  }
+
+  private container() {
+    return cy.get(`[data-cy="${this.selector}"]`)
+  }
+
+  private filterAndSelect(entryName: string) {
+    cy.focused().type(entryName)
+    cy.get(`[data-cy="table-entry-${entryName}"]`).click({ force: true })
+  }
+}

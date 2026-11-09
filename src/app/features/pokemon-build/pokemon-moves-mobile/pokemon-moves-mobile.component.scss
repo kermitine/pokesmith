@@ -1,0 +1,88 @@
+:host(.sticky) {
+  display: block;
+  position: sticky;
+  top: calc(1.75em + var(--header-offset));
+  z-index: 30;
+  transition: top 0.2s ease;
+  background-color: var(--background);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--widget-border);
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 0.75em;
+    background-color: var(--background);
+  }
+}
+
+:host(.sticky.stuck) {
+  padding-top: var(--space-sm);
+}
+
+:host(.sticky.stuck) .edit-button {
+  display: none;
+}
+
+.no-edit-moves {
+  padding: 0 var(--space-xs);
+}
+
+.chips-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+
+  mat-chip-listbox {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.edit-button {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding-top: var(--space-sm);
+  flex: 0 0 auto;
+}
+
+.edit-icon {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+.hits-input-only {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: var(--space-md);
+  width: 100%;
+
+  app-multi-hit-combo-box {
+    width: 45%;
+  }
+
+  app-multi-hit-combo-box:has(mat-checkbox) {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+  }
+}
+
+:host ::ng-deep .mat-mdc-standard-chip {
+  min-height: 28px !important;
+
+  .mdc-evolution-chip__graphic {
+    display: none !important;
+  }
+
+  .mdc-evolution-chip__text-label {
+    font-size: var(--font-size-xs) !important;
+  }
+}

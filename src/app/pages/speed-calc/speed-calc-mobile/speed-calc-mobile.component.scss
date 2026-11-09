@@ -1,0 +1,188 @@
+@use "variables.scss" as *;
+
+:host {
+  --header-offset: 4em;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  height: 100dvh;
+  margin-top: -4em;
+  overflow: hidden;
+}
+
+:host(.header-hidden) {
+  --header-offset: 0em;
+}
+
+.team-tabs-sticky {
+  position: sticky;
+  top: calc(var(--header-offset) - 4em);
+  z-index: 50;
+  transition: top 0.2s ease;
+  background-color: var(--background);
+}
+
+.scrollable-content {
+  flex: 0 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-top: var(--header-offset);
+  padding-bottom: 6em;
+  transition: padding-top 0.2s ease;
+
+  &.header-scroll {
+    padding-top: 4em;
+  }
+
+  &.table-open {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--header-offset);
+    padding-bottom: 0;
+  }
+}
+
+.scrollable-content.table-open > .attacker-build {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.attacker-build {
+  padding-bottom: var(--space-sm);
+
+  &:has(app-pokemon-moves-mobile.sticky) {
+    display: contents;
+  }
+
+  .table-open & {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+.table-open ::ng-deep .table-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  app-pokemon-table,
+  app-moves-table,
+  app-abilities-table,
+  app-items-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+.attacker-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-md) var(--space-lg) var(--space-md);
+  background-color: var(--background);
+}
+
+.attacker-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.speed-scale {
+  margin-top: var(--space-2xl);
+}
+
+.insights-content {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.settings-content {
+  padding: var(--space-lg) var(--space-lg) 6em var(--space-lg);
+}
+
+.modifiers-title {
+  color: var(--text-strong);
+  font-weight: 500;
+  font-size: var(--font-size-lg);
+}
+.settings-card {
+  display: block;
+}
+
+.opponent-options {
+  margin-top: var(--space-lg);
+}
+
+.options-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  row-gap: var(--space-xl);
+  margin-top: var(--space-lg);
+  width: 100%;
+  & > :nth-child(odd) {
+    width: 44%;
+    min-width: 0;
+  }
+
+  & > :nth-child(even) {
+    width: 52%;
+    min-width: 0;
+  }
+
+  & > .filter-full-width.filter-full-width {
+    width: 100%;
+  }
+
+  .my-whole-team-toggle {
+    align-self: end;
+    padding-bottom: var(--space-xs);
+  }
+
+  app-input-autocomplete {
+    display: flex !important;
+    align-items: flex-end;
+    gap: var(--space-sm);
+  }
+
+  ::ng-deep {
+    .input-column {
+      flex: 1;
+      width: auto !important;
+      min-width: 0;
+
+      input,
+      mat-select {
+        width: 100% !important;
+        box-sizing: border-box;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+
+.teams-tab {
+  padding: var(--header-offset) 0 6em 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,155 @@
+\:host ::ng-deep app-widget {
+  display: flex;
+  flex-direction: column;
+}
+
+:host ::ng-deep app-widget .header {
+  flex-shrink: 0;
+}
+
+.container {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(10em + 1em);
+  margin-top: var(--space-sm);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  justify-content: space-between;
+  gap: var(--space-lg);
+
+  @media (max-width: 768px) {
+    min-height: calc(8.5em + 1em);
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    justify-content: flex-start;
+  }
+}
+
+.container:has(.empty-message) {
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  padding: var(--space-sm);
+}
+
+.empty-message {
+  display: flex;
+  align-items: center;
+  height: auto;
+  min-height: auto;
+  margin-top: 0;
+  padding: var(--space-lg) 0;
+  box-sizing: border-box;
+}
+
+.empty-message {
+  justify-content: center;
+  align-items: center;
+  height: auto;
+  min-height: auto;
+  margin-top: 0;
+  padding: var(--space-lg) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xl);
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.question-icon {
+  width: 4em;
+  height: auto;
+}
+
+.team-members {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: space-around;
+  gap: var(--space-sm);
+
+  @media (max-width: 768px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-xs);
+    padding-left: var(--space-sm);
+  }
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  min-width: 0;
+
+  app-pokemon-sprite {
+    --sprite-size: var(--sprite-md);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 0;
+    margin: 0;
+  }
+}
+
+.pokemon-score {
+  margin-top: var(--space-lg);
+  font-size: var(--font-size-xl);
+
+  @media (max-width: 768px) {
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs);
+  }
+}
+
+.team-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 10em;
+  min-width: 10em;
+
+  app-donut-graphic {
+    --donut-size: 10em;
+  }
+
+  @media (max-width: 768px) {
+    min-height: 8.5em;
+    min-width: 8.5em;
+
+    app-donut-graphic {
+      --donut-size: 8.5em;
+    }
+  }
+
+  @media (max-width: 600px) {
+    min-height: 7.2em;
+    min-width: 7.2em;
+
+    app-donut-graphic {
+      --donut-size: 7.2em;
+    }
+  }
+}
+
+.vgc-guide-link {
+  margin-top: var(--space-lg);
+  text-align: center;
+  font-size: var(--font-size-md);
+
+  a {
+    color: var(--text);
+    text-decoration: underline;
+
+    &:hover {
+      filter: brightness(1.2);
+    }
+  }
+}

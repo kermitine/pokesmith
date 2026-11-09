@@ -1,0 +1,23 @@
+.container {
+  margin: var(--space-lg);
+  padding: var(--space-2xl);
+  background-color: var(--widget-background);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--widget-border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xl);
+  height: 90vh;
+}
+
+.image img {
+  border-radius: var(--radius-lg);
+}
+
+@media only screen and (max-width: 1279px) {
+  .container {
+    flex-wrap: wrap;
+    height: 80vh;
+  }
+}

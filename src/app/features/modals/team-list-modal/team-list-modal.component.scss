@@ -1,0 +1,64 @@
+@use "variables.scss" as *;
+
+mat-dialog-content {
+  max-height: 70vh;
+}
+
+.optional-hint {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0 0 var(--space-lg);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg) var(--space-xl);
+  box-sizing: border-box;
+  width: 100%;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr 1fr;
+
+    > *:nth-child(n + 3) {
+      grid-column: span 2;
+    }
+  }
+}
+
+.input-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-sm);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    background-color: var(--widget-background);
+    color: var(--text);
+    font-size: $font-size;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease;
+  }
+}
+
+.age-division {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.division-label {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+mat-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}

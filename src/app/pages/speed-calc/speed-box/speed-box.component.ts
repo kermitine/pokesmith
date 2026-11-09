@@ -1,0 +1,42 @@
+import { NgClass } from "@angular/common"
+import { Component, computed, input, output } from "@angular/core"
+import { PokemonSpriteComponent } from "@features/pokemon-sprite/pokemon-sprite.component"
+import { Pokemon } from "@multicalc/model"
+import { SpeedDefinition } from "@multicalc/speed-calc"
+
+const ACTUAL = "Actual"
+const YOUR_TEAM = "Yours"
+
+@Component({
+  selector: "app-speed-box",
+  templateUrl: "./speed-box.component.html",
+  styleUrls: ["./speed-box.component.scss"],
+  imports: [NgClass, PokemonSpriteComponent]
+})
+export class SpeedBoxComponent {
+  speedDefinition = input.required<SpeedDefinition>()
+  speedChanged = input.required<boolean>()
+  speedIncreasing = input.required<boolean>()
+  selected = input.required<boolean>()
+  highlightMyTeam = input<boolean>(false)
+
+  pokemonSelected = output<Pokemon>()
+
+  isActual = computed(() => this.speedDefinition().description.includes(ACTUAL))
+
+  descriptions = computed(() => this.speedDefinition().description.filter(d => d !== ACTUAL))
+
+  highlighted = computed(() => this.selected() || this.isActual() || (this.highlightMyTeam() && this.speedDefinition().description.includes(YOUR_TEAM)))
+
+  animation = computed(() => {
+    if (!this.speedChanged()) {
+      return ""
+    }
+
+    if (this.speedIncreasing()) {
+      return "slide-in-right"
+    } else {
+      return "slide-in-left"
+    }
+  })
+}

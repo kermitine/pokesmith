@@ -1,0 +1,72 @@
+<app-damage-result
+  [pokemon]="store.leftPokemon()"
+  [damageResults]="leftDamageResults()"
+  [opponentDamageResult]="rightDamageResult()"
+  [opponentRollLevel]="rightRollLevel()"
+  (moveSetChange)="leftMoveActivated($event)"
+  [(rollLevel)]="leftRollLevel"
+  [rollLocked]="rollLocked()"
+  data-cy="left-damage-result" />
+<app-damage-result
+  [pokemon]="store.rightPokemon()"
+  [damageResults]="rightDamageResults()"
+  [opponentDamageResult]="leftDamageResult()"
+  [opponentRollLevel]="leftRollLevel()"
+  (moveSetChange)="rightMoveActivated($event)"
+  [(rollLevel)]="rightRollLevel"
+  [rollLocked]="rollLocked()"
+  [reverse]="true"
+  data-cy="right-damage-result" />
+
+<app-widget data-cy="left-pokemon">
+  <div class="pokemon-actions pokemon-actions-left">
+    <app-save-set-button [pokemonId]="store.leftPokemon().id" [showMatchingSet]="true" (openPokemonTable)="openLeftPokemonTable()" />
+    <app-import-pokemon-button (pokemonImportedEvent)="leftPokemonImported($event)" />
+    <app-export-pokemon-button [pokemonId]="store.leftPokemon().id" />
+  </div>
+  <app-pokemon-build
+    #leftPokemonBuild
+    [pokemonId]="store.leftPokemon().id"
+    [hasFocus]="activeSide() === 'left'"
+    [optimizedEvs]="leftOptimizedEvs()"
+    [optimizedNature]="leftOptimizedNature()"
+    (selected)="activeSide.set('left')"
+    [optimizationStatus]="leftOptimizationStatus()"
+    [optimizationKoChance]="leftOptimizationKoChance()"
+    [optimizationImpossible]="leftOptimizationImpossible()"
+    [optimizationCoverage]="leftOptimizationCoverage()"
+    [optimizerSuccessChance]="leftOptimizerSuccessChance()"
+    (optimizerSuccessChanceChange)="changeLeftOptimizerSuccessChance($event)"
+    (optimizeRequested)="handleLeftOptimizeRequest($event)"
+    (offensiveOptimizeRequested)="handleLeftOffensiveOptimizeRequest($event)"
+    (optimizationApplied)="handleLeftOptimizationApplied()"
+    (optimizationDiscarded)="handleLeftOptimizationDiscarded()" />
+</app-widget>
+
+<app-widget data-cy="right-pokemon">
+  <div class="pokemon-actions pokemon-actions-right">
+    <app-import-pokemon-button (pokemonImportedEvent)="rightPokemonImported($event)" />
+    <app-export-pokemon-button [pokemonId]="store.rightPokemon().id" />
+    <app-save-set-button [pokemonId]="store.rightPokemon().id" [showMatchingSet]="true" (openPokemonTable)="openRightPokemonTable()" />
+  </div>
+  <app-pokemon-build
+    #rightPokemonBuild
+    [pokemonId]="store.rightPokemon().id"
+    [hasFocus]="activeSide() === 'right'"
+    [reverse]="true"
+    [optimizedEvs]="rightOptimizedEvs()"
+    [optimizedNature]="rightOptimizedNature()"
+    (selected)="activeSide.set('right')"
+    [optimizationStatus]="rightOptimizationStatus()"
+    [optimizationKoChance]="rightOptimizationKoChance()"
+    [optimizationImpossible]="rightOptimizationImpossible()"
+    [optimizationCoverage]="rightOptimizationCoverage()"
+    [optimizerSuccessChance]="rightOptimizerSuccessChance()"
+    (optimizerSuccessChanceChange)="changeRightOptimizerSuccessChance($event)"
+    (optimizeRequested)="handleRightOptimizeRequest($event)"
+    (offensiveOptimizeRequested)="handleRightOffensiveOptimizeRequest($event)"
+    (optimizationApplied)="handleRightOptimizationApplied()"
+    (optimizationDiscarded)="handleRightOptimizationDiscarded()" />
+</app-widget>
+
+<app-field class="field" oneVsOne="true" />

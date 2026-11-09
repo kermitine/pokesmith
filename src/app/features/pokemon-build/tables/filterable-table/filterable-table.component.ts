@@ -1,0 +1,582 @@
+import { CdkVirtualScrollViewport, ScrollingModule } from "@angular/cdk/scrolling"
+import { CommonModule } from "@angular/common"
+import { AfterViewInit, Component, ContentChild, computed, effect, ElementRef, HostListener, inject, input, output, signal, viewChild, viewChildren } from "@angular/core"
+import { MatIcon } from "@angular/material/icon"
+import { MatTooltip } from "@angular/material/tooltip"
+import { HiddenDirective } from "@shared/hidden-keeping/hidden.directive"
+import { PokemonSpriteComponent } from "@features/pokemon-sprite/pokemon-sprite.component"
+import { TypeComboBoxComponent } from "@features/pokemon-build/type-combo-box/type-combo-box.component"
+import { ActiveFilter, ColumnConfig, LinkedTableData, TableData } from "./filtered-table-types"
+import { TableDataFilterService } from "./table-data-filter.service"
+import { TemplateRef } from "@angular/core"
+
+@Component({
+  selector: "app-filterable-table",
+  standalone: true,
+  imports: [CommonModule, ScrollingModule, MatTooltip, MatIcon, TypeComboBoxComponent, HiddenDirective, PokemonSpriteComponent],
+  templateUrl: "./filterable-table.component.html",
+  styleUrls: ["./filterable-table.component.scss"],
+  host: { "[class.mobile]": "isMobile()" }
+})
+export class FilterableTableComponent<T extends Record<string, any>> implements AfterViewInit {
+  filterService = inject(TableDataFilterService)
+
+  data = input.required<TableData<T>[]>()
+  selectedValues = input.required<string[]>()
+  columns = input.required<ColumnConfig<T>[]>()
+  dataFilter = input.required<string>()
+  haveFocus = input.required<boolean>()
+  initialValue = input<string>()
+  isMobile = input<boolean>(false)
+  itemSize = input<number>(45)
+
+  entrySelected = output<string>()
+  firstListEntry = output<string>()
+  escapeWasPressed = output()
+  subRowSelected = output<any>()
+
+  rows = viewChildren("row", { read: ElementRef })
+  scroll = viewChild(CdkVirtualScrollViewport)
+  tableHeader = viewChild<ElementRef>("tableHeader")
+
+  @ContentChild("subRowTemplate") subRowTemplate?: TemplateRef<any>
+  @ContentChild("extraHeaderContent") extraHeaderContent?: TemplateRef<any>
+
+  activeEntry = signal<LinkedTableData<T> | null>(null)
+  currentView = signal<"table" | "filterList">("table")
+  currentFilterField = signal<keyof T | null>(null)
+
+  sortColumn = signal<keyof T | null>(null)
+  sortDirection = signal<"asc" | "desc" | null>(null)
+
+  activeFilters = signal<ActiveFilter[]>([])
+  expanded = signal(false)
+  isHoverEnabled = signal(true)
+
+  tableHeight = computed(() => (this.expanded() ? "600px" : "300px"))
+  showExpandIcon = computed(() => !this.isMobile() && this.currentView() === "table" && this.viewData().length > 6)
+
+  filteredAndSortedData = computed(() => {
+    const data = this.data()
+
+    if (this.dataFilter() !== "") {
+      const result = this.filterService.filterDataByInput(data, this.selectedValues(), this.dataFilter())
+
+      if (result[0].data.length > 0) {
+        this.firstListEntry.emit(result[0].data[0]["name"])
+      } else {
+        this.firstListEntry.emit("")
+      }
+
+      return result
+    }
+
+    if (this.sortColumn() && this.sortDirection()) {
+      return this.filterService.processAndOrderData(data, this.activeFilters(), this.columns(), this.selectedValues(), this.sortColumn(), this.sortDirection())
+    }
+
+    return this.filterService.filterDataAndGrouping(data, this.activeFilters(), this.columns(), this.selectedValues())
+  })
+
+  viewData = computed(() => {
+    const tableData = this.transformTableData(this.filteredAndSortedData())
+    return this.linkedListToArray(tableData)
+  })
+
+  currentFilterOptions = computed(() => {
+    const field = this.currentFilterField()
+    if (!field) return []
+
+    return this.columns()
+      .find(col => col.field === field)
+      ?.filterValues?.map(value => ({ value: value, label: value }))
+  })
+
+  currentFilterConfig = computed(() => {
+    return this.columns().find(col => col.field === this.currentFilterField())
+  })
+
+  gridTemplateColumnsSize = computed(() => {
+    return this.columns()
+      .map(col => {
+        switch (col.width) {
+          case "verysmall":
+            return "2.5em"
+          case "tinysmall":
+            return "4em"
+          case "small":
+            return this.isMobile() ? "4em" : "6em"
+          case "semimedium":
+            return "7em"
+          case "medium":
+            return "9em"
+          case "large":
+            return "15em"
+          case "fill":
+            return this.isMobile() ? "18em" : "1fr"
+          default:
+            return this.isMobile() ? "18em" : "auto"
+        }
+      })
+      .join(" ")
+      .concat(this.extraHeaderContent ? " auto" : " 1em")
+  })
+
+  arrowKeyTimesPressed = 0
+  arrowKeyTimeoutId: any
+  isComponentFocused = false
+  entryWasSelected = false
+
+  private initialScrollPerformed = false
+  private skipScrollAfterSelection = false
+  private lastScrolledValue: any = null
+
+  constructor() {
+    effect(() => {
+      if (this.dataFilter()) {
+        this.activeEntry.set(null)
+      }
+    })
+
+    effect(() => {
+      if (!this.haveFocus()) {
+        this.initialScrollPerformed = false
+        this.lastScrolledValue = null
+        this.activeEntry.set(null)
+      }
+    })
+
+    effect(() => {
+      const initial = this.initialValue()
+      const haveFocus = this.haveFocus()
+      const filter = this.dataFilter()
+
+      if (haveFocus && initial && filter === "") {
+        const data = this.viewData()
+        const index = data.findIndex(d => d.id === initial)
+
+        if (index !== -1) {
+          this.activeEntry.set(data[index])
+
+          const wasSelected = this.skipScrollAfterSelection
+          this.entryWasSelected = false
+          this.skipScrollAfterSelection = false
+          const shouldScroll = !wasSelected && (!this.initialScrollPerformed || this.lastScrolledValue !== initial)
+          this.initialScrollPerformed = true
+          this.lastScrolledValue = initial
+
+          if (shouldScroll) {
+            setTimeout(() => {
+              const viewport = this.scroll()
+              if (viewport) {
+                const itemSize = this.itemSize()
+                const viewportHeight = viewport.elementRef.nativeElement.clientHeight
+                const centerOffset = index * itemSize - viewportHeight / 2 + itemSize / 2
+                viewport.scrollToOffset(centerOffset, "instant")
+              }
+            }, 0)
+          }
+        }
+      }
+    })
+
+    effect(() => {
+      if (this.haveFocus() && this.dataFilter() !== "") {
+        setTimeout(() => {
+          this.scroll()?.scrollToOffset(0, "instant")
+        }, 0)
+      }
+    })
+
+    effect(() => {
+      const currentName = this.activeEntry()?.data?.["name"]
+      if (!currentName) return
+
+      const updated = this.viewData().find(e => e.data?.["name"] === currentName)
+      if (updated && updated.id !== this.activeEntry()?.id) {
+        this.activeEntry.set(updated)
+      }
+    })
+
+    effect(() => {
+      if (!this.isMobile()) return
+
+      const header = this.tableHeader()?.nativeElement
+      const viewport = this.scroll()?.elementRef.nativeElement
+      if (!header || !viewport) return
+
+      queueMicrotask(() => {
+        if (header.parentElement !== viewport) {
+          viewport.insertBefore(header, viewport.firstChild)
+        }
+
+        const contentWrapper = viewport.querySelector(".cdk-virtual-scroll-content-wrapper") as HTMLElement
+        if (contentWrapper) {
+          contentWrapper.style.marginTop = header.offsetHeight + "px"
+        }
+      })
+    })
+  }
+
+  ngAfterViewInit() {
+    const element = this.scroll()?.elementRef.nativeElement
+
+    if (element) {
+      element.addEventListener(
+        "scroll",
+        () => {
+          this.disableHoverTemporarily()
+        },
+        { passive: true }
+      )
+    }
+
+    document.addEventListener("mousemove", () => {
+      if (!this.isHoverEnabled()) {
+        this.isHoverEnabled.set(true)
+      }
+    })
+  }
+
+  disableHoverTemporarily() {
+    this.isHoverEnabled.set(false)
+  }
+
+  isArray(entry: LinkedTableData<T>, field: keyof T): boolean {
+    return entry.data ? Array.isArray(entry.data[field]) : false
+  }
+
+  @HostListener("window:keydown", ["$event"])
+  onKeyDown(event: KeyboardEvent) {
+    if (!this.haveFocus() && !this.isComponentFocused) return
+
+    switch (event.key) {
+      case "ArrowUp":
+        this.handleArrowUp()
+        event.preventDefault()
+        break
+
+      case "ArrowDown":
+        this.handleArrowDown()
+        event.preventDefault()
+        break
+
+      case "Enter":
+        this.handleEnter()
+        event.preventDefault()
+        break
+
+      default:
+        break
+    }
+  }
+
+  @HostListener("window:keyup", ["$event"])
+  handleKeyUp(event: KeyboardEvent) {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      clearTimeout(this.arrowKeyTimeoutId)
+
+      this.arrowKeyTimeoutId = setTimeout(() => {
+        this.arrowKeyTimesPressed = 0
+      }, 400)
+    }
+  }
+
+  @HostListener("document:keydown.escape", ["$event"])
+  onEscapeDown(event: Event) {
+    const keyboardEvent = event as KeyboardEvent
+
+    if (!this.haveFocus() && !this.isComponentFocused) return
+
+    this.escapeWasPressed.emit()
+    keyboardEvent.preventDefault()
+  }
+
+  onEntryMouseDown(event: MouseEvent, entry: LinkedTableData<T>) {
+    event.preventDefault()
+    this.selectEntry(entry)
+  }
+
+  selectEntry(entry: LinkedTableData<T>) {
+    this.entryWasSelected = true
+    this.skipScrollAfterSelection = this.dataFilter() === ""
+    this.isComponentFocused = true
+    this.activeEntry.set(entry)
+
+    if (entry.isSubRow) {
+      this.subRowSelected.emit(entry.subRowData)
+    } else {
+      this.entrySelected.emit(entry.data!["name"])
+    }
+  }
+
+  toggleSort(columnField: keyof T): void {
+    const currentColumn = this.sortColumn()
+    const currentDirection = this.sortDirection()
+
+    if (currentColumn !== columnField) {
+      this.sortColumn.set(columnField)
+      this.sortDirection.set("asc")
+    } else {
+      if (currentDirection === "asc") {
+        this.sortDirection.set("desc")
+      } else if (currentDirection === "desc") {
+        this.sortDirection.set(null)
+        this.sortColumn.set(null)
+      } else {
+        this.sortDirection.set("asc")
+      }
+    }
+  }
+
+  showFilterList(columnField: keyof T): void {
+    this.currentFilterField.set(columnField)
+    this.currentView.set("filterList")
+  }
+
+  applyFilter(value: any): void {
+    const field = this.currentFilterField()
+    const maxFilters = this.currentFilterConfig()?.maxFilters ?? 1
+
+    this.activeFilters.update(currentFilters => {
+      const otherFilters = currentFilters.filter(f => f.field !== String(field))
+      const fieldFilters = currentFilters.filter(f => f.field === String(field))
+
+      if (fieldFilters.some(f => f.value === value)) return currentFilters
+
+      const keptFilters = fieldFilters.slice(0, maxFilters - 1)
+
+      return [...otherFilters, ...keptFilters, { field: String(field), value: value }]
+    })
+
+    this.currentView.set("table")
+    this.activeEntry.set(null)
+  }
+
+  removeFilter(filterToRemove: ActiveFilter): void {
+    this.activeFilters.update(currentFilters => currentFilters.filter(f => !(f.field === filterToRemove.field && f.value === filterToRemove.value)))
+  }
+
+  backToTable(): void {
+    this.currentView.set("table")
+    this.currentFilterField.set(null)
+    this.activeEntry.set(null)
+  }
+
+  getCategoryIconPath(category: string): string {
+    const iconBase = "assets/icons"
+    switch (category) {
+      case "Physical":
+        return `${iconBase}/physical.png`
+      case "Special":
+        return `${iconBase}/special.png`
+      default:
+        return `${iconBase}/other.png`
+    }
+  }
+
+  headerCellAction(column: ColumnConfig<T>) {
+    if (column.sortable) {
+      this.toggleSort(column.field)
+    }
+
+    if (column.filterable) {
+      this.showFilterList(column.field)
+    }
+  }
+
+  hasResult(): boolean {
+    return this.viewData().find(d => d.group == null) != null
+  }
+
+  onFocus() {
+    this.isComponentFocused = true
+  }
+
+  onBlur() {
+    if (!this.entryWasSelected) {
+      this.isComponentFocused = false
+    }
+
+    this.entryWasSelected = false
+  }
+
+  panelStyle() {
+    if (!this.isMobile()) {
+      const expandedHeight = "630px"
+      const defaultHeight = this.activeFilters().length > 0 ? "22em" : "24em"
+
+      return {
+        height: this.expanded() ? expandedHeight : defaultHeight
+      }
+    }
+
+    return {
+      height: "100%"
+    }
+  }
+
+  getEntryClass(entry: LinkedTableData<T>): Record<string, boolean> {
+    return {
+      "entry-active": entry.id === this.activeEntry()?.id || entry.selected,
+      "disable-hover": !this.isHoverEnabled(),
+      "sub-row": !!entry.isSubRow
+    }
+  }
+
+  isEntryActive(entry: LinkedTableData<T>): boolean {
+    return entry.id === this.activeEntry()?.id
+  }
+
+  entryDataCy(entry: LinkedTableData<T>): string {
+    if (entry.isSubRow) return `table-entry-${entry.id}`
+
+    return `table-entry-${entry.data!["name"]}`
+  }
+
+  headerDataCy(column: ColumnConfig<T>): string {
+    return `table-header-${column.header}`
+  }
+
+  private handleArrowUp() {
+    this.arrowKeyTimesPressed++
+
+    if (this.activeEntry() == null) {
+      return
+    }
+
+    let newActiveEntry
+    const previous = this.activeEntry()?.prev
+
+    if (previous?.group != null) {
+      newActiveEntry = previous.prev == null ? this.activeEntry() : previous.prev
+    } else {
+      newActiveEntry = previous != null ? previous : this.activeEntry()
+    }
+
+    this.activeEntry.set(newActiveEntry)
+    this.scrollToActiveEntry(newActiveEntry!.id!)
+  }
+
+  private handleArrowDown() {
+    this.arrowKeyTimesPressed++
+
+    if (this.activeEntry() == null) {
+      const firstLine = this.viewData().find(d => d.group == null)!
+      this.activeEntry.set(firstLine)
+      return
+    }
+
+    let newActiveEntry
+    const next = this.activeEntry()?.next
+
+    if (next?.group != null) {
+      newActiveEntry = next.next == null ? this.activeEntry() : next.next
+    } else {
+      newActiveEntry = next != null ? next : this.activeEntry()
+    }
+
+    this.activeEntry.set(newActiveEntry)
+    this.scrollToActiveEntry(newActiveEntry!.id!)
+  }
+
+  private handleEnter() {
+    const active = this.activeEntry()
+    if (active == null) return
+
+    if (active.isSubRow) {
+      this.subRowSelected.emit(active.subRowData)
+    } else {
+      this.entrySelected.emit(active.data!["name"])
+    }
+  }
+
+  private scrollToActiveEntry(id: string) {
+    const targetRow = this.rows().find(row => {
+      const text = row.nativeElement.textContent?.trim()
+      return text.includes(id)
+    })
+
+    targetRow?.nativeElement.scrollIntoView({
+      behavior: this.arrowKeyTimesPressed > 1 ? "instant" : "smooth",
+      block: "nearest"
+    })
+  }
+
+  private transformTableData<T extends { name: string; active: boolean; selected: boolean; subRows?: any[] }>(tableDataList: TableData<T>[]): LinkedTableData<T> | null {
+    const nodes: LinkedTableData<T>[] = []
+
+    for (const tableData of tableDataList) {
+      if (tableData.group != "") {
+        nodes.push({
+          id: tableData.group,
+          group: tableData.group,
+          data: null,
+          active: false,
+          selected: false,
+          next: null,
+          prev: null
+        })
+      }
+
+      for (const entry of tableData.data) {
+        nodes.push({
+          id: entry.name,
+          group: null,
+          data: entry,
+          active: entry.active,
+          selected: entry.selected,
+          next: null,
+          prev: null
+        })
+
+        if (entry.subRows) {
+          for (const subRow of entry.subRows) {
+            nodes.push({
+              id: subRow.id,
+              group: null,
+              data: null,
+              active: false,
+              selected: false,
+              next: null,
+              prev: null,
+              isSubRow: true,
+              subRowData: subRow
+            })
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < nodes.length; i++) {
+      if (i > 0) nodes[i].prev = nodes[i - 1]
+      if (i < nodes.length - 1) nodes[i].next = nodes[i + 1]
+    }
+
+    return nodes.length > 0 ? nodes[0] : null
+  }
+
+  private linkedListToArray<T>(head: LinkedTableData<T> | null): LinkedTableData<T>[] {
+    const result: LinkedTableData<T>[] = []
+    let current = head
+    while (current) {
+      result.push({
+        id: current.id,
+        group: current.group,
+        data: current.data,
+        active: current.active,
+        selected: current.selected,
+        next: current.next ? current.next : null,
+        prev: current.prev ? current.prev : null,
+        isSubRow: current.isSubRow,
+        subRowData: current.subRowData
+      })
+      current = current.next
+    }
+    return result
+  }
+
+  trackById(_index: number, entry: LinkedTableData<any>): string {
+    return entry.id!
+  }
+}

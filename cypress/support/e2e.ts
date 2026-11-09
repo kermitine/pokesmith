@@ -1,0 +1,189 @@
+// ***********************************************************
+// This example support/e2e.ts is processed and
+// loaded automatically before your test files.
+//
+// This is a great place to put global configuration and
+// behavior that modifies Cypress.
+//
+// You can change the location of this file or turn off
+// automatically serving support files with the
+// 'supportFile' configuration option.
+//
+// You can read more here:
+// https://on.cypress.io/configuration
+// ***********************************************************
+
+// Import commands.js using ES2015 syntax:
+import "cypress-real-events"
+import "./commands"
+import { registerSmokeFilter } from "@cy-support/smoke"
+
+registerSmokeFilter()
+
+// Alternatively you can use CommonJS syntax:
+// require('./commands')
+
+export const poke: Record<string, string> = {}
+const pokeNames = [
+  "default-team",
+  "default-opponents",
+  "pokepaste",
+  "pokepaste-cts",
+  "pokepaste-forms-1",
+  "pokepaste-forms-2",
+  "pokepaste-forms-3",
+  "pokepaste-forms-4",
+  "pokepaste-forms-5",
+  "pokepaste-forms-6",
+  "terapagos",
+  "terapagos-stellar",
+  "terapagos-terastal",
+  "chi-yu",
+  "chi-yu-keep",
+  "chien-pao",
+  "wo-chien",
+  "vaporeon",
+  "tyranitar",
+  "baxcalibur",
+  "rillaboom",
+  "roaring-moon-high-atk",
+  "hatterene",
+  "talonflame",
+  "bronzong",
+  "brute-bonnet-high-def",
+  "brute-bonnet-high-spd",
+  "dondozo",
+  "dragonite",
+  "dragonite-dragon-claw",
+  "kingambit-life-orb",
+  "rhyperior",
+  "tornadus",
+  "ursaluna",
+  "aegislash",
+  "great-tusk-high-atk",
+  "great-tusk-high-def",
+  "flutter-mane",
+  "flutter-mane-high-spa",
+  "flutter-mane-high-spd",
+  "flutter-mane-high-spe",
+  "incineroar",
+  "incineroar-close-combat",
+  "archaludon-stamina",
+  "iron-treads-high-atk",
+  "iron-treads-high-def",
+  "iron-moth-high-spa",
+  "iron-moth-high-spd",
+  "iron-moth-high-spe",
+  "iron-thorns-high-atk",
+  "iron-thorns-high-def",
+  "kyogre",
+  "blaziken",
+  "sneasler",
+  "sneasler-best-effort",
+  "porygon2",
+  "basculegion",
+  "annihilape",
+  "floette-mega",
+  "floette-mega-best-effort",
+  "floette-mega-modest",
+  "ting-lu",
+  "ting-lu-speed",
+  "zacian",
+  "zacian-crowned",
+  "zamazenta",
+  "zamazenta-crowned",
+  "farigiraf",
+  "farigiraf-colbur-berry",
+  "farigiraf-sitrus-berry",
+  "farigiraf-quiet",
+  "ogerpon",
+  "ogerpon-cornerstone",
+  "ogerpon-hearthflame",
+  "ogerpon-wellspring",
+  "zangoose",
+  "jumpluff",
+  "kingdra",
+  "excadrill",
+  "excadrill-mega",
+  "beartic",
+  "raichu-alola",
+  "ninetales-alola",
+  "groudon",
+  "weezing-galar",
+  "weezing-galar-misty-surge",
+  "indeedee-f",
+  "miraidon",
+  "politoad",
+  "dragapult",
+  "dragapult-draco-meteor",
+  "urshifu-rapid-strike",
+  "morpeko",
+  "gourgeist-trick-or-treat",
+  "trevenant-forests-curse",
+  "garchomp-special-wall",
+  "milotic-ice-beam",
+  "kyogre-primal",
+  "groudon-primal",
+  "rayquaza-mega",
+  "amoonguss-success-chance",
+  "chien-pao-success-chance",
+  "chi-yu-success-chance",
+  "chien-pao-weak-success-chance",
+  "chi-yu-weak-success-chance",
+  "chien-pao-no-atk-success-chance",
+  "rillaboom-success-chance",
+  "iron-hands-success-chance",
+  "landorus-success-chance",
+  "grimmsnarl-success-chance",
+  "charizard-success-chance",
+  "garchomp-success-chance"
+]
+
+before(() => {
+  pokeNames.forEach(name => {
+    cy.fixture(`${name}-data`).then(data => {
+      poke[name] = data as string
+    })
+  })
+
+  if (Cypress.browser.family === "chromium" && Cypress.browser.name !== "electron") {
+    cy.wrap(
+      Cypress.automation("remote:debugger:protocol", {
+        command: "Browser.grantPermissions",
+        params: {
+          origin: "http://localhost:4200",
+          permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"]
+        }
+      }),
+      { log: false }
+    )
+  }
+})
+
+const nationalDexMode = {
+  teraType: true,
+  battery: true,
+  powerSpot: true,
+  tabletsOfRuin: true,
+  swordOfRuin: true,
+  vesselOfRuin: true,
+  beadsOfRuin: true,
+  neutralizingGas: true,
+  allowAllPokes: true,
+  allItems: true
+}
+
+export function visitApp() {
+  cy.visit("/", {
+    onBeforeLoad(win) {
+      win.localStorage.setItem("announcementBypass", "true")
+      win.localStorage.setItem("featureFlags", JSON.stringify(nationalDexMode))
+    }
+  })
+}
+
+beforeEach(() => {
+  if (Cypress.config("testIsolation") === false) return
+
+  visitApp()
+})

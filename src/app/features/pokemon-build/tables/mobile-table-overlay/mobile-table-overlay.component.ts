@@ -1,0 +1,62 @@
+import { Component, inject, input, output } from "@angular/core"
+import { AbilitiesTableComponent } from "@features/pokemon-build/tables/abilities-table/abilities-table.component"
+import { ItemsTableComponent } from "@features/pokemon-build/tables/items-table/items-table.component"
+import { MovesTableComponent } from "@features/pokemon-build/tables/moves-table/moves-table.component"
+import { PokemonTableComponent } from "@features/pokemon-build/tables/pokemon-table/pokemon-table.component"
+import { MatSlideToggle } from "@angular/material/slide-toggle"
+import { MatTooltip } from "@angular/material/tooltip"
+import { AbilitiesToggleService } from "@features/pokemon-build/tables/abilities-table/abilities-toggle.service"
+import { MobileTableOverlayService, TableSelectEvent } from "./mobile-table-overlay.service"
+import { CustomSet } from "@store/custom-set"
+import { PokemonSearchInputComponent } from "@shared/pokemon-search-input/pokemon-search-input.component"
+import { CloseTableButtonComponent } from "@shared/close-table-button/close-table-button.component"
+
+@Component({
+  selector: "app-mobile-table-overlay",
+  templateUrl: "./mobile-table-overlay.component.html",
+  styleUrl: "./mobile-table-overlay.component.scss",
+  imports: [PokemonTableComponent, MovesTableComponent, AbilitiesTableComponent, ItemsTableComponent, PokemonSearchInputComponent, CloseTableButtonComponent, MatSlideToggle, MatTooltip]
+})
+export class MobileTableOverlayComponent {
+  pokemonId = input<string>("")
+  moveIndex = input<number>(0)
+
+  tableSelect = output<TableSelectEvent>()
+  overlayClose = output<void>()
+  customSetEditRequested = output<CustomSet>()
+  customSetSelected = output<CustomSet>()
+
+  overlay = inject(MobileTableOverlayService)
+  abilitiesToggle = inject(AbilitiesToggleService)
+
+  onPokemonSelected(name: string) {
+    this.tableSelect.emit({ kind: "pokemon", value: name })
+  }
+
+  onMoveSelected(name: string) {
+    this.tableSelect.emit({ kind: "moves", value: name })
+  }
+
+  onAbilitySelected(name: string) {
+    this.tableSelect.emit({ kind: "abilities", value: name })
+  }
+
+  onItemSelected(name: string) {
+    this.tableSelect.emit({ kind: "items", value: name })
+  }
+
+  onCustomSetSelected(set: CustomSet) {
+    this.customSetSelected.emit(set)
+    this.close()
+  }
+
+  onCustomSetEditRequested(set: CustomSet) {
+    this.customSetEditRequested.emit(set)
+    this.close()
+  }
+
+  close() {
+    this.overlay.close()
+    this.overlayClose.emit()
+  }
+}

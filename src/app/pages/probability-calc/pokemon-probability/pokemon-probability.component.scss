@@ -1,0 +1,223 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+
+  app-pokemon-sprite {
+    --sprite-size: var(--sprite-xl);
+  }
+}
+
+:host(.mobile) {
+  height: auto;
+
+  app-pokemon-sprite {
+    --sprite-size: var(--sprite-lg);
+  }
+}
+
+:host ::ng-deep app-widget {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+:host(.mobile) ::ng-deep app-widget {
+  flex: none;
+}
+
+:host ::ng-deep app-widget > .container.elevation {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+:host(.mobile) ::ng-deep app-widget > .container.elevation {
+  height: auto;
+}
+
+:host ::ng-deep app-widget .header {
+  flex-shrink: 0;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 14em;
+  justify-content: space-between;
+  gap: var(--space-2xl);
+  align-items: flex-start;
+  margin-top: var(--space-lg);
+}
+
+:host(.mobile) .container {
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 0;
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
+.container:has(.empty-message) {
+  min-height: auto;
+  padding: var(--space-sm);
+}
+
+.empty-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: auto;
+  margin-top: 0;
+  padding: var(--space-lg) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xl);
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.question-icon {
+  width: 4em;
+  height: auto;
+}
+
+.pokemon-container {
+  display: flex;
+  flex-shrink: 0;
+  width: 140px;
+  min-width: 140px;
+}
+
+:host(.mobile) .pokemon-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.pokemon-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+
+  h3 {
+    margin: 0 0 var(--space-xs) 0;
+    font-size: var(--font-size-lg);
+  }
+
+  p {
+    margin: var(--space-xs) 0;
+    font-size: var(--font-size-sm);
+  }
+
+  .multi-hit {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--grid-line);
+
+    p {
+      line-height: 1.3;
+    }
+  }
+}
+
+:host(.mobile) .pokemon-header {
+  flex-direction: row;
+  align-items: center;
+}
+
+.probability-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: var(--space-lg);
+  background-color: var(--highlight);
+  padding: var(--space-lg);
+  box-sizing: border-box;
+}
+
+:host(.mobile) .probability-card {
+  width: 100%;
+  overflow-x: auto;
+  padding: var(--space-md) 0;
+  border-radius: 0;
+  flex: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) var(--surface-hover);
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--surface-hover);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: var(--radius-md);
+  }
+
+  .probability-row {
+    min-width: 100%;
+  }
+
+  .cell {
+    flex: 1 0 90px;
+    max-width: 130px;
+
+    &:first-child {
+      flex: 0 0 70px;
+      min-width: 70px;
+      text-align: center;
+    }
+  }
+}
+
+.title {
+  font-weight: 500;
+  font-size: var(--font-size-lg);
+}
+
+.probability-row {
+  display: flex;
+}
+
+.probability-row.header {
+  font-weight: 600;
+  border-bottom: 2px solid var(--grid-line);
+  padding-bottom: var(--space-xs);
+}
+
+.probability-row.header .cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.cell {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.header .cell {
+  line-height: 1.5;
+  text-align: center;
+}
+
+.mobile-moves {
+  margin: var(--space-xs) 0;
+  padding: 0;
+}

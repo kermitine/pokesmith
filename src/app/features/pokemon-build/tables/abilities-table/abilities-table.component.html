@@ -1,0 +1,20 @@
+<app-filterable-table
+  [data]="abilitiesData()"
+  [selectedValues]="actualAbility()"
+  [columns]="moveColumns"
+  [dataFilter]="dataFilter()"
+  [initialValue]="pokemon().ability.name"
+  [haveFocus]="haveFocus()"
+  [isMobile]="isMobile()"
+  [itemSize]="isMobile() ? 65 : 45"
+  (entrySelected)="abilitySelected.emit($event)"
+  (firstListEntry)="firstAbilityFromList.emit($event)"
+  (escapeWasPressed)="escapeWasPressed.emit()">
+  <ng-template #extraHeaderContent>
+    <span [matTooltip]="hasNonNativeAbility() ? 'Not available while a non-native ability is selected' : ''" [matTooltipShowDelay]="300">
+      <mat-slide-toggle class="all-abilities-toggle" [checked]="hasNonNativeAbility() || abilitiesToggle.showAllAbilities()" [disabled]="hasNonNativeAbility()" (change)="abilitiesToggle.toggleShowAllAbilities()" data-cy="all-abilities-toggle">
+        All Abilities
+      </mat-slide-toggle>
+    </span>
+  </ng-template>
+</app-filterable-table>

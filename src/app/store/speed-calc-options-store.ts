@@ -1,0 +1,225 @@
+import { computed, inject, Injectable } from "@angular/core"
+import { MOVESETS, Moveset } from "@data/moveset-data"
+import { availablePokemonIds } from "@configuration/available-pokemon"
+import { toID } from "@data/id"
+import { pokemonByRegulation } from "@pokemon-repository"
+import { CalcStore } from "./calc-store"
+import { SpeedCalcMode, SpeedCalcOptions, SpeedCalc, SPEED_CALC_MODES, SpeedFilterType } from "@multicalc/speed-calc"
+import { patchState, signalStore, withState } from "@ngrx/signals"
+import { Regulation } from "@multicalc/types"
+import { FeatureFlagsStore } from "@store/feature-flags-store"
+import { KeyValuePair } from "@shared/input-autocomplete/input-autocomplete.component"
+
+const REGULATION_FILTER_LABELS: Record<string, Regulation> = {
+  "Reg M-C": "MC"
+}
+
+const OPPONENTS_FILTER_LABEL = "Opponents"
+
+type SpeedCalcOptionsState = {
+  topUsage: string
+  filterType: SpeedFilterType
+  regulation: Regulation
+  teamId: string
+  showMyTeam: boolean
+  targetName: string
+  mode: SpeedCalcMode
+  speedModifier: number
+  speedDropActive: boolean
+  paralyzedActive: boolean
+  choiceScarfActive: boolean
+}
+
+const initialState: SpeedCalcOptionsState = {
+  topUsage: "60",
+  filterType: "regulation",
+  regulation: "MC",
+  teamId: "",
+  showMyTeam: true,
+  targetName: "",
+  mode: SpeedCalcMode.StatsAndMeta,
+  speedModifier: 0,
+  speedDropActive: false,
+  paralyzedActive: false,
+  choiceScarfActive: false
+}
+
+@Injectable({ providedIn: "root" })
+export class SpeedCalcOptionsStore extends signalStore({ protectedState: false }, withState(initialState)) {
+  private featureFlags = inject(FeatureFlagsStore)
+
+  private calcStore = inject(CalcStore)
+  private speedCalcService = new SpeedCalc()
+
+  constructor() {
+    super()
+
+    const initialMode = this.speedCalcService.hasStatisticsForRegulation(this.regulation()) ? SpeedCalcMode.StatsAndMeta : SpeedCalcMode.Stats
+
+    patchState(this, () => ({ mode: initialMode }))
+  }
+
+  readonly options = computed(
+    () =>
+      new SpeedCalcOptions({
+        topUsage: this.topUsage(),
+        filterType: this.filterType(),
+        regulation: this.regulation(),
+        teamId: this.teamId(),
+        showMyTeam: this.showMyTeam(),
+        targetName: this.targetName(),
+        mode: this.selectedMode(),
+        speedModifier: this.speedModifier(),
+        speedDropActive: this.speedDropActive(),
+        paralyzedActive: this.paralyzedActive(),
+        choiceScarfActive: this.choiceScarfActive(),
+        setdex: this.availableMovesets()
+      })
+  )
+
+  readonly filterOptions = computed((): KeyValuePair[] => {
+    const fixedOptions = [...Object.keys(REGULATION_FILTER_LABELS), OPPONENTS_FILTER_LABEL].map(label => ({ key: label, value: label }))
+    const teamOptions = this.calcStore
+      .teams()
+      .filter(t => !t.isEmpty())
+      .map(t => ({ key: t.name, value: t.id }))
+
+    return [...fixedOptions, ...teamOptions]
+  })
+
+  readonly selectedFilter = computed(() => {
+    if (this.filterType() === "opponents") return OPPONENTS_FILTER_LABEL
+
+    if (this.filterType() === "team") {
+      return this.calcStore.teams().some(t => t.id === this.teamId()) ? this.teamId() : OPPONENTS_FILTER_LABEL
+    }
+
+    return Object.keys(REGULATION_FILTER_LABELS).find(label => REGULATION_FILTER_LABELS[label] === this.regulation()) ?? "Reg M-C"
+  })
+
+  readonly showTopUsage = computed(() => this.filterType() === "regulation")
+
+  readonly topUsageDisabled = computed(() => !this.speedCalcService.hasUsageDataForRegulation(this.regulation()))
+
+  readonly regulationsList = computed(() => ["MC"])
+
+  readonly availableModes = computed(() => {
+    if (this.filterType() !== "regulation" || !this.speedCalcService.hasStatisticsForRegulation(this.regulation())) {
+      return SPEED_CALC_MODES.filter(m => m !== SpeedCalcMode.StatsAndMeta && m !== SpeedCalcMode.Meta)
+    }
+
+    return SPEED_CALC_MODES
+  })
+
+  readonly selectedMode = computed(() => (this.choiceScarfActive() ? SpeedCalcMode.Stats : this.mode()))
+
+  readonly modeDisabled = computed(() => this.choiceScarfActive())
+
+  readonly pokemonNamesByReg = computed(() => {
+    const names = this.filterType() === "regulation" ? this.regulationPokemonNames() : this.filteredPokemonNames()
+
+    return [...new Set(names)].sort()
+  })
+
+  private regulationPokemonNames(): string[] {
+    const includeAll = this.topUsage() === "All"
+
+    return pokemonByRegulation(this.regulation() as Regulation, undefined, this.availableMovesets(), includeAll).map(s => s.name)
+  }
+
+  private availableMovesets(): Record<string, Moveset> {
+    const availableIds = new Set(availablePokemonIds(this.featureFlags.allowAllPokes()))
+
+    return Object.fromEntries(Object.entries(MOVESETS).filter(([name]) => availableIds.has(toID(name))))
+  }
+
+  private filteredPokemonNames(): string[] {
+    if (this.filterType() === "opponents") {
+      return this.calcStore
+        .targets()
+        .flatMap(t => t.pokemons())
+        .map(p => p.name)
+    }
+
+    const team = this.calcStore.teams().find(t => t.id === this.teamId())
+
+    return team ? team.teamMembers.map(m => m.pokemon).map(p => p.name) : []
+  }
+
+  toggleIcyWind(enabled: boolean) {
+    const speedModifier = enabled ? -1 : 0
+    patchState(this, () => ({ speedModifier: speedModifier }))
+    patchState(this, () => ({ speedDropActive: enabled }))
+  }
+
+  toggleParalyze(enabled: boolean) {
+    patchState(this, () => ({ paralyzedActive: enabled }))
+  }
+
+  toggleChoiceScarf(enabled: boolean) {
+    patchState(this, () => ({ choiceScarfActive: enabled }))
+  }
+
+  updateSpeedModifier(speedModifier: number) {
+    patchState(this, () => ({ speedModifier }))
+  }
+
+  updateFilter(filter: string) {
+    if (filter === OPPONENTS_FILTER_LABEL) {
+      patchState(this, () => ({ filterType: "opponents" as SpeedFilterType, ...this.modeFallback() }))
+      this.clearTargetName()
+      return
+    }
+
+    const regulation = REGULATION_FILTER_LABELS[filter]
+
+    if (regulation) {
+      this.updateRegulation(regulation)
+      return
+    }
+
+    const team = this.calcStore.teams().find(t => t.id === filter)
+
+    if (team) {
+      patchState(this, () => ({ filterType: "team" as SpeedFilterType, teamId: team.id, ...this.modeFallback() }))
+      this.clearTargetName()
+    }
+  }
+
+  private modeFallback() {
+    const currentModeNeedsStatistics = this.mode() === SpeedCalcMode.StatsAndMeta || this.mode() === SpeedCalcMode.Meta
+    return currentModeNeedsStatistics ? { mode: SpeedCalcMode.Stats } : {}
+  }
+
+  updateRegulation(regulation: Regulation) {
+    const hasStatistics = this.speedCalcService.hasStatisticsForRegulation(regulation)
+    const currentModeNeedsStatistics = this.mode() === SpeedCalcMode.StatsAndMeta || this.mode() === SpeedCalcMode.Meta
+
+    const mode = hasStatistics ? SpeedCalcMode.StatsAndMeta : currentModeNeedsStatistics ? SpeedCalcMode.Stats : undefined
+
+    patchState(this, () => ({ filterType: "regulation" as SpeedFilterType, regulation, ...(mode ? { mode } : {}) }))
+    this.clearTargetName()
+  }
+
+  toggleShowMyTeam(enabled: boolean) {
+    patchState(this, () => ({ showMyTeam: enabled }))
+  }
+
+  updateTopUsage(topUsage: string) {
+    patchState(this, () => ({ topUsage }))
+    this.clearTargetName()
+  }
+
+  updateMode(mode: string) {
+    patchState(this, () => ({ mode: mode as SpeedCalcMode }))
+    this.clearTargetName()
+  }
+
+  updateTargetName(targetName: string) {
+    patchState(this, () => ({ targetName }))
+  }
+
+  clearTargetName() {
+    this.updateTargetName("")
+  }
+}

@@ -1,0 +1,32 @@
+@if (pokemon().ability.actionableAbility) {
+  <div class="check">
+    <mat-checkbox [ngModel]="pokemon().abilityActive" (change)="toggleAbility($event)" [disabled]="abilityCheckDisabled()" data-cy="activate-ability" aria-label="Activate ability" />
+  </div>
+}
+
+<app-tatsugiri-button [pokemonId]="pokemon().id" />
+<app-form-toggle-button [pokemonId]="pokemon().id" [forms]="palafinForms" dataCy="palafin-form-toggle" />
+<app-form-toggle-button [pokemonId]="pokemon().id" [forms]="aegislashForms" dataCy="aegislash-form-toggle" />
+<app-form-toggle-button [pokemonId]="pokemon().id" [forms]="morpekoForms" dataCy="morpeko-form-toggle" />
+
+@if (isMobile()) {
+  <div class="ability-mobile-trigger" (click)="openAbilityTableRequested.emit()">
+    <app-input-select class="input-select" label="Ability" [value]="pokemon().ability.name" [allValues]="availableAbilities()" data-cy="ability" />
+  </div>
+} @else {
+  <app-input
+    #abilityInput
+    class="input-select"
+    label="Ability"
+    [value]="pokemon().ability.name"
+    [haveFocus]="haveFocus()"
+    [tabIndex]="tabIndex()"
+    (valueChange)="valueChange.emit($event)"
+    (selected)="selected.emit()"
+    (lostFocus)="lostFocus.emit($event)"
+    data-cy="ability" />
+}
+
+@if (pokemon().isParadoxAbility && pokemon().ability.on) {
+  <app-input-select class="stat-select" label="+Stat" [value]="pokemon().higherStat" [allValues]="stats" (valueChange)="onHigherStatValueChange($event)" data-cy="paradox-stat-select" />
+}

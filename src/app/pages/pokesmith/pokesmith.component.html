@@ -1,0 +1,397 @@
+<div class="smith-app">
+  <header class="topbar">
+    <a class="brand" routerLink="/" aria-label="Pokesmith home"
+      ><span class="brand-mark" aria-hidden="true">P<span>✦</span></span
+      ><span>poké<span class="brand-light">smith</span><small>YOUR VGC WORKBENCH</small></span></a
+    >
+    <nav aria-label="Main navigation">
+      <a class="active" routerLink="/">Team analyzer</a><a routerLink="/one-vs-one">Damage calculator <span aria-hidden="true">↗</span></a>
+    </nav>
+    <span class="local-pill"><span></span> Teams stay on this device</span>
+  </header>
+
+  <main class="workbench">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">KNOW YOUR TEAM. FIND YOUR EDGE.</p>
+        <h1>Every matchup,<br /><span>at a glance.</span></h1>
+        <p class="lede">
+          Bring your Showdown team. Discover what you resist,<br class="desktop-break" />
+          where you’re vulnerable, and what your moves can hit.
+        </p>
+      </div>
+      <div class="intro-art" aria-hidden="true">
+        <div class="orbit"></div>
+        <img [src]="sprite('Scizor')" alt="" /><span class="art-note"><i></i> BUILT FOR TEAM PREP</span>
+      </div>
+    </section>
+
+    <div class="workspace-grid">
+      <aside class="import-panel panel">
+        <div class="panel-heading">
+          <span class="step">01</span>
+          <h2>Your team</h2>
+          <span class="count">{{ team().length }}/6</span>
+        </div>
+        <p class="muted">Showdown → Teambuilder → Import/Export</p>
+        <label class="field-label" for="team-paste">Paste your team</label>
+        <textarea id="team-paste" [(ngModel)]="pasteText" spellcheck="false" placeholder="Incineroar @ Safety Goggles&#10;Ability: Intimidate&#10;Tera Type: Grass&#10;- Fake Out&#10;- Flare Blitz&#10;- Knock Off&#10;- Parting Shot"></textarea>
+        @if (error()) {
+          <p class="error-message" role="alert">{{ error() }}</p>
+        }
+        <button class="primary-button" (click)="analyze()">Analyze team <span aria-hidden="true">↗</span></button>
+        <div class="import-actions"><button class="text-button" (click)="example()">Load example team</button><button class="text-button subtle" (click)="clear()">Clear</button></div>
+        <div class="divider"></div>
+        <div class="side-note">
+          <span aria-hidden="true">⌘</span>
+          <p>Nicknames, forms, abilities, items, Tera types, and moves are recognized. EVs and IVs can stay in your paste.</p>
+        </div>
+        <div class="side-note">
+          <span aria-hidden="true">◈</span>
+          <p>Typing analysis uses the imported roster. It doesn’t validate regulation legality.</p>
+        </div>
+        @if (team().length) {
+          <p class="save-note" role="status">{{ notice() }}</p>
+        }
+      </aside>
+
+      <section class="analysis-area" aria-label="Team analysis">
+        @if (!team().length) {
+          <div class="empty-state panel">
+            <span class="empty-symbol" aria-hidden="true">✦</span>
+            <p class="eyebrow">YOUR NEXT GOOD DECISION STARTS HERE</p>
+            <h2>Meet your team’s<br />strengths and blind spots.</h2>
+            <p>Paste up to six Pokémon to get a complete defensive overview and coverage from the moves they actually know.</p>
+            <button class="secondary-button" (click)="example()">Explore an example team <span aria-hidden="true">→</span></button>
+            <div class="empty-features">
+              <span><i class="green-dot"></i> Resistances</span><span><i class="red-dot"></i> Weaknesses</span><span><i class="purple-dot"></i> Immunities</span><span><i class="gold-dot"></i> Move coverage</span>
+            </div>
+          </div>
+        } @else {
+          <div class="team-strip" aria-label="Select a Pokémon">
+            @for (member of team(); track $index; let index = $index) {
+              <button class="team-slot" [class.selected]="selected() === index" [attr.aria-pressed]="selected() === index" (click)="select(index)">
+                <img [src]="sprite(member.species)" alt="" (error)="$any($event.target).style.visibility = 'hidden'" /><strong>{{ member.species }}</strong
+                ><span>
+                  @for (type of effectiveTypes(member, teraIndex() === index); track type) {
+                    <i [class]="badge(type)">{{ type }}</i>
+                  }
+                </span>
+              </button>
+            }
+          </div>
+          <div class="analysis-toolbar">
+            <div class="tabs" role="tablist" aria-label="Analysis views">
+              <button role="tab" [attr.aria-selected]="tab() === 'overview'" [class.active]="tab() === 'overview'" (click)="showTab('overview')">Overview</button
+              ><button role="tab" [attr.aria-selected]="tab() === 'coverage'" [class.active]="tab() === 'coverage'" (click)="showTab('coverage')">Move coverage</button
+              ><button role="tab" [attr.aria-selected]="tab() === 'opponents'" [class.active]="tab() === 'opponents'" (click)="showTab('opponents')">Opponents</button>
+            </div>
+            <label class="weather-label"
+              >Weather<select aria-label="Weather for move coverage" [ngModel]="weather()" (ngModelChange)="weather.set($event)">
+                <option value="">None</option>
+                <option>Sun</option>
+                <option>Rain</option>
+                <option>Snow</option>
+                <option>Sand</option>
+              </select></label
+            >
+          </div>
+
+          @if (current(); as pokemon) {
+            <section class="member-panel panel">
+              <div class="member-heading">
+                <div>
+                  <p class="eyebrow">{{ tab() === "coverage" ? "OFFENSIVE PROFILE" : tab() === "opponents" ? "MATCHUP SCOUTING" : "DEFENSIVE PROFILE" }}</p>
+                  <h2>{{ pokemon.species }}</h2>
+                  <p class="member-meta">{{ pokemon.ability || "Ability unspecified" }} <span>·</span> {{ pokemon.item || "No item" }}</p>
+                </div>
+                @if (pokemon.teraType) {
+                  <button class="tera-button" [class.enabled]="teraIndex() === selected()" [attr.aria-pressed]="teraIndex() === selected()" (click)="toggleTera()">
+                    <span aria-hidden="true">✧</span> Tera {{ pokemon.teraType }} <small>{{ teraIndex() === selected() ? "ON" : "PREVIEW" }}</small>
+                  </button>
+                }
+              </div>
+              @if (tab() === "overview") {
+                <div class="matchup-groups">
+                  <div class="matchup-group resistance">
+                    <div class="group-title">
+                      <h3><span aria-hidden="true">↘</span> Resists</h3>
+                      <span>{{ resistances().length }}</span>
+                    </div>
+                    <div class="badges">
+                      @for (entry of resistances(); track entry.type) {
+                        <span class="matchup-badge"
+                          ><i [class]="badge(entry.type)">{{ entry.type }}</i
+                          ><b>{{ label(entry.multiplier) }}</b></span
+                        >
+                      } @empty {
+                        <span class="muted">No resistances</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="matchup-group weakness">
+                    <div class="group-title">
+                      <h3><span aria-hidden="true">↗</span> Weak to</h3>
+                      <span>{{ weaknesses().length }}</span>
+                    </div>
+                    <div class="badges">
+                      @for (entry of weaknesses(); track entry.type) {
+                        <span class="matchup-badge"
+                          ><i [class]="badge(entry.type)">{{ entry.type }}</i
+                          ><b>{{ label(entry.multiplier) }}</b></span
+                        >
+                      } @empty {
+                        <span class="muted">No weaknesses</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="matchup-group immunity">
+                    <div class="group-title">
+                      <h3><span aria-hidden="true">◇</span> Immune to</h3>
+                      <span>{{ immunities().length }}</span>
+                    </div>
+                    <div class="badges">
+                      @for (entry of immunities(); track entry.type) {
+                        <span class="matchup-badge"
+                          ><i [class]="badge(entry.type)">{{ entry.type }}</i
+                          ><b>0×</b></span
+                        >
+                      } @empty {
+                        <span class="muted">No immunities</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <p class="fineprint">Includes known defensive abilities and intact Air Balloon. Neutral matchups are omitted. Opposing ability bypasses and battle conditions can change these results.</p>
+                <div class="coverage-teaser">
+                  <div>
+                    <h3>Your super-effective reach</h3>
+                    <p>From this Pokémon’s damaging moves</p>
+                  </div>
+                  <div class="badges">
+                    @for (type of coveredTypes(); track type) {
+                      <i [class]="badge(type)">{{ type }}</i>
+                    } @empty {
+                      <span class="muted">No super-effective coverage</span>
+                    }
+                  </div>
+                  <button class="text-button" (click)="showTab('coverage')">Explore moves <span aria-hidden="true">→</span></button>
+                </div>
+              }
+              @if (tab() === "coverage") {
+                <p class="section-help">Super-effective types for each imported move. Dual-type targets are listed below.</p>
+                <div class="move-list">
+                  @for (move of moves(); track move.name) {
+                    <div class="move-row">
+                      <div>
+                        <strong>{{ move.name }}</strong
+                        ><span class="move-category"
+                          ><i [class]="badge(move.type)">{{ move.type }}</i> {{ move.category }}</span
+                        >
+                      </div>
+                      <div class="badges">
+                        @for (type of move.targets; track type) {
+                          <i [class]="badge(type)">{{ type }}</i>
+                        } @empty {
+                          <span class="muted">{{ move.note || "No super-effective type matchups" }}</span>
+                        }
+                      </div>
+                    </div>
+                  } @empty {
+                    <p class="muted">Import a moveset to see offensive coverage.</p>
+                  }
+                </div>
+                <div class="target-heading">
+                  <div>
+                    <h3>Pokémon you can hit super effectively</h3>
+                    <p>{{ targets().length }} species and forms · natural typing</p>
+                  </div>
+                  <input type="search" aria-label="Search covered Pokémon" placeholder="Find a Pokémon…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+                </div>
+                <p class="fineprint">Species coverage uses natural typing without unknown abilities or items. Enter an opponent in the Opponents tab to include its known ability. Super-effective does not mean a knockout.</p>
+                <div class="target-grid">
+                  @for (target of filteredTargets(); track target.name) {
+                    <div class="target-card">
+                      <img [src]="sprite(target.name)" alt="" loading="lazy" (error)="$any($event.target).style.visibility = 'hidden'" />
+                      <div>
+                        <strong>{{ target.name }}</strong
+                        ><small>
+                          @for (move of target.moves; track move.name) {
+                            <span
+                              >{{ move.name }} <b>{{ label(move.multiplier) }}</b></span
+                            >
+                          }
+                        </small>
+                      </div>
+                    </div>
+                  } @empty {
+                    <p class="muted">No matching Pokémon.</p>
+                  }
+                </div>
+                @if (targets().length > 48) {
+                  <p class="fineprint">Showing up to 48 results. Search to find any covered species or form.</p>
+                }
+              }
+              @if (tab() === "opponents") {
+                <p class="section-help">Type enemy names separated by commas, or paste their Showdown sets. Known moves and abilities give better comparisons.</p>
+                <label class="field-label" for="opponent-input">Opponent Pokémon or team paste</label
+                ><textarea class="opponent-input" id="opponent-input" [(ngModel)]="enemyText" placeholder="Garchomp, Rotom-Wash&#10;or paste a full opposing team"></textarea
+                ><button class="secondary-button" (click)="importEnemies()">Compare opponents <span aria-hidden="true">→</span></button>
+                @if (enemyError()) {
+                  <p class="error-message" role="alert">{{ enemyError() }}</p>
+                }
+                <div class="usage-controls">
+                  <label
+                    >Usage format<select aria-label="Usage format" [ngModel]="selectedFormat()" (ngModelChange)="changeFormat($event)">
+                      @for (format of formats(); track format.code) {
+                        <option [value]="format.code">{{ format.name }}</option>
+                      } @empty {
+                        <option value="">Manual entry available</option>
+                      }
+                    </select></label
+                  ><label
+                    >Rating<select aria-label="Usage rating" [ngModel]="rating()" (ngModelChange)="changeRating($event)">
+                      @for (value of activeRatings(); track value) {
+                        <option [value]="value">{{ value }}</option>
+                      }
+                    </select></label
+                  >
+                </div>
+                @if (usageError()) {
+                  <p class="error-message" role="status">{{ usageError() }}</p>
+                }
+                @for (enemy of enemies(); track $index; let index = $index) {
+                  <article class="enemy-card">
+                    <div class="enemy-heading">
+                      <img [src]="sprite(enemy.species)" alt="" />
+                      <div>
+                        <h3>{{ enemy.species }}</h3>
+                        <small>{{ enemy.estimated ? "Estimated components · editable" : "Manually supplied set" }}</small>
+                      </div>
+                      <button class="text-button" [disabled]="usageLoading().includes(enemy.species)" (click)="estimate(index)">{{ usageLoading().includes(enemy.species) ? "Loading…" : "Estimate common moves" }}</button>
+                    </div>
+                    <div class="enemy-fields">
+                      <label
+                        >Ability<select [attr.aria-label]="enemy.species + ' ability'" [ngModel]="enemy.ability" (ngModelChange)="editEnemy(index, 'ability', $event)">
+                          <option value="">Unknown</option>
+                          @for (ability of abilities(enemy.species); track ability) {
+                            <option>{{ ability }}</option>
+                          }
+                        </select></label
+                      ><label
+                        >Moves, separated by commas<input [attr.aria-label]="enemy.species + ' moves'" [ngModel]="enemy.moves.join(', ')" (change)="editEnemy(index, 'moves', $any($event.target).value)" placeholder="Earthquake, Rock Slide, Protect"
+                      /></label>
+                    </div>
+                    @if (usage()[enemy.species]; as stats) {
+                      <div class="usage-moves">
+                        @for (move of stats.moves.slice(0, 6); track move.name) {
+                          <span
+                            >{{ move.name }} <b>{{ move.percent.toFixed(1) }}%</b></span
+                          >
+                        }
+                      </div>
+                      <p class="fineprint">MunchStats · {{ stats.month }} · rating {{ stats.rating }}. Percentages describe moves carried, not this turn’s action. Components are independent frequencies, not an observed complete set.</p>
+                    }
+                    <div class="enemy-coverage">
+                      <strong>{{ pokemon.species }} can hit with:</strong>
+                      @for (move of bestAgainst(enemy); track move.name) {
+                        <span class="positive-chip">{{ move.name }} {{ label(move.value) }}</span>
+                      } @empty {
+                        <span class="muted">No known super-effective move</span>
+                      }
+                    </div>
+                  </article>
+                }
+                @if (enemies().length) {
+                  <section class="fit-section">
+                    <h3>Defensive fits against these moves</h3>
+                    <p class="fineprint">Type-based screening, not a survival calculation. All entered opponents are considered. HP, damage, targeting, status, and turn order are not modeled here.</p>
+                    <div class="availability">
+                      @for (member of team(); track $index; let index = $index) {
+                        <label><input type="checkbox" [checked]="!excluded().includes(index)" (change)="toggleExcluded(index)" />{{ member.species }}</label>
+                      }
+                    </div>
+                    <p class="fineprint">Uncheck Pokémon already on the field, fainted, or not brought.</p>
+                    @for (fit of fits(); track $index; let rank = $index) {
+                      <div class="fit-row">
+                        <span class="fit-rank">{{ rank + 1 }}</span
+                        ><strong>{{ fit.set.species }}</strong
+                        ><span [class]="'fit-result ' + cellClass(fit.worst)">{{ fit.worst === Infinity ? "No damaging moves" : "Worst matchup: " + label(fit.worst) }}</span
+                        ><small>
+                          @for (check of fit.checks.slice(0, 4); track $index) {
+                            <span>{{ check.species }} ? {{ check.move }} {{ label(check.multiplier) }}</span>
+                          }
+                          {{ fit.unknown ? "Some opposing moves are unknown." : "Based on entered damaging moves." }}</small
+                        >
+                      </div>
+                    }
+                  </section>
+                }
+              }
+              @for (note of pokemon.notes; track note) {
+                <p class="fineprint note">{{ note }}</p>
+              }
+            </section>
+          }
+
+          @if (tab() === "overview") {
+            <section class="matrix-panel panel">
+              <div class="matrix-heading">
+                <div>
+                  <p class="eyebrow">THE BIG PICTURE</p>
+                  <h2>Your team’s defensive map</h2>
+                </div>
+                <div class="legend">
+                  <span><i class="green-dot"></i> Resist</span><span><i class="red-dot"></i> Weak</span><span><i class="purple-dot"></i> Immune</span>
+                </div>
+              </div>
+              <div class="table-scroll" tabindex="0" aria-label="Scrollable team matchup table">
+                <table>
+                  <caption class="sr-only">
+                    Incoming type matchups for each team member
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">ATTACK TYPE</th>
+                      @for (member of team(); track $index) {
+                        <th scope="col">{{ member.species }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (type of types; track type) {
+                      <tr>
+                        <th scope="row">
+                          <i [class]="badge(type)">{{ type }}</i>
+                        </th>
+                        @for (member of team(); track $index; let index = $index) {
+                          <td [class]="cellClass(valueAt(index, type).multiplier)">{{ label(valueAt(index, type).multiplier) }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (gaps().length) {
+                <div class="gap-note">
+                  <strong>Worth a closer look</strong>
+                  <p>
+                    @for (gap of gaps(); track gap.type) {
+                      <span>{{ gap.type }}: {{ gap.weak }} weak, no resistance or immunity. </span>
+                    }
+                  </p>
+                </div>
+              } @else {
+                <p class="fineprint matrix-note">Every type weakness has at least one resistance or immunity elsewhere on your team.</p>
+              }
+            </section>
+          }
+        }
+      </section>
+    </div>
+    <footer>
+      <span>pokésmith <span aria-hidden="true">✦</span> A little preparation goes a long way.</span
+      ><span>Built on <a href="https://github.com/robsonbittencourt/vgc-multicalc" target="_blank" rel="noopener">VGC Multi Calc</a> · <a href="https://github.com/kermitine/pokesmith" target="_blank" rel="noopener">Source & attribution</a></span>
+    </footer>
+  </main>
+</div>

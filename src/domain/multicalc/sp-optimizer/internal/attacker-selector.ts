@@ -1,0 +1,226 @@
+import { MAX_SPS_PER_STAT } from "@multicalc/utils"
+import { Field } from "@multicalc/model/field"
+import { Pokemon } from "@multicalc/model/pokemon"
+import { Target } from "@multicalc/model/target"
+import { SurvivalThreshold } from "@multicalc/sp-optimizer/internal/sp-optimizer-types"
+import { Category } from "@multicalc/model/move"
+import { SurvivalChecker } from "./survival-checker"
+import { DamageCalc } from "@multicalc/damage-calc/damage-calc"
+
+export type AttackerPriorityResult = {
+  natureUsed: string | null
+  physical: SurvivalAnalysis
+  special: SurvivalAnalysis
+}
+
+type SurvivalAnalysis = {
+  survivableAttackers: Pokemon[]
+  impossibleAttackers: Pokemon[]
+  strongestAttacker: Pokemon | null
+  maxDamage: number
+}
+
+type NatureScenario = {
+  nature: string | null
+  physical: SurvivalAnalysis
+  special: SurvivalAnalysis
+}
+
+export class AttackerSelector {
+  constructor(
+    private survivalChecker: SurvivalChecker,
+    private damageCalc: DamageCalc
+  ) {}
+
+  getPhysicalAttackers(attackers: Pokemon[]): Pokemon[] {
+    return this.getAttackersByCategory(attackers, "Physical")
+  }
+
+  getSpecialAttackers(attackers: Pokemon[]): Pokemon[] {
+    return this.getAttackersByCategory(attackers, "Special")
+  }
+
+  private getAttackersByCategory(attackers: Pokemon[], category: Category): Pokemon[] {
+    return attackers.filter(attacker => {
+      return attacker.moveSet.activeMove.category === category
+    })
+  }
+
+  determinePriority(physicalAttackers: Pokemon[], specialAttackers: Pokemon[], defender: Pokemon, field: Field, updateNature: boolean, threshold: SurvivalThreshold, rollIndex: number, rightIsDefender: boolean): AttackerPriorityResult {
+    const defenderWithNoSp = defender.clone({ sps: { hp: 0, def: 0, spd: 0 } })
+    const defenderWithMaxPhysical = defender.clone({ sps: { hp: MAX_SPS_PER_STAT, def: MAX_SPS_PER_STAT, spd: 0 } })
+    const defenderWithMaxSpecial = defender.clone({ sps: { hp: MAX_SPS_PER_STAT, def: 0, spd: MAX_SPS_PER_STAT } })
+
+    const physicalAnalysis = this.analyzeSurvival(physicalAttackers, defenderWithNoSp, defenderWithMaxPhysical, field, true, threshold, rollIndex, rightIsDefender)
+    const specialAnalysis = this.analyzeSurvival(specialAttackers, defenderWithNoSp, defenderWithMaxSpecial, field, true, threshold, rollIndex, rightIsDefender)
+
+    let bestScenario: NatureScenario = {
+      nature: null,
+      physical: physicalAnalysis,
+      special: specialAnalysis
+    }
+
+    if (updateNature) {
+      const { defNature, spdNature } = this.getDefensiveNatures(defender)
+
+      const defenderDefMaxPhysical = defender.clone({ nature: defNature, sps: { hp: MAX_SPS_PER_STAT, def: MAX_SPS_PER_STAT, spd: 0 } })
+      const defenderDefMaxSpecial = defender.clone({ nature: defNature, sps: { hp: MAX_SPS_PER_STAT, def: 0, spd: MAX_SPS_PER_STAT } })
+
+      const defNaturePhysicalAnalysis = this.analyzeSurvival(physicalAttackers, null, defenderDefMaxPhysical, field, false, threshold, rollIndex, rightIsDefender)
+      const defNatureSpecialAnalysis = this.analyzeSurvival(specialAttackers, null, defenderDefMaxSpecial, field, false, threshold, rollIndex, rightIsDefender)
+
+      const defScenario: NatureScenario = {
+        nature: defNature,
+        physical: defNaturePhysicalAnalysis,
+        special: defNatureSpecialAnalysis
+      }
+
+      const defenderSpdMaxPhysical = defender.clone({ nature: spdNature, sps: { hp: MAX_SPS_PER_STAT, def: MAX_SPS_PER_STAT, spd: 0 } })
+      const defenderSpdMaxSpecial = defender.clone({ nature: spdNature, sps: { hp: MAX_SPS_PER_STAT, def: 0, spd: MAX_SPS_PER_STAT } })
+
+      const spdNaturePhysicalAnalysis = this.analyzeSurvival(physicalAttackers, null, defenderSpdMaxPhysical, field, false, threshold, rollIndex, rightIsDefender)
+      const spdNatureSpecialAnalysis = this.analyzeSurvival(specialAttackers, null, defenderSpdMaxSpecial, field, false, threshold, rollIndex, rightIsDefender)
+
+      const spdScenario: NatureScenario = {
+        nature: spdNature,
+        physical: spdNaturePhysicalAnalysis,
+        special: spdNatureSpecialAnalysis
+      }
+
+      bestScenario = this.selectBestScenario(bestScenario, defScenario, spdScenario, physicalAttackers.length, specialAttackers.length, defender.nature)
+    }
+
+    return {
+      natureUsed: bestScenario.nature,
+      physical: bestScenario.physical,
+      special: bestScenario.special
+    }
+  }
+
+  private analyzeSurvival(attackers: Pokemon[], defenderMin: Pokemon | null, defenderMax: Pokemon, field: Field, checkMin: boolean, threshold: SurvivalThreshold, rollIndex: number, rightIsDefender: boolean): SurvivalAnalysis {
+    let strongestAttacker: Pokemon | null = null
+    let maxDamage = 0
+    const survivableAttackers: Pokemon[] = []
+    const impossibleAttackers: Pokemon[] = []
+
+    for (const attacker of attackers) {
+      let survives: boolean
+      let survivesWithMax: boolean
+
+      if (checkMin && defenderMin) {
+        const survivesWithMin = this.survivalChecker.checkSurvival(attacker, defenderMin, field, threshold, rollIndex, rightIsDefender)
+        survivesWithMax = this.survivalChecker.checkSurvival(attacker, defenderMax, field, threshold, rollIndex, rightIsDefender)
+        survives = !survivesWithMin && survivesWithMax
+      } else {
+        survivesWithMax = this.survivalChecker.checkSurvival(attacker, defenderMax, field, threshold, rollIndex, rightIsDefender)
+        survives = survivesWithMax
+      }
+
+      if (survives) {
+        survivableAttackers.push(attacker)
+      } else if (!survivesWithMax) {
+        impossibleAttackers.push(attacker)
+      }
+
+      const damage = this.damageCalc.calculateResult(attacker, defenderMax, attacker.move, field, rightIsDefender).damageWithRemainingUntilTurn(1, rollIndex)
+
+      if (survivesWithMax && damage < defenderMax.hp && damage > maxDamage) {
+        maxDamage = damage
+        strongestAttacker = attacker
+      }
+    }
+
+    return { strongestAttacker, maxDamage, survivableAttackers, impossibleAttackers }
+  }
+
+  private selectBestScenario(current: NatureScenario, def: NatureScenario, spd: NatureScenario, physicalCount: number, specialCount: number, currentNature: string): NatureScenario {
+    const currentTotal = this.getTotalSurviving(current)
+    const defTotal = this.getTotalSurviving(def)
+    const spdTotal = this.getTotalSurviving(spd)
+    const maxSurviving = Math.max(currentTotal, defTotal, spdTotal)
+
+    if (maxSurviving === 0) {
+      return { ...current, nature: currentNature }
+    }
+
+    if (defTotal === maxSurviving && spdTotal === maxSurviving) {
+      const defMaxDamage = Math.max(def.physical.maxDamage, def.special.maxDamage)
+      const spdMaxDamage = Math.max(spd.physical.maxDamage, spd.special.maxDamage)
+
+      if (spdMaxDamage < defMaxDamage) {
+        return spd
+      } else if (defMaxDamage < spdMaxDamage) {
+        return def
+      } else {
+        const hasPhysicalAttackers = physicalCount > 0
+        const hasSpecialAttackers = specialCount > 0
+
+        if (!hasPhysicalAttackers && hasSpecialAttackers) {
+          return spd
+        } else if (hasPhysicalAttackers && !hasSpecialAttackers) {
+          return def
+        }
+
+        return spd.special.survivableAttackers.length > def.physical.survivableAttackers.length ? spd : def
+      }
+    } else if (defTotal === maxSurviving && defTotal >= currentTotal) {
+      return def
+    }
+
+    return spd
+  }
+
+  private getTotalSurviving(scenario: NatureScenario): number {
+    return scenario.physical.survivableAttackers.length + scenario.special.survivableAttackers.length
+  }
+
+  defensiveNatures(defender: Pokemon): { defNature: string; spdNature: string } {
+    return this.getDefensiveNatures(defender)
+  }
+
+  private getDefensiveNatures(defender: Pokemon): { defNature: string; spdNature: string } {
+    const moves = [defender.moveSet.move1, defender.moveSet.move2, defender.moveSet.move3, defender.moveSet.move4]
+
+    const physicalMoves = moves.filter(move => move.category === "Physical" && move.name !== "Struggle").length
+    const specialMoves = moves.filter(move => move.category === "Special").length
+
+    const hasMorePhysicalMoves = physicalMoves > specialMoves
+
+    return {
+      defNature: hasMorePhysicalMoves ? "Impish" : "Bold",
+      spdNature: hasMorePhysicalMoves ? "Careful" : "Calm"
+    }
+  }
+
+  findStrongestDoubleTarget(defender: Pokemon, targets: Target[], field: Field, threshold: SurvivalThreshold, rollIndex: number, rightIsDefender: boolean): { attacker1: Pokemon; attacker2: Pokemon; maxDamage: number } | null {
+    const defenderWithNoSp = defender.clone({ sps: { hp: 0, def: 0, spd: 0 } })
+    const defenderWithMax = defender.clone({ sps: { hp: MAX_SPS_PER_STAT, def: MAX_SPS_PER_STAT, spd: MAX_SPS_PER_STAT } })
+    let strongestAttacker1: Pokemon | null = null
+    let strongestAttacker2: Pokemon | null = null
+    let maxDamage = 0
+
+    for (const target of targets) {
+      if (target.secondPokemon) {
+        const survivesWithMax = this.survivalChecker.checkSurvivalAgainstTwoAttackers(target.pokemon, target.secondPokemon, defenderWithMax, field, threshold, rollIndex, rightIsDefender)
+        if (!survivesWithMax) continue
+
+        const multiResult = this.damageCalc.calcDamageValueForTwoAttackers(target.pokemon, target.secondPokemon, defenderWithNoSp, field, rightIsDefender)
+        const combinedDamage = multiResult.damageWithRemainingUntilTurn(1, rollIndex)
+
+        if (combinedDamage > maxDamage) {
+          maxDamage = combinedDamage
+          strongestAttacker1 = target.pokemon
+          strongestAttacker2 = target.secondPokemon
+        }
+      }
+    }
+
+    if (!strongestAttacker1 || !strongestAttacker2) return null
+
+    return {
+      attacker1: strongestAttacker1,
+      attacker2: strongestAttacker2,
+      maxDamage
+    }
+  }
+}

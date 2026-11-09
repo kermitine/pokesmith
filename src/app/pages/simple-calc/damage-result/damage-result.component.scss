@@ -1,0 +1,117 @@
+.damage-result {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: 1fr 0.5fr;
+}
+
+.hp-badge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  container-type: inline-size;
+}
+
+.move {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.chip-move {
+  width: 60%;
+  margin-left: var(--space-lg);
+}
+
+.damage-percentage {
+  margin-left: var(--space-md);
+}
+
+mat-chip-option {
+  --mat-chip-label-text-size: var(--font-size-md);
+}
+
+.typed-chip {
+  overflow: hidden;
+}
+
+.move-chip-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.move-type-segment {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: calc(2em + 2 * var(--space-2xs));
+  margin: calc(-1 * var(--space-2xs)) 0 calc(-1 * var(--space-2xs)) calc(-1 * var(--space-2xs));
+  padding: 0 var(--space-lg) 0 calc(var(--space-md) + var(--space-2xs));
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+  background-color: var(--move-type-color);
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--space-sm)) 100%, 0 100%);
+}
+
+.move-type-icon {
+  width: 1.8em;
+  height: 1.8em;
+}
+
+.move-chip-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.rolls {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.description-container {
+  grid-column-start: 1;
+  grid-column-end: 3;
+  order: 3;
+  height: 2em;
+}
+
+.description-with-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.description-text {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.roll-highlight {
+  font-weight: bold;
+}
+
+::ng-deep .mat-mdc-standard-chip .mdc-evolution-chip__graphic {
+  display: none !important;
+}
+
+::ng-deep .mat-mdc-standard-chip .mdc-evolution-chip__text-label:not(:only-child) {
+  padding-left: var(--space-lg);
+}
+
+:host ::ng-deep .typed-chip .mdc-evolution-chip__text-label {
+  padding-left: 0;
+}
+
+:host ::ng-deep .mat-mdc-standard-chip .mdc-evolution-chip__cell--primary,
+:host ::ng-deep .mat-mdc-standard-chip .mdc-evolution-chip__action--primary,
+:host ::ng-deep .mat-mdc-standard-chip .mat-mdc-chip-action-label {
+  overflow: hidden;
+}

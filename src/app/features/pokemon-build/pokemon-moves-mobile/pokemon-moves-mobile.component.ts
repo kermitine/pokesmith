@@ -1,0 +1,71 @@
+import { Component, computed, inject, input, output } from "@angular/core"
+import { MatChipListbox, MatChipOption } from "@angular/material/chips"
+import { MatIcon } from "@angular/material/icon"
+import { CalcStore } from "@store/calc-store"
+import { MultiHitComboBoxComponent } from "@features/pokemon-build/multi-hit-combo-box/multi-hit-combo-box.component"
+import { MobileTableOverlayService } from "@features/pokemon-build/tables/mobile-table-overlay/mobile-table-overlay.service"
+
+@Component({
+  selector: "app-pokemon-moves-mobile",
+  templateUrl: "./pokemon-moves-mobile.component.html",
+  styleUrl: "./pokemon-moves-mobile.component.scss",
+  host: { "[class.sticky]": "sticky()", "[class.stuck]": "stuck()" },
+  imports: [MatChipListbox, MatChipOption, MatIcon, MultiHitComboBoxComponent]
+})
+export class PokemonMovesMobileComponent {
+  pokemonId = input.required<string>()
+  showEdit = input<boolean>(true)
+  showHits = input<boolean>(true)
+  editingMoves = input<boolean>(false)
+  sticky = input<boolean>(false)
+  stuck = input<boolean>(false)
+
+  editMovesRequested = output()
+  closeMovesRequested = output()
+
+  store = inject(CalcStore)
+  overlay = inject(MobileTableOverlayService, { optional: true })
+
+  pokemon = computed(() => this.store.findPokemonById(this.pokemonId()))
+
+  hasPossibleHits = computed(() => this.pokemon().moveSet.activeMove.possibleHits.length > 0 || this.pokemon().moveSet.activeMove.possibleHitsTaken.length > 0)
+  hasAlliesFainted = computed(() => this.pokemon().activeMoveName === "Last Respects" || this.pokemon().ability.name === "Supreme Overlord")
+
+  hasLastMoveFailed = computed(() => this.pokemon().moveSet.activeMove.dependsOnLastMoveFailed())
+
+  hasRoundUsedBefore = computed(() => this.pokemon().moveSet.activeMove.dependsOnRoundUsedBefore())
+
+  hasTargetDamaged = computed(() => this.pokemon().activeMoveName === "Assurance")
+
+  hasTargetAlreadyMoved = computed(() => this.pokemon().moveSet.activeMove.dependsOnTargetAlreadyMoved() || this.pokemon().ability.name === "Analytic")
+
+  hasDamagedByTarget = computed(() => this.pokemon().moveSet.activeMove.dependsOnDamagedByTarget())
+
+  hasAllyPledge = computed(() => this.pokemon().moveSet.activeMove.isPledge())
+
+  hasTimesUsed = computed(() => this.pokemon().moveSet.activeMove.changesStatsOverUses())
+
+  hasTypeAddingMove = computed(() => this.pokemon().typeAddingMoves.length > 0)
+
+  showComboBox = computed(
+    () =>
+      this.showHits() &&
+      !this.editingMoves() &&
+      !(this.sticky() && this.stuck()) &&
+      (this.hasPossibleHits() ||
+        this.hasAlliesFainted() ||
+        this.hasLastMoveFailed() ||
+        this.hasRoundUsedBefore() ||
+        this.hasTargetDamaged() ||
+        this.hasTargetAlreadyMoved() ||
+        this.hasAllyPledge() ||
+        this.hasDamagedByTarget() ||
+        this.hasTimesUsed() ||
+        this.hasTypeAddingMove())
+  )
+
+  activateMove(position: number) {
+    this.store.activateMoveByPosition(this.pokemonId(), position)
+    this.overlay?.setFilter("")
+  }
+}

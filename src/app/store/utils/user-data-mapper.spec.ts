@@ -1,0 +1,901 @@
+import { CalcState, PokemonState, TargetState, TeamState } from "@store/calc-store"
+import { buildSharedFields, buildSharedUserData, buildState, buildUserData } from "./user-data-mapper"
+import { Status } from "@multicalc/model"
+
+describe("User Data Mapper", () => {
+  describe("buildUserData", () => {
+    it("should build user data for leftPokemon", () => {
+      const leftPokemon = pikachuState
+
+      const teams: TeamState[] = [
+        {
+          id: "123",
+          active: true,
+          name: "Team 1",
+          teamMembers: [{ active: true, pokemon: leftPokemon }]
+        }
+      ]
+
+      const targets: TargetState[] = [
+        {
+          pokemon: leftPokemon
+        }
+      ]
+
+      const result = buildUserData(leftPokemon, leftPokemon, teams, targets, "MC", "high", "medium", "low", "high")
+
+      expect(result.leftPokemon.name).toBe("Pikachu")
+      expect(result.leftPokemon.nature).toBe("Timid")
+      expect(result.leftPokemon.item).toBe("Light Ball")
+      expect(result.leftPokemon.status).toBe(Status.HEALTHY.description)
+      expect(result.leftPokemon.ability).toBe("Static")
+      expect(result.leftPokemon.abilityOn).toBe(false)
+      expect(result.leftPokemon.commanderActive).toBe(true)
+      expect(result.leftPokemon.teraType).toBe("Electric")
+      expect(result.leftPokemon.teraTypeActive).toBe(true)
+      expect(result.leftPokemon.moveSet).toEqual(["Thunderbolt", "Quick Attack", "Volt Tackle", "Iron Tail"])
+      expect(result.leftPokemon.boosts).toEqual({ atk: -1, def: -2, spa: 1, spd: 2, spe: 3 })
+      expect(result.leftPokemon.bonusBoosts).toEqual({ atk: -1, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.leftPokemon.evs).toEqual({ hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 })
+      expect(result.leftPokemon.ivs).toEqual({ hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 })
+    })
+
+    it("should build user data for rightPokemon", () => {
+      const rightPokemon = pikachuState
+
+      const teams: TeamState[] = [
+        {
+          id: "123",
+          active: true,
+          name: "Team 1",
+          teamMembers: [{ active: true, pokemon: rightPokemon }]
+        }
+      ]
+
+      const targets: TargetState[] = [
+        {
+          pokemon: rightPokemon
+        }
+      ]
+
+      const result = buildUserData(rightPokemon, rightPokemon, teams, targets, "MC", "high", "medium", "low", "high")
+
+      expect(result.rightPokemon.name).toBe("Pikachu")
+      expect(result.rightPokemon.nature).toBe("Timid")
+      expect(result.rightPokemon.item).toBe("Light Ball")
+      expect(result.rightPokemon.status).toBe(Status.HEALTHY.description)
+      expect(result.rightPokemon.ability).toBe("Static")
+      expect(result.rightPokemon.abilityOn).toBe(false)
+      expect(result.rightPokemon.commanderActive).toBe(true)
+      expect(result.rightPokemon.teraType).toBe("Electric")
+      expect(result.rightPokemon.teraTypeActive).toBe(true)
+      expect(result.rightPokemon.moveSet).toEqual(["Thunderbolt", "Quick Attack", "Volt Tackle", "Iron Tail"])
+      expect(result.rightPokemon.boosts).toEqual({ atk: -1, def: -2, spa: 1, spd: 2, spe: 3 })
+      expect(result.rightPokemon.bonusBoosts).toEqual({ atk: -1, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.rightPokemon.evs).toEqual({ hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 })
+      expect(result.rightPokemon.ivs).toEqual({ hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 })
+    })
+
+    it("should build user data for teams", () => {
+      const teamPokemonOne = pikachuState
+      const teamPokemonTwo = bulbasaurState
+
+      const teams: TeamState[] = [
+        {
+          id: "123",
+          active: true,
+          name: "Team 1",
+          teamMembers: [
+            { active: true, pokemon: teamPokemonOne },
+            { active: false, pokemon: teamPokemonTwo }
+          ]
+        },
+        {
+          id: "123",
+          active: false,
+          name: "Team 2",
+          teamMembers: [
+            { active: true, pokemon: teamPokemonTwo },
+            { active: false, pokemon: teamPokemonOne }
+          ]
+        }
+      ]
+
+      const targets: TargetState[] = [
+        {
+          pokemon: teamPokemonOne
+        }
+      ]
+
+      const result = buildUserData(teamPokemonOne, teamPokemonOne, teams, targets, "MC", "high", "medium", "low", "high")
+
+      expect(result.teams[0].active).toBe(true)
+      expect(result.teams[0].name).toBe("Team 1")
+      expect(result.teams[0].teamMembers[0].pokemon.name).toBe("Pikachu")
+      expect(result.teams[0].teamMembers[1].pokemon.name).toBe("Bulbasaur")
+
+      expect(result.teams[1].active).toBe(false)
+      expect(result.teams[1].name).toBe("Team 2")
+      expect(result.teams[1].teamMembers[0].pokemon.name).toBe("Bulbasaur")
+      expect(result.teams[1].teamMembers[1].pokemon.name).toBe("Pikachu")
+    })
+
+    it("should build user data for targets", () => {
+      const targetOne = pikachuState
+      const targetTwo = bulbasaurState
+      const targetTwoSecondAttacker = charmanderState
+
+      const teams: TeamState[] = [
+        {
+          id: "123",
+          active: true,
+          name: "Team 1",
+          teamMembers: [{ active: true, pokemon: targetOne }]
+        }
+      ]
+
+      const targets: TargetState[] = [
+        {
+          pokemon: targetOne
+        },
+        {
+          pokemon: targetTwo,
+          secondPokemon: targetTwoSecondAttacker
+        }
+      ]
+
+      const result = buildUserData(targetOne, targetOne, teams, targets, "MC", "high", "medium", "low", "high")
+
+      expect(result.targets.length).toBe(2)
+      expect(result.targets[0].pokemon.name).toBe("Pikachu")
+      expect(result.targets[1].pokemon.name).toBe("Bulbasaur")
+      expect(result.targets[1].secondPokemon!.name).toBe("Charmander")
+    })
+
+    it("should build user data for roll levels", () => {
+      const result = buildUserData(pikachuState, pikachuState, [], [], "MC", "low", "medium", "high", "medium")
+
+      expect(result.simpleCalcLeftRollLevel).toBe("low")
+      expect(result.simpleCalcRightRollLevel).toBe("medium")
+      expect(result.multiCalcRollLevel).toBe("high")
+      expect(result.manyVsTeamRollLevel).toBe("medium")
+    })
+  })
+
+  describe("buildSharedUserData", () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
+    afterEach(() => {
+      localStorage.clear()
+    })
+
+    it("should add the stored fields of every screen to the shared payload", () => {
+      localStorage.setItem("userData", JSON.stringify({ champions: { fields: { simple: { weather: "Sun" }, multi: { isTrickRoom: true } } } }))
+
+      const result = buildSharedUserData({ leftPokemon: pikachuUserData }, true, [])
+
+      expect(result.fields).toEqual({ simple: { weather: "Sun" }, multi: { isTrickRoom: true } })
+    })
+
+    it("should keep the game data received untouched", () => {
+      const result = buildSharedUserData({ leftPokemon: pikachuUserData, manyVsTeamRollLevel: "low" }, true, [])
+
+      expect(result.leftPokemon).toEqual(pikachuUserData)
+      expect(result.manyVsTeamRollLevel).toBe("low")
+    })
+
+    it("should add the ev mode and the custom sets to the shared payload", () => {
+      const customSets = [{ id: "1", setName: "My Set", state: pikachuState }] as any
+
+      const result = buildSharedUserData({}, false, customSets)
+
+      expect(result.useSpsMode).toBe(false)
+      expect(result.customSets).toEqual(customSets)
+    })
+
+    it("should share an empty map of fields when nothing was stored yet", () => {
+      const result = buildSharedUserData({}, true, [])
+
+      expect(result.fields).toEqual({})
+    })
+  })
+
+  describe("buildSharedFields", () => {
+    it("should read the fields of every screen from the shared data", () => {
+      const fields = { simple: { weather: "Rain" }, multi: { isGravity: true } }
+
+      expect(buildSharedFields({ fields })).toEqual(fields)
+    })
+
+    it("should read a legacy link that shared a single field as the field of the simple calc", () => {
+      expect(buildSharedFields({ field: { weather: "Snow" } })).toEqual({ simple: { weather: "Snow" } })
+    })
+
+    it("should return an empty map when the shared data has no field at all", () => {
+      expect(buildSharedFields({ leftPokemon: pikachuUserData })).toEqual({})
+    })
+
+    it("should return an empty map when there is no shared data", () => {
+      expect(buildSharedFields(null)).toEqual({})
+    })
+  })
+
+  describe("buildState", () => {
+    it("should build a leftPokemonState in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [{ active: true, pokemon: bulbasaurUserData }]
+          }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.name).toBe("Pikachu")
+      expect(result.leftPokemonState.nature).toBe("Timid")
+      expect(result.leftPokemonState.item).toBe("Light Ball")
+      expect(result.leftPokemonState.status).toBe(Status.HEALTHY.description)
+      expect(result.leftPokemonState.ability).toBe("Static")
+      expect(result.leftPokemonState.abilityOn).toBe(false)
+      expect(result.leftPokemonState.commanderActive).toBe(true)
+      expect(result.leftPokemonState.teraType).toBe("Electric")
+      expect(result.leftPokemonState.teraTypeActive).toBe(true)
+      expect(result.leftPokemonState.activeMove).toBe(0)
+      expect(result.leftPokemonState.moveSet).toEqual([{ name: "Thunderbolt" }, { name: "Quick Attack" }, { name: "Volt Tackle" }, { name: "Iron Tail" }])
+      expect(result.leftPokemonState.boosts).toEqual({ atk: -1, def: -2, spa: 1, spd: 2, spe: 3 })
+      expect(result.leftPokemonState.bonusBoosts).toEqual({ atk: -1, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.leftPokemonState.evs).toEqual({ hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 })
+      expect(result.leftPokemonState.ivs).toEqual({ hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 })
+    })
+
+    it("should build the paste link of each team from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          { name: "Team 1", active: true, pasteUrl: "https://vgcmulticalc.com/paste/R4nd0mId", teamMembers: [{ active: true, pokemon: bulbasaurUserData }] },
+          { name: "Team 2", active: false, teamMembers: [] }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.teamsState[0].pasteUrl).toBe("https://vgcmulticalc.com/paste/R4nd0mId")
+      expect(result.teamsState[1].pasteUrl).toBeUndefined()
+    })
+
+    it("should build a rightPokemonState in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [{ active: true, pokemon: bulbasaurUserData }]
+          }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.rightPokemonState.name).toBe("Charmander")
+      expect(result.rightPokemonState.nature).toBe("Adamant")
+      expect(result.rightPokemonState.item).toBe("Charcoal")
+      expect(result.rightPokemonState.status).toBe(Status.PARALYSIS.description)
+      expect(result.rightPokemonState.ability).toBe("Blaze")
+      expect(result.rightPokemonState.abilityOn).toBe(true)
+      expect(result.rightPokemonState.commanderActive).toBe(false)
+      expect(result.rightPokemonState.teraType).toBe("Fire")
+      expect(result.rightPokemonState.teraTypeActive).toBe(true)
+      expect(result.rightPokemonState.activeMove).toBe(0)
+      expect(result.rightPokemonState.moveSet).toEqual([{ name: "Flamethrower" }, { name: "Scratch" }, { name: "Growl" }, { name: "Ember" }])
+      expect(result.rightPokemonState.boosts).toEqual({ atk: 2, def: 3, spa: 4, spd: 5, spe: -2 })
+      expect(result.rightPokemonState.bonusBoosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: -1 })
+      expect(result.rightPokemonState.evs).toEqual({ hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 })
+      expect(result.rightPokemonState.ivs).toEqual({ hp: 0, atk: 1, def: 2, spa: 3, spd: 4, spe: 5 })
+    })
+
+    it("should build secondAttackerId in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [{ active: true, pokemon: bulbasaurUserData }]
+          }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.secondAttackerId).toBe("")
+    })
+
+    it("should build a Team in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [{ active: true, pokemon: bulbasaurUserData }]
+          },
+          {
+            name: "Team 2",
+            active: false,
+            teamMembers: [{ active: true, pokemon: charmanderUserData }]
+          }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.teamsState[0].active).toBe(true)
+      expect(result.teamsState[0].name).toBe("Team 1")
+      expect(result.teamsState[0].teamMembers[0].active).toBe(true)
+      expect(result.teamsState[0].teamMembers[0].pokemon.name).toBe("Bulbasaur")
+
+      expect(result.teamsState[1].active).toBe(false)
+      expect(result.teamsState[1].name).toBe("Team 2")
+      expect(result.teamsState[1].teamMembers[0].active).toBe(true)
+      expect(result.teamsState[1].teamMembers[0].pokemon.name).toBe("Charmander")
+    })
+
+    it("should keep a Team empty when it does not have any Pokémon", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: []
+          }
+        ],
+        targets: [{ pokemon: charmanderUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.teamsState[0].teamMembers.length).toBe(0)
+    })
+
+    it("should build Targets in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [{ active: true, pokemon: bulbasaurUserData }]
+          },
+          {
+            name: "Team 2",
+            active: false,
+            teamMembers: [{ active: true, pokemon: charmanderUserData }]
+          }
+        ],
+        targets: [{ pokemon: bulbasaurUserData }, { pokemon: charmanderUserData, secondPokemon: pikachuUserData }]
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.targetsState.length).toBe(2)
+      expect(result.targetsState[0].pokemon.name).toBe("Bulbasaur")
+      expect(result.targetsState[1].pokemon.name).toBe("Charmander")
+      expect(result.targetsState[1].secondPokemon!.name).toBe("Pikachu")
+    })
+
+    it("should build roll levels in CalcState from user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: [],
+        simpleCalcLeftRollLevel: "medium",
+        simpleCalcRightRollLevel: "low",
+        multiCalcRollLevel: "high"
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.simpleCalcLeftRollLevel).toBe("medium")
+      expect(result.simpleCalcRightRollLevel).toBe("low")
+      expect(result.multiCalcRollLevel).toBe("high")
+      expect(result.manyVsTeamRollLevel).toBe("high")
+    })
+
+    it("should build default roll levels in CalcState when not present in user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.simpleCalcLeftRollLevel).toBe("high")
+      expect(result.simpleCalcRightRollLevel).toBe("high")
+      expect(result.multiCalcRollLevel).toBe("high")
+    })
+
+    it("should build the ev mode and the custom sets in CalcState from user data", () => {
+      const customSets = [{ id: "1", setName: "My Set", state: pikachuState }] as any
+
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: [],
+        useSpsMode: false,
+        customSets: customSets
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.useSpsMode).toBe(false)
+      expect(result.customSetsState).toEqual(customSets)
+    })
+
+    it("should default to the sps mode and no custom sets when they are not present in user data", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.useSpsMode).toBe(true)
+      expect(result.customSetsState).toEqual([])
+    })
+
+    it("should handle legacy data or missing activeMove by defaulting to 0", () => {
+      const userData = {
+        leftPokemon: { ...pikachuUserData, activeMove: "Thunderbolt" },
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.activeMove).toBe(0)
+    })
+
+    it("should read the ability from a legacy placeholder shape where ability is an object", () => {
+      const legacyPlaceholder = {
+        name: "Select a Pokémon",
+        nature: "Hardy",
+        item: "",
+        status: Status.HEALTHY.description,
+        toxicCounter: 1,
+        ability: { name: "Serene Grace", on: false },
+        moveSet: ["Struggle", "Struggle", "Struggle", "Struggle"],
+        boosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+        bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+        evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+        ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+      }
+
+      const userData = {
+        leftPokemon: legacyPlaceholder,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.ability).toBe("Serene Grace")
+      expect(result.leftPokemonState.abilityOn).toBe(false)
+    })
+  })
+
+  describe("legacy storage formats", () => {
+    it("should read a 2024-12-11 shape: activeMove as a move name, team member without abilityOn/ivs/bonusBoosts", () => {
+      const userData = {
+        leftPokemon: {
+          name: "Gholdengo",
+          nature: "Timid",
+          item: "Choice Specs",
+          status: "Healthy",
+          toxicCounter: 1,
+          ability: "Good as Gold",
+          abilityOn: false,
+          commanderActive: false,
+          teraType: "Steel",
+          teraTypeActive: false,
+          activeMove: "Make It Rain",
+          moveSet: ["Make It Rain", "Shadow Ball", "Protect", "Nasty Plot"],
+          boosts: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+          hpPercentage: 100
+        },
+        rightPokemon: charmanderUserData,
+        teams: [
+          {
+            name: "Team 1",
+            active: true,
+            teamMembers: [
+              {
+                pokemon: {
+                  name: "Flutter Mane",
+                  nature: "Timid",
+                  item: "Choice Specs",
+                  ability: "Protosynthesis",
+                  teraType: "Fairy",
+                  teraTypeActive: true,
+                  evs: { hp: 68, atk: 0, def: 180, spa: 116, spd: 4, spe: 140 },
+                  status: "Healthy",
+                  toxicCounter: 1,
+                  boosts: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+                  activeMove: "Moonblast",
+                  moveSet: ["Moonblast", "Dazzling Gleam", "Shadow Ball", "Icy Wind"]
+                },
+                position: 0,
+                active: false
+              }
+            ]
+          }
+        ],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.ability).toBe("Good as Gold")
+      expect(result.leftPokemonState.activeMove).toBe(0)
+
+      const member = result.teamsState[0].teamMembers[0].pokemon
+      expect(member.ability).toBe("Protosynthesis")
+      expect(member.moveSet).toEqual([{ name: "Moonblast" }, { name: "Dazzling Gleam" }, { name: "Shadow Ball" }, { name: "Icy Wind" }])
+      expect(member.abilityOn).toBeUndefined()
+      expect(member.ivs).toBeUndefined()
+      expect(member.bonusBoosts).toBeUndefined()
+    })
+
+    it("should read a 2026-05-18 shape: bonusBoosts present, empty teams, top-level speedCalcPokemon ignored", () => {
+      const userData = {
+        speedCalcPokemon: { name: "Dragapult", ability: "Clear Body", moveSet: ["Dragon Darts", "Phantom Force", "U-turn", "Protect"] },
+        leftPokemon: {
+          name: "Sylveon",
+          nature: "Modest",
+          item: "Pixie Plate",
+          ability: "Pixilate",
+          abilityOn: false,
+          commanderActive: false,
+          teraType: "Fairy",
+          teraTypeActive: false,
+          evs: { hp: 252, atk: 0, def: 0, spa: 252, spd: 4, spe: 0 },
+          status: "Healthy",
+          toxicCounter: 1,
+          boosts: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+          moveSet: ["Hyper Voice", "Psyshock", "Protect", "Trick Room"]
+        },
+        rightPokemon: charmanderUserData,
+        teams: [
+          { name: "Team 1", active: true, teamMembers: [] },
+          { name: "Team 2", active: false, teamMembers: [] }
+        ],
+        targets: [],
+        simpleCalcLeftRollLevel: "high",
+        multiCalcRollLevel: "high",
+        manyVsTeamRollLevel: "high"
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.ability).toBe("Pixilate")
+      expect(result.leftPokemonState.bonusBoosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      expect(result.teamsState.length).toBe(2)
+      expect(result.teamsState[0].teamMembers).toEqual([])
+      expect(result.multiCalcRollLevel).toBe("high")
+    })
+
+    it("should read a 2026-07-26 shape: empty move slot and empty teams", () => {
+      const userData = {
+        leftPokemon: {
+          name: "Annihilape",
+          nature: "Jolly",
+          item: "Leftovers",
+          ability: "Defiant",
+          abilityOn: false,
+          commanderActive: false,
+          teraType: "",
+          teraTypeActive: false,
+          evs: { hp: 12, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+          status: "Healthy",
+          toxicCounter: 1,
+          boosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+          moveSet: ["", "Rage Fist", "Protect", "Bulk Up"]
+        },
+        rightPokemon: charmanderUserData,
+        teams: [
+          { name: "Team 1", active: true, teamMembers: [] },
+          { name: "Team 2", active: false, teamMembers: [] }
+        ],
+        targets: [],
+        simpleCalcLeftRollLevel: "high",
+        multiCalcRollLevel: "high",
+        manyVsTeamRollLevel: "high"
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.ability).toBe("Defiant")
+      expect(result.leftPokemonState.moveSet).toEqual([{ name: "" }, { name: "Rage Fist" }, { name: "Protect" }, { name: "Bulk Up" }])
+      expect(result.teamsState.length).toBe(2)
+      expect(result.teamsState[1].teamMembers).toEqual([])
+    })
+  })
+
+  describe("Stamina", () => {
+    it("should save Stamina turned off in user data", () => {
+      const archaludon: PokemonState = { ...pikachuState, name: "Archaludon", ability: "Stamina", staminaOff: true }
+
+      const result = buildUserData(archaludon, archaludon, [], [], "MC", "high", "medium", "low", "high")
+
+      expect(result.leftPokemon.staminaOff).toBe(true)
+    })
+
+    it("should restore Stamina turned off from user data", () => {
+      const archaludon = { ...pikachuUserData, name: "Archaludon", ability: "Stamina", staminaOff: true }
+
+      const result = buildState({ leftPokemon: archaludon, rightPokemon: archaludon, teams: [], targets: [] }) as CalcState
+
+      expect(result.leftPokemonState.staminaOff).toBe(true)
+    })
+
+    it("should leave Stamina on for user data saved before the flag existed", () => {
+      const archaludon = { ...pikachuUserData, name: "Archaludon", ability: "Stamina" }
+
+      const result = buildState({ leftPokemon: archaludon, rightPokemon: archaludon, teams: [], targets: [] }) as CalcState
+
+      expect(result.leftPokemonState.staminaOff).toBeUndefined()
+    })
+  })
+
+  describe("type overrides", () => {
+    it("should persist overrideTypes in user data", () => {
+      const leftPokemon = { ...pikachuState, overrideTypes: ["Ghost", "Steel"] }
+
+      const result = buildUserData(leftPokemon, leftPokemon, [], [], "MC", "high", "medium", "low", "high")
+
+      expect(result.leftPokemon.overrideTypes).toEqual(["Ghost", "Steel"])
+    })
+
+    it("should restore overrideTypes from user data", () => {
+      const userData = {
+        leftPokemon: { ...pikachuUserData, overrideTypes: ["Water"] },
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.overrideTypes).toEqual(["Water"])
+    })
+
+    it("should leave overrideTypes undefined for legacy user data without the field", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.overrideTypes).toBeUndefined()
+    })
+  })
+
+  describe("added type", () => {
+    it("should persist the type adding move used and the added type turned on in user data", () => {
+      const leftPokemon = { ...pikachuState, typeAddingMove: "Trick-or-Treat", addedTypeOn: true }
+
+      const result = buildUserData(leftPokemon, leftPokemon, [], [], "MC", "high", "medium", "low", "high")
+
+      expect(result.leftPokemon.typeAddingMove).toBe("Trick-or-Treat")
+      expect(result.leftPokemon.addedTypeOn).toBe(true)
+    })
+
+    it("should restore the type adding move used and the added type turned on from user data", () => {
+      const userData = {
+        leftPokemon: { ...pikachuUserData, typeAddingMove: "Forest's Curse", addedTypeOn: true },
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.typeAddingMove).toBe("Forest's Curse")
+      expect(result.leftPokemonState.addedTypeOn).toBe(true)
+    })
+  })
+
+  describe("base form ability", () => {
+    it("should persist baseFormAbility in user data", () => {
+      const leftPokemon = { ...pikachuState, name: "Salamence-Mega", ability: "Aerilate", baseFormAbility: "Moxie" }
+
+      const result = buildUserData(leftPokemon, leftPokemon, [], [], "MC", "high", "medium", "low", "high")
+
+      expect(result.leftPokemon.baseFormAbility).toBe("Moxie")
+    })
+
+    it("should restore baseFormAbility from user data", () => {
+      const userData = {
+        leftPokemon: { ...pikachuUserData, baseFormAbility: "Moxie" },
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.baseFormAbility).toBe("Moxie")
+    })
+
+    it("should leave baseFormAbility undefined for legacy user data without the field", () => {
+      const userData = {
+        leftPokemon: pikachuUserData,
+        rightPokemon: charmanderUserData,
+        teams: [],
+        targets: []
+      }
+
+      const result = buildState(userData) as CalcState
+
+      expect(result.leftPokemonState.baseFormAbility).toBeUndefined()
+    })
+  })
+})
+
+const pikachuState: PokemonState = {
+  id: "123",
+  name: "Pikachu",
+  nature: "Timid",
+  item: "Light Ball",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Static",
+  abilityOn: false,
+  commanderActive: true,
+  teraType: "Electric",
+  teraTypeActive: true,
+  activeMove: 0,
+  moveSet: [{ name: "Thunderbolt" }, { name: "Quick Attack" }, { name: "Volt Tackle" }, { name: "Iron Tail" }],
+  boosts: { atk: -1, def: -2, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: -1, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const bulbasaurState: PokemonState = {
+  id: "456",
+  name: "Bulbasaur",
+  nature: "Modest",
+  item: "Leftovers",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Overgrow",
+  abilityOn: true,
+  commanderActive: false,
+  teraType: "Grass",
+  teraTypeActive: false,
+  activeMove: 0,
+  moveSet: [{ name: "Vine Whip" }, { name: "Razor Leaf" }, { name: "Tackle" }, { name: "Growl" }],
+  boosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const charmanderState: PokemonState = {
+  id: "789",
+  name: "Charmander",
+  nature: "Adamant",
+  item: "Charcoal",
+  status: Status.PARALYSIS.description,
+  toxicCounter: 1,
+  ability: "Blaze",
+  abilityOn: true,
+  commanderActive: false,
+  teraType: "Fire",
+  teraTypeActive: true,
+  activeMove: 0,
+  moveSet: [{ name: "Flamethrower" }, { name: "Scratch" }, { name: "Growl" }, { name: "Ember" }],
+  boosts: { atk: 2, def: 3, spa: 4, spd: 5, spe: -2 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 0, atk: 1, def: 2, spa: 3, spd: 4, spe: 5 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const pikachuUserData = {
+  name: "Pikachu",
+  nature: "Timid",
+  item: "Light Ball",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Static",
+  abilityOn: false,
+  commanderActive: true,
+  teraType: "Electric",
+  teraTypeActive: true,
+  moveSet: ["Thunderbolt", "Quick Attack", "Volt Tackle", "Iron Tail"],
+  boosts: { atk: -1, def: -2, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: -1, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 }
+}
+
+const bulbasaurUserData = {
+  id: "456",
+  name: "Bulbasaur",
+  nature: "Modest",
+  item: "Leftovers",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Overgrow",
+  abilityOn: true,
+  commanderActive: false,
+  teraType: "Grass",
+  teraTypeActive: false,
+  moveSet: ["Vine Whip", "Razor Leaf", "Tackle", "Growl"],
+  boosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+}
+
+const charmanderUserData = {
+  id: "789",
+  name: "Charmander",
+  nature: "Adamant",
+  item: "Charcoal",
+  status: Status.PARALYSIS.description,
+  toxicCounter: 1,
+  ability: "Blaze",
+  abilityOn: true,
+  commanderActive: false,
+  teraType: "Fire",
+  teraTypeActive: true,
+  moveSet: ["Flamethrower", "Scratch", "Growl", "Ember"],
+  boosts: { atk: 2, def: 3, spa: 4, spd: 5, spe: -2 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: -1 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 0, atk: 1, def: 2, spa: 3, spd: 4, spe: 5 }
+}

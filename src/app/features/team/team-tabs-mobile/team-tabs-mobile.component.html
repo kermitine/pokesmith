@@ -1,0 +1,75 @@
+<div class="team-tabs">
+  @if (store.isEditingCustomSet()) {
+    <div class="team-tab active-tab target-tab">
+      <app-pokemon-sprite [name]="editingCustomSetPokemon()!.name" />
+    </div>
+
+    <div class="team-tab add-tab" (click)="exitCustomSetEditMode()" data-cy="close-edit-custom-set-tab-mobile">
+      <mat-icon>close</mat-icon>
+    </div>
+  } @else if (editingTarget()) {
+    <div class="team-tab active-tab target-tab" (click)="clearEditMode()">
+      <app-pokemon-sprite [name]="editingPokemon()!.name" />
+    </div>
+
+    <div class="team-tab add-tab" (click)="clearEditMode()">
+      <mat-icon>close</mat-icon>
+    </div>
+  } @else {
+    <div class="reorderable-tabs" [style.--tab-count]="teamMembers().length" cdkDropList cdkDropListOrientation="horizontal" [cdkDropListDisabled]="!reorderMode()" (cdkDropListDropped)="dropTab($event)">
+      @for (member of teamMembers(); track member.pokemon.id) {
+        <div
+          class="team-tab"
+          cdkDrag
+          [cdkDragDisabled]="!reorderMode()"
+          [cdkDragStartDelay]="0"
+          [ngClass]="{ 'active-tab': !addingPokemon() && effectiveEditingId() === member.pokemon.id, 'second-attacker': isSecondAttacker(member.pokemon.id), 'combined-attacker': isCombinedAttacker(member.pokemon.id), reordering: reorderMode() }"
+          (click)="setActivePokemon(member.pokemon.id)"
+          (touchstart)="onTabTouchStart($event, member.pokemon.id)"
+          (touchend)="onTabTouchEnd()"
+          (touchcancel)="onTabTouchEnd()"
+          (contextmenu)="$event.preventDefault()">
+          <app-pokemon-sprite [name]="member.pokemon.name" />
+          @if (isSecondAttacker(member.pokemon.id)) {
+            <div class="combine-badge">
+              <mat-icon>add</mat-icon>
+            </div>
+          }
+          <div class="tab-drag-placeholder" *cdkDragPlaceholder></div>
+        </div>
+      }
+    </div>
+
+    @if (showAddTab() && !reorderMode()) {
+      <div class="team-tab add-tab" [class.active-tab]="addingPokemon()" (click)="addMember()">
+        <mat-icon>add</mat-icon>
+      </div>
+    }
+  }
+</div>
+
+@if (reorderMode()) {
+  <div class="reorder-bar">
+    <span class="reorder-bar-text">Drag to reorder</span>
+    <button class="reorder-bar-done" data-cy="done-reorder-team" (click)="exitReorderMode()">Done</button>
+  </div>
+}
+
+@if (showCombineHint()) {
+  <div class="combine-hint" (click)="dismissCombineHint()">
+    <div class="combine-hint-arrow"></div>
+    <div class="combine-hint-content">
+      <mat-icon class="combine-hint-icon">touch_app</mat-icon>
+      <span class="combine-hint-text">Hold a Pokémon to attack with two at once</span>
+      <button class="combine-hint-dismiss" (click)="$event.stopPropagation(); dismissCombineHint()">Got it</button>
+    </div>
+  </div>
+}
+
+<ng-template #actionMenuTemplate>
+  <app-action-sheet (closed)="closeActionMenu()">
+    <app-action-sheet-item icon="content_copy" dataCy="duplicate-from-team-menu" [disabled]="!canDuplicate()" [hint]="canDuplicate() ? undefined : 'Team is full'" (pressed)="duplicateFromActionMenu()">Duplicate</app-action-sheet-item>
+    <app-action-sheet-item icon="swap_horiz" dataCy="reorder-from-team-menu" [disabled]="!canReorder()" [hint]="canReorder() ? undefined : 'Add another Pokemon first'" (pressed)="enterReorderMode()">Reorder</app-action-sheet-item>
+    <app-action-sheet-item icon="delete" danger dataCy="delete-from-team-menu" (pressed)="deleteFromActionMenu()">Delete</app-action-sheet-item>
+  </app-action-sheet>
+</ng-template>

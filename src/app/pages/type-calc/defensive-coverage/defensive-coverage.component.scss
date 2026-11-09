@@ -1,0 +1,70 @@
+@use "pages/type-calc/coverage-table";
+
+.pokemon-header {
+  font-weight: 600;
+  background-color: var(--surface-hover);
+  border-bottom: 0.125em solid var(--grid-line);
+  padding: var(--space-sm) var(--space-sm);
+}
+
+.type-cell .pokemon-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.effectiveness-cell {
+  font-weight: 500;
+}
+
+.effectiveness-cell.resistance {
+  color: var(--positive-value);
+  font-weight: 600;
+}
+
+.effectiveness-cell.weakness {
+  color: var(--negative-value);
+  font-weight: 600;
+}
+
+.effectiveness-cell.weakness-4x {
+  background-color: var(--effectiveness-weakness-4x-defensive-bg);
+  color: var(--negative-value);
+  font-weight: 600;
+}
+
+.total-cell.total-weak-0 {
+  background-color: var(--highlight);
+}
+
+.total-cell.total-weak-1 {
+  background-color: color-mix(in srgb, var(--heat-mild) 30%, transparent);
+}
+
+.total-cell.total-weak-2 {
+  background-color: color-mix(in srgb, var(--heat-warn) 40%, transparent);
+}
+
+.total-cell.total-weak-3 {
+  background-color: color-mix(in srgb, var(--heat-bad) 35%, transparent);
+}
+
+.total-cell.total-weak-4plus {
+  background-color: color-mix(in srgb, var(--heat-bad) 50%, transparent);
+}
+
+.total-cell.total-resist-0 {
+  background-color: var(--highlight);
+}
+
+.total-cell.total-resist-1-2 {
+  background-color: color-mix(in srgb, var(--heat-good) 25%, transparent);
+}
+
+.total-cell.total-resist-3-4 {
+  background-color: color-mix(in srgb, var(--heat-good) 40%, transparent);
+}
+
+.total-cell.total-resist-5plus {
+  background-color: color-mix(in srgb, var(--heat-good) 55%, transparent);
+}

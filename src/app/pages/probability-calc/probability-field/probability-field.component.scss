@@ -1,0 +1,29 @@
+.weather-buttons {
+  display: inline-flex;
+  flex-direction: column;
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-lg);
+
+  mat-button-toggle {
+    min-width: 8em;
+    margin-bottom: var(--space-sm);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+:host(.horizontal) .weather-buttons {
+  flex-direction: row;
+  display: flex;
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-xs);
+
+  mat-button-toggle {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+    margin-right: 0;
+  }
+}

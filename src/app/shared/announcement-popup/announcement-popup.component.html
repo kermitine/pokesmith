@@ -1,0 +1,24 @@
+@if (visible()) {
+  <div class="overlay" data-cy="announcement-popup">
+    <div class="popup">
+      <h2 class="title" data-cy="announcement-title">{{ title() }}</h2>
+      @for (item of items(); track item.text) {
+        <div class="item" [class.text-after-media]="item.textAfterMedia">
+          <p class="message">{{ item.text }}</p>
+          @if (item.image) {
+            <img class="preview-image" [src]="item.image" alt="Feature preview" />
+          }
+          @if (item.video) {
+            <video class="preview-video" autoplay muted loop playsinline>
+              <source [src]="item.video" type="video/webm" />
+            </video>
+          }
+        </div>
+      }
+      <div class="actions">
+        <button mat-button disableRipple (click)="close()" class="close-button" data-cy="announcement-close">Close</button>
+        <button mat-flat-button disableRipple (click)="dismissForever()" data-cy="announcement-dismiss-forever">Don't show again</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "paths": {
+      "@page-object/*": ["../cypress/page-object/*"],
+      "@cy-support/*": ["../cypress/support/*"]
+    }
+  },
+  "include": ["**/*.ts"],
+  "exclude": []
+}

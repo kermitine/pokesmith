@@ -1,0 +1,302 @@
+import { Ability, Move, MoveSet, Pokemon } from "@multicalc/model"
+import { toPokepasteText } from "@store/user-data/pokepaste-export"
+
+describe("toPokepasteText", () => {
+  it("should export a Pokémon in EV notation", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text).toBe(pasteWithOnePokemon)
+  })
+
+  it("should leave the EVs line out when the points are hidden", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, true, false, false)
+
+    expect(text).toBe("Rillaboom @ Assault Vest\nAbility: Grassy Surge\nLevel: 50\nAdamant Nature\n- Fake Out\n- Grassy Glide\n- Wood Hammer\n- High Horsepower\n")
+  })
+
+  it("should export the shield forme of Aegislash without the form suffix", async () => {
+    const pokemon = new Pokemon("Aegislash-Shield", {
+      ability: new Ability("Stance Change"),
+      nature: "Quiet",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Iron Head"), new Move("Shadow Claw"), new Move("Protect"), new Move("Flash Cannon"))
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text.startsWith("Aegislash @ Assault Vest")).toBe(true)
+  })
+
+  it("should export the blade forme of Aegislash without the form suffix", async () => {
+    const pokemon = new Pokemon("Aegislash-Blade", {
+      ability: new Ability("Stance Change"),
+      nature: "Adamant",
+      item: "Life Orb",
+      moveSet: new MoveSet(new Move("Iron Head"), new Move("Shadow Claw"), new Move("Sacred Sword"), new Move("Protect"))
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text.startsWith("Aegislash @ Life Orb")).toBe(true)
+  })
+
+  it("should keep the form suffix of a Pokémon whose export name is not collapsed", async () => {
+    const pokemon = new Pokemon("Urshifu-Rapid-Strike", {
+      ability: new Ability("Unseen Fist"),
+      nature: "Adamant",
+      item: "Focus Sash",
+      moveSet: new MoveSet(new Move("Surging Strikes"), new Move("Close Combat"), new Move("Aqua Jet"), new Move("Protect"))
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text.startsWith("Urshifu-Rapid-Strike @ Focus Sash")).toBe(true)
+  })
+
+  it("should export a Pokémon with less than 4 moves without undefined lines", async () => {
+    const pokemon = new Pokemon("Ditto", {
+      ability: new Ability("Limber"),
+      nature: "Hardy",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Transform"), new Move(""), new Move(""), new Move("")),
+      ivs: { hp: 31, atk: 30, def: 31, spa: 31, spd: 31, spe: 31 }
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text).toBe(pasteWithOneMove)
+  })
+
+  it("should skip the SpD entry when a Pokémon invests in every other stat but SpD", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 1, spd: 0, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text).toContain("EVs: 140 HP / 116 Atk / 4 Def / 4 SpA / 164 Spe\n")
+  })
+
+  it("should export a Pokémon in SP notation", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, true, false)
+
+    expect(text).toBe(pasteWithOnePokemonSps)
+  })
+
+  it("should omit the EVs line entirely when a Pokémon has no invested EVs", async () => {
+    const pokemon = new Pokemon("Ditto", {
+      ability: new Ability("Limber"),
+      nature: "Hardy",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Transform"), new Move(""), new Move(""), new Move(""))
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text).toBe(pasteWithNoEvs)
+  })
+
+  it("should omit the SPs line entirely when a Pokémon has no invested EVs in SP mode", async () => {
+    const pokemon = new Pokemon("Ditto", {
+      ability: new Ability("Limber"),
+      nature: "Hardy",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Transform"), new Move(""), new Move(""), new Move(""))
+    })
+
+    const text = await toPokepasteText(pokemon, true, false)
+
+    expect(text).toBe(pasteWithNoEvs)
+  })
+
+  it("should omit only the Def entry from the EVs line when Def has no invested EVs", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 0, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, false, false)
+
+    expect(text).toBe(pasteWithNoDefEvs)
+  })
+
+  it("should omit only the HP entry from the SPs line when HP has no invested EVs", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 0, atk: 15, def: 1, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, true, false)
+
+    expect(text).toBe(pasteWithNoHpSps)
+  })
+
+  it("should omit only the SpD entry from the SPs line when SpD has no invested EVs", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 0, spd: 0, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, true, false)
+
+    expect(text).toBe(pasteWithNoSpdSps)
+  })
+
+  it("should include the SpA entry in the SPs line when SpA has invested EVs", async () => {
+    const pokemon = new Pokemon("Incineroar", {
+      ability: new Ability("Intimidate"),
+      nature: "Quiet",
+      item: "Safety Goggles",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Knock Off"), new Move("Flare Blitz"), new Move("Parting Shot")),
+      sps: { hp: 31, atk: 0, def: 1, spa: 13, spd: 1, spe: 1 }
+    })
+
+    const text = await toPokepasteText(pokemon, true, false)
+
+    expect(text).toBe(pasteWithSpaSps)
+  })
+
+  it("should include the Tera Type line when includeTeraType is true", async () => {
+    const pokemon = new Pokemon("Rillaboom", {
+      ability: new Ability("Grassy Surge"),
+      nature: "Adamant",
+      item: "Assault Vest",
+      teraType: "Fire",
+      moveSet: new MoveSet(new Move("Fake Out"), new Move("Grassy Glide"), new Move("Wood Hammer"), new Move("High Horsepower")),
+      sps: { hp: 18, atk: 15, def: 1, spa: 0, spd: 11, spe: 21 }
+    })
+
+    const text = await toPokepasteText(pokemon, false, true)
+
+    expect(text).toBe(pasteWithTeraType)
+  })
+})
+
+const pasteWithOneMove = `Ditto @ Assault Vest
+Ability: Limber
+Level: 50
+Hardy Nature
+- Transform
+`
+
+const pasteWithOnePokemon = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+EVs: 140 HP / 116 Atk / 4 Def / 84 SpD / 164 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`
+
+const pasteWithNoDefEvs = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+EVs: 140 HP / 116 Atk / 84 SpD / 164 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`
+
+const pasteWithOnePokemonSps = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+EVs: 18 HP / 15 Atk / 1 Def / 11 SpD / 21 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`
+
+const pasteWithNoEvs = `Ditto @ Assault Vest
+Ability: Limber
+Level: 50
+Hardy Nature
+- Transform
+`
+
+const pasteWithNoHpSps = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+EVs: 15 Atk / 1 Def / 11 SpD / 21 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`
+
+const pasteWithNoSpdSps = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+EVs: 18 HP / 15 Atk / 1 Def / 21 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`
+
+const pasteWithSpaSps = `Incineroar @ Safety Goggles
+Ability: Intimidate
+Level: 50
+EVs: 31 HP / 1 Def / 13 SpA / 1 SpD / 1 Spe
+Quiet Nature
+- Fake Out
+- Knock Off
+- Flare Blitz
+- Parting Shot
+`
+
+const pasteWithTeraType = `Rillaboom @ Assault Vest
+Ability: Grassy Surge
+Level: 50
+Tera Type: Fire
+EVs: 140 HP / 116 Atk / 4 Def / 84 SpD / 164 Spe
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
+`

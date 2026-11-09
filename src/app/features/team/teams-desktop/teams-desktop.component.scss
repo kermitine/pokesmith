@@ -1,0 +1,109 @@
+@use "@angular/material" as mat;
+
+.teams-container {
+  margin-top: var(--space-lg);
+}
+
+.teams-top-box {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.team-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+.help-label {
+  font-size: var(--font-size-sm);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.team-name-input {
+  flex: 0 0 120px;
+  margin-bottom: -1.5em;
+}
+
+.team-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.teams-carousel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+
+  button.mat-mdc-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+
+  .mdc-icon-button__ripple {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mat-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 30px;
+  }
+}
+
+.teams-boxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 6.5em;
+  column-gap: var(--space-xl);
+  row-gap: var(--space-xl);
+  flex-grow: 1;
+  min-width: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 300ms ease-in;
+}
+
+.warn {
+  background-color: var(--warn) !important;
+  color: white !important;
+}
+
+.team-paste-link {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-top: var(--space-xl);
+  padding-left: calc(40px + var(--space-lg));
+  color: var(--text);
+
+  label {
+    flex-shrink: 0;
+  }
+
+  a {
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+}

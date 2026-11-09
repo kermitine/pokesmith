@@ -1,0 +1,1591 @@
+import { TypeChart } from "./type-chart"
+
+describe("TypeChart", () => {
+  let service: TypeChart
+
+  beforeEach(() => {
+    service = new TypeChart()
+  })
+
+  it("should be created", () => {
+    expect(service).toBeTruthy()
+  })
+
+  it("should return 2x effectiveness for Fire against Grass", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Grass")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Fire against Water", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Water")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0 (immune) for Normal against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Normal", "Ghost")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 4x effectiveness for Ice against Ground/Flying", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Ground", "Flying")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 0.5x effectiveness for Fire against Water/Ground", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Water", "Ground")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 1x effectiveness for Fire against Ground", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Ground")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 0.25x effectiveness for Fire against Water/Rock", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Water", "Rock")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should format effectiveness correctly", () => {
+    expect(service.formatEffectiveness(0)).toBe("immune")
+    expect(service.formatEffectiveness(0.25)).toBe("1/4")
+    expect(service.formatEffectiveness(0.5)).toBe("1/2")
+    expect(service.formatEffectiveness(1)).toBe("")
+    expect(service.formatEffectiveness(2)).toBe("2x")
+    expect(service.formatEffectiveness(4)).toBe("4x")
+  })
+
+  it("should identify weaknesses correctly", () => {
+    expect(service.isWeakness(2)).toBe(true)
+    expect(service.isWeakness(4)).toBe(true)
+    expect(service.isWeakness(1)).toBe(false)
+    expect(service.isWeakness(0.5)).toBe(false)
+  })
+
+  it("should identify resistances correctly", () => {
+    expect(service.isResistance(0.25)).toBe(true)
+    expect(service.isResistance(0.5)).toBe(true)
+    expect(service.isResistance(1)).toBe(false)
+    expect(service.isResistance(2)).toBe(false)
+  })
+
+  it("should identify immunities correctly", () => {
+    expect(service.isImmune(0)).toBe(true)
+    expect(service.isImmune(1)).toBe(false)
+    expect(service.isImmune(2)).toBe(false)
+  })
+
+  it("should return 2x effectiveness for Water against Fire", () => {
+    const effectiveness = service.getEffectiveness("Water", "Fire")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Water against Water", () => {
+    const effectiveness = service.getEffectiveness("Water", "Water")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Water against Ground", () => {
+    const effectiveness = service.getEffectiveness("Water", "Ground")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Water against Rock", () => {
+    const effectiveness = service.getEffectiveness("Water", "Rock")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Water against Grass", () => {
+    const effectiveness = service.getEffectiveness("Water", "Grass")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Water against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Water", "Dragon")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 1x effectiveness for Water against Normal", () => {
+    const effectiveness = service.getEffectiveness("Water", "Normal")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Electric", () => {
+    const effectiveness = service.getEffectiveness("Water", "Electric")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Ice", () => {
+    const effectiveness = service.getEffectiveness("Water", "Ice")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Water", "Fighting")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Poison", () => {
+    const effectiveness = service.getEffectiveness("Water", "Poison")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Flying", () => {
+    const effectiveness = service.getEffectiveness("Water", "Flying")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Water", "Psychic")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Bug", () => {
+    const effectiveness = service.getEffectiveness("Water", "Bug")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Water", "Ghost")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Steel", () => {
+    const effectiveness = service.getEffectiveness("Water", "Steel")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Dark", () => {
+    const effectiveness = service.getEffectiveness("Water", "Dark")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Water against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Water", "Fairy")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 2x effectiveness for Grass against Water", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Water")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Grass against Ground", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Ground")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Grass against Rock", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Rock")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Fire", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Fire")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Grass", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Grass")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Poison", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Poison")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Flying", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Flying")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Bug", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Bug")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Dragon")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Grass against Steel", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Electric against Water", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Water")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Electric against Flying", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Flying")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Electric against Ground", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Ground")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Electric against Grass", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Grass")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Electric against Electric", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Electric")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Electric against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Dragon")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Ice against Grass", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Grass")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ice against Ground", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Ground")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ice against Flying", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Flying")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ice against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Dragon")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Ice against Fire", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Fire")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Ice against Water", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Water")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Ice against Ice", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Ice")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Ice against Steel", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Fighting against Normal", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Normal")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fighting against Ice", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Ice")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fighting against Rock", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Rock")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fighting against Steel", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Steel")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fighting against Dark", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Dark")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Fighting against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Ghost")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Fighting against Poison", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Poison")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fighting against Flying", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Flying")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fighting against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Psychic")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fighting against Bug", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Bug")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fighting against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Fairy")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Poison against Grass", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Grass")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Poison against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Fairy")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Poison against Steel", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Steel")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Poison against Poison", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Poison")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Poison against Ground", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Ground")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Poison against Rock", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Rock")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Poison against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Ghost")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Ground against Fire", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Fire")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ground against Electric", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Electric")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ground against Poison", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Poison")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ground against Rock", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Rock")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ground against Steel", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Steel")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Ground against Flying", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Flying")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Ground against Grass", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Grass")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Ground against Bug", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Bug")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Flying against Grass", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Grass")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Flying against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Fighting")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Flying against Bug", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Bug")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Flying against Electric", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Electric")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Flying against Rock", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Rock")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Flying against Steel", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Psychic against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Fighting")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Psychic against Poison", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Poison")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Psychic against Dark", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Dark")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Psychic against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Psychic")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Psychic against Steel", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Bug against Grass", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Grass")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Bug against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Psychic")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Bug against Dark", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Dark")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Fire", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Fire")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Fighting")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Poison", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Poison")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Flying", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Flying")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Ghost")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Steel", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Fairy")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Rock against Fire", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fire")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Rock against Ice", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Ice")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Rock against Flying", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Flying")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Rock against Bug", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Bug")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Rock against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fighting")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Rock against Ground", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Ground")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Rock against Steel", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0 (immune) for Ghost against Normal", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Normal")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 2x effectiveness for Ghost against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Psychic")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Ghost against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Ghost")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Ghost against Dark", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Dark")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Dragon against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Dragon")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Dragon against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Fairy")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.5x effectiveness for Dragon against Steel", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Steel against Ice", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Ice")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Steel against Rock", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Rock")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Steel against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Fairy")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Steel against Fire", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Fire")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Steel against Water", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Water")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Steel against Electric", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Electric")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Steel against Steel", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Dark against Psychic", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Psychic")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Dark against Ghost", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Ghost")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Dark against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Fighting")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Dark against Dark", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Dark")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Dark against Fairy", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Fairy")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 2x effectiveness for Fairy against Fighting", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Fighting")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fairy against Dragon", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Dragon")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 2x effectiveness for Fairy against Dark", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Dark")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0.5x effectiveness for Fairy against Fire", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Fire")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fairy against Poison", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Poison")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.5x effectiveness for Fairy against Steel", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Steel")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 4x effectiveness for Fire against Bug/Grass", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Bug", "Grass")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Ice against Ground/Flying", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Ground", "Flying")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Rock against Fire/Bug", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fire", "Bug")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Rock against Ice/Flying", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Ice", "Flying")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 0.25x effectiveness for Fire against Water/Rock", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Water", "Rock")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.5x effectiveness for Fire against Water/Ground", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Water", "Ground")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.25x effectiveness for Grass against Fire/Flying", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Fire", "Flying")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Grass against Fire/Bug", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Fire", "Bug")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0 (immune) for Electric against Grass/Ground", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Grass", "Ground")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.25x effectiveness for Ice against Fire/Water", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Fire", "Water")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Ice against Fire/Steel", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Fire", "Steel")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Fighting against Poison/Flying", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Poison", "Flying")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Fighting against Psychic/Flying", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Psychic", "Flying")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Poison against Poison/Ground", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Poison", "Ground")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0 (immune) for Poison against Steel/Ground", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Steel", "Ground")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Ground against Grass/Flying", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Grass", "Flying")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.25x effectiveness for Flying against Electric/Rock", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Electric", "Rock")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Psychic against Psychic/Steel", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Psychic", "Steel")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Bug against Fire/Flying", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Fire", "Flying")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.5x effectiveness for Bug against Fire/Rock", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Fire", "Rock")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0.25x effectiveness for Rock against Fighting/Ground", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fighting", "Ground")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Rock against Fighting/Steel", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fighting", "Steel")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 1x effectiveness for Ghost against Dark/Ghost", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Dark", "Ghost")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Dragon against Dragon/Steel", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Dragon", "Steel")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 0 (immune) for Dragon against Fairy/Steel", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Fairy", "Steel")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0.25x effectiveness for Steel against Fire/Water", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Fire", "Water")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Steel against Fire/Electric", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Fire", "Electric")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Dark against Fighting/Dark", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Fighting", "Dark")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Dark against Fighting/Fairy", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Fighting", "Fairy")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Fairy against Fire/Poison", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Fire", "Poison")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 0.25x effectiveness for Fairy against Poison/Steel", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Poison", "Steel")
+
+    expect(effectiveness).toBe(0.25)
+  })
+
+  it("should return 1x effectiveness for Normal against Normal/Fire", () => {
+    const effectiveness = service.getEffectiveness("Normal", "Normal", "Fire")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 1x effectiveness for Fire against Normal/Water", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Normal", "Water")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 1x effectiveness for Water against Fire/Grass", () => {
+    const effectiveness = service.getEffectiveness("Water", "Fire", "Grass")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 2x effectiveness for Grass against Water/Electric", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Water", "Electric")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 1x effectiveness for Electric against Water/Grass", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Water", "Grass")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 0.5x effectiveness for Ice against Water/Normal", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Water", "Normal")
+
+    expect(effectiveness).toBe(0.5)
+  })
+
+  it("should return 0 (immune) for Fighting against Normal/Ghost", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Normal", "Ghost")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 2x effectiveness for Poison against Grass/Normal", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Grass", "Normal")
+
+    expect(effectiveness).toBe(2)
+  })
+
+  it("should return 0 (immune) for Ground against Electric/Flying", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Electric", "Flying")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 1x effectiveness for Flying against Grass/Electric", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Grass", "Electric")
+
+    expect(effectiveness).toBe(1)
+  })
+
+  it("should return 0 (immune) for Psychic against Fighting/Dark", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Fighting", "Dark")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 4x effectiveness for Bug against Grass/Psychic", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Grass", "Psychic")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Rock against Fire/Ice", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fire", "Ice")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 0 (immune) for Ghost against Normal/Psychic", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Normal", "Psychic")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Dragon against Dragon/Fairy", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Dragon", "Fairy")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 4x effectiveness for Steel against Ice/Rock", () => {
+    const effectiveness = service.getEffectiveness("Steel", "Ice", "Rock")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Dark against Psychic/Ghost", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Psychic", "Ghost")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Fairy against Fighting/Dragon", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Fighting", "Dragon")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 0 (immune) for Normal against Ghost/Steel", () => {
+    const effectiveness = service.getEffectiveness("Normal", "Ghost", "Steel")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Electric against Ground/Rock", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Ground", "Rock")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Fighting against Ghost/Normal", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Ghost", "Normal")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Ground against Flying/Electric", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Flying", "Electric")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Poison against Steel/Ground", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Steel", "Ground")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Psychic against Dark/Psychic", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Dark", "Psychic")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 0 (immune) for Dragon against Fairy/Dragon", () => {
+    const effectiveness = service.getEffectiveness("Dragon", "Fairy", "Dragon")
+
+    expect(effectiveness).toBe(0)
+  })
+
+  it("should return 4x effectiveness for Fire against Steel/Grass", () => {
+    const effectiveness = service.getEffectiveness("Fire", "Steel", "Grass")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 2x effectiveness for Water against Fire/Rock", () => {
+    const effectiveness = service.getEffectiveness("Water", "Fire", "Rock")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 2x effectiveness for Grass against Water/Ground", () => {
+    const effectiveness = service.getEffectiveness("Grass", "Water", "Ground")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 2x effectiveness for Electric against Water/Flying", () => {
+    const effectiveness = service.getEffectiveness("Electric", "Water", "Flying")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Ice against Grass/Dragon", () => {
+    const effectiveness = service.getEffectiveness("Ice", "Grass", "Dragon")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Fighting against Normal/Dark", () => {
+    const effectiveness = service.getEffectiveness("Fighting", "Normal", "Dark")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Poison against Grass/Fairy", () => {
+    const effectiveness = service.getEffectiveness("Poison", "Grass", "Fairy")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Ground against Fire/Electric", () => {
+    const effectiveness = service.getEffectiveness("Ground", "Fire", "Electric")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Flying against Grass/Fighting", () => {
+    const effectiveness = service.getEffectiveness("Flying", "Grass", "Fighting")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Psychic against Fighting/Poison", () => {
+    const effectiveness = service.getEffectiveness("Psychic", "Fighting", "Poison")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Bug against Grass/Psychic", () => {
+    const effectiveness = service.getEffectiveness("Bug", "Grass", "Psychic")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Rock against Fire/Flying", () => {
+    const effectiveness = service.getEffectiveness("Rock", "Fire", "Flying")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Ghost against Psychic/Ghost", () => {
+    const effectiveness = service.getEffectiveness("Ghost", "Psychic", "Ghost")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Dark against Psychic/Ghost", () => {
+    const effectiveness = service.getEffectiveness("Dark", "Psychic", "Ghost")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Fairy against Fighting/Dragon", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Fighting", "Dragon")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 4x effectiveness for Fairy against Dark/Dragon", () => {
+    const effectiveness = service.getEffectiveness("Fairy", "Dark", "Dragon")
+
+    expect(effectiveness).toBe(4)
+  })
+
+  it("should return 1x (neutral) effectiveness for Stellar attack type against any defense type", () => {
+    const effectiveness1 = service.getEffectiveness("Stellar" as any, "Fire")
+    const effectiveness2 = service.getEffectiveness("Stellar" as any, "Water", "Ground")
+    const effectiveness3 = service.getEffectiveness("Stellar" as any, "Dragon", "Fairy")
+
+    expect(effectiveness1).toBe(1)
+    expect(effectiveness2).toBe(1)
+    expect(effectiveness3).toBe(1)
+  })
+
+  describe("ability immunities", () => {
+    it("should return 0 (immune) for Ground against any type with Levitate", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate")).toBe(0)
+      expect(service.getEffectiveness("Ground", "Fire", undefined, "Levitate")).toBe(0)
+      expect(service.getEffectiveness("Ground", "Electric", "Steel", "Levitate")).toBe(0)
+    })
+
+    it("should not affect non-Ground moves with Levitate", () => {
+      expect(service.getEffectiveness("Fire", "Grass", undefined, "Levitate")).toBe(2)
+      expect(service.getEffectiveness("Water", "Fire", undefined, "Levitate")).toBe(2)
+    })
+
+    it("should return 0 (immune) for Fire with Flash Fire", () => {
+      expect(service.getEffectiveness("Fire", "Grass", undefined, "Flash Fire")).toBe(0)
+      expect(service.getEffectiveness("Fire", "Fire", undefined, "Flash Fire")).toBe(0)
+      expect(service.getEffectiveness("Fire", "Water", "Rock", "Flash Fire")).toBe(0)
+    })
+
+    it("should not affect non-Fire moves with Flash Fire", () => {
+      expect(service.getEffectiveness("Water", "Fire", undefined, "Flash Fire")).toBe(2)
+    })
+
+    it("should return 0 (immune) for Electric with Volt Absorb", () => {
+      expect(service.getEffectiveness("Electric", "Water", undefined, "Volt Absorb")).toBe(0)
+      expect(service.getEffectiveness("Electric", "Flying", undefined, "Volt Absorb")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Water with Water Absorb", () => {
+      expect(service.getEffectiveness("Water", "Fire", undefined, "Water Absorb")).toBe(0)
+      expect(service.getEffectiveness("Water", "Ground", undefined, "Water Absorb")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Electric with Motor Drive", () => {
+      expect(service.getEffectiveness("Electric", "Normal", undefined, "Motor Drive")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Electric with Lightning Rod", () => {
+      expect(service.getEffectiveness("Electric", "Normal", undefined, "Lightning Rod")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Water with Storm Drain", () => {
+      expect(service.getEffectiveness("Water", "Normal", undefined, "Storm Drain")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Grass with Sap Sipper", () => {
+      expect(service.getEffectiveness("Grass", "Normal", undefined, "Sap Sipper")).toBe(0)
+      expect(service.getEffectiveness("Grass", "Fire", "Ground", "Sap Sipper")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Water with Dry Skin", () => {
+      expect(service.getEffectiveness("Water", "Normal", undefined, "Dry Skin")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Fire with Well-Baked Body", () => {
+      expect(service.getEffectiveness("Fire", "Normal", undefined, "Well-Baked Body")).toBe(0)
+    })
+
+    it("should return 0 (immune) for Ground with Earth Eater", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Earth Eater")).toBe(0)
+      expect(service.getEffectiveness("Ground", "Fire", "Steel", "Earth Eater")).toBe(0)
+    })
+
+    it("should not affect non-Ground moves with Earth Eater", () => {
+      expect(service.getEffectiveness("Water", "Fire", undefined, "Earth Eater")).toBe(2)
+      expect(service.getEffectiveness("Ice", "Ground", undefined, "Earth Eater")).toBe(2)
+    })
+  })
+
+  describe("Wonder Guard", () => {
+    it("should return 0 for non-super-effective moves", () => {
+      expect(service.getEffectiveness("Normal", "Ghost", undefined, "Wonder Guard")).toBe(0)
+      expect(service.getEffectiveness("Fire", "Ghost", undefined, "Wonder Guard")).toBe(0)
+      expect(service.getEffectiveness("Water", "Ghost", undefined, "Wonder Guard")).toBe(0)
+    })
+
+    it("should return 2x for super-effective moves", () => {
+      expect(service.getEffectiveness("Ghost", "Ghost", undefined, "Wonder Guard")).toBe(2)
+      expect(service.getEffectiveness("Dark", "Ghost", undefined, "Wonder Guard")).toBe(2)
+    })
+
+    it("should return 4x for 4x super-effective moves", () => {
+      expect(service.getEffectiveness("Ghost", "Psychic", "Ghost", "Wonder Guard")).toBe(4)
+    })
+
+    it("should return 0 for neutral moves", () => {
+      expect(service.getEffectiveness("Water", "Normal", undefined, "Wonder Guard")).toBe(0)
+    })
+
+    it("should let Freeze-Dry through against a Water/Ghost defender", () => {
+      const withoutAbility = service.getEffectiveness("Ice", "Water", "Ghost", undefined, undefined, { moveName: "Freeze-Dry" })
+
+      expect(withoutAbility).toBe(2)
+      expect(service.getEffectiveness("Ice", "Water", "Ghost", "Wonder Guard", undefined, { moveName: "Freeze-Dry" })).toBe(2)
+    })
+
+    it("should keep blocking a regular Ice move against a Water/Ghost defender", () => {
+      expect(service.getEffectiveness("Ice", "Water", "Ghost", "Wonder Guard")).toBe(0)
+    })
+  })
+
+  describe("Air Balloon", () => {
+    it("should return 0 (immune) for Ground moves against a defender holding Air Balloon", () => {
+      expect(service.getEffectiveness("Ground", "Flying", undefined, undefined, { item: "Air Balloon" })).toBe(0)
+      expect(service.getEffectiveness("Ground", "Normal", undefined, undefined, { item: "Air Balloon" })).toBe(0)
+    })
+
+    it("should not affect non-Ground moves", () => {
+      expect(service.getEffectiveness("Water", "Fire", undefined, undefined, { item: "Air Balloon" })).toBe(2)
+    })
+
+    it("should not grant Ground immunity when the defender also has Klutz", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Klutz", { ability: "Klutz", item: "Air Balloon" })).toBe(1)
+    })
+
+    it("should not affect Ground moves without Air Balloon", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, undefined, { item: "Leftovers" })).toBe(1)
+    })
+  })
+
+  describe("Iron Ball", () => {
+    it("should remove Ground immunity granted by Levitate", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate", { ability: "Levitate", item: "Iron Ball" })).toBe(1)
+    })
+
+    it("should keep Ground immunity from Levitate without Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate", { ability: "Levitate" })).toBe(0)
+    })
+
+    it("should apply the double weakness of Rotom-Heat once Levitate is grounded", () => {
+      expect(service.getEffectiveness("Ground", "Electric", "Fire", "Levitate", { ability: "Levitate", item: "Iron Ball" })).toBe(4)
+    })
+
+    it("should apply the single weakness of Bronzong once Levitate is grounded", () => {
+      expect(service.getEffectiveness("Ground", "Steel", "Psychic", "Levitate", { ability: "Levitate", item: "Iron Ball" })).toBe(2)
+    })
+
+    it("should keep neutral effectiveness for Flygon once Levitate is grounded", () => {
+      expect(service.getEffectiveness("Ground", "Ground", "Dragon", "Levitate", { ability: "Levitate", item: "Iron Ball" })).toBe(1)
+    })
+
+    it("should keep Flying immune to Ground even holding Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Steel", "Flying", undefined, { item: "Iron Ball" })).toBe(0)
+    })
+  })
+
+  describe("Ring Target", () => {
+    it("should remove type-chart-based immunity", () => {
+      expect(service.getEffectiveness("Normal", "Ghost", undefined, undefined, { item: "Ring Target" })).toBe(1)
+      expect(service.getEffectiveness("Ground", "Flying", undefined, undefined, { item: "Ring Target" })).toBe(1)
+      expect(service.getEffectiveness("Electric", "Ground", undefined, undefined, { item: "Ring Target" })).toBe(1)
+    })
+
+    it("should not remove ability-based immunity", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate", { ability: "Levitate", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should not remove immunity when the defender also has Klutz", () => {
+      expect(service.getEffectiveness("Normal", "Ghost", undefined, "Klutz", { ability: "Klutz", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should not affect non-immune matchups", () => {
+      expect(service.getEffectiveness("Fire", "Grass", undefined, undefined, { item: "Ring Target" })).toBe(2)
+    })
+
+    it("should preserve the other type multiplier on a dual-type immunity (Electric vs Ground/Water)", () => {
+      expect(service.getEffectiveness("Electric", "Ground", "Water", undefined, { item: "Ring Target" })).toBe(2)
+    })
+
+    it("should keep a resisted secondary type when the primary is immune (Ground vs Flying/Bug)", () => {
+      expect(service.getEffectiveness("Ground", "Flying", "Bug", undefined, { item: "Ring Target" })).toBe(0.5)
+    })
+
+    it("should keep a super-effective secondary type when the primary is immune (Ground vs Flying/Steel)", () => {
+      expect(service.getEffectiveness("Ground", "Flying", "Steel", undefined, { item: "Ring Target" })).toBe(2)
+    })
+  })
+
+  describe("items vs ability immunities", () => {
+    it("should keep Levitate Ground immunity against Ring Target (Ring Target does not ground)", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate", { ability: "Levitate", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should keep Eelevate Ground immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Eelevate", { ability: "Eelevate", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should ground Levitate with Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Levitate", { ability: "Levitate", item: "Iron Ball" })).toBe(1)
+    })
+
+    it("should ground Eelevate with Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Eelevate", { ability: "Eelevate", item: "Iron Ball" })).toBe(1)
+    })
+
+    it("should keep Flash Fire immunity against Iron Ball", () => {
+      expect(service.getEffectiveness("Fire", "Grass", undefined, "Flash Fire", { ability: "Flash Fire", item: "Iron Ball" })).toBe(0)
+    })
+
+    it("should keep Flash Fire immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Fire", "Grass", undefined, "Flash Fire", { ability: "Flash Fire", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should keep Earth Eater immunity against Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Earth Eater", { ability: "Earth Eater", item: "Iron Ball" })).toBe(0)
+    })
+
+    it("should keep Earth Eater immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Earth Eater", { ability: "Earth Eater", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should keep Volt Absorb immunity against Iron Ball", () => {
+      expect(service.getEffectiveness("Electric", "Water", undefined, "Volt Absorb", { ability: "Volt Absorb", item: "Iron Ball" })).toBe(0)
+    })
+
+    it("should keep Volt Absorb immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Electric", "Water", undefined, "Volt Absorb", { ability: "Volt Absorb", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should keep Water Absorb immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Water", "Fire", undefined, "Water Absorb", { ability: "Water Absorb", item: "Ring Target" })).toBe(0)
+    })
+
+    it("should keep Sap Sipper immunity against Iron Ball", () => {
+      expect(service.getEffectiveness("Grass", "Normal", undefined, "Sap Sipper", { ability: "Sap Sipper", item: "Iron Ball" })).toBe(0)
+    })
+
+    it("should keep Well-Baked Body immunity against Ring Target", () => {
+      expect(service.getEffectiveness("Fire", "Normal", undefined, "Well-Baked Body", { ability: "Well-Baked Body", item: "Ring Target" })).toBe(0)
+    })
+  })
+
+  describe("Scrappy / Mind's Eye (attacker ignores Ghost immunity)", () => {
+    it("should allow Normal moves to hit Ghost-type defenders", () => {
+      expect(service.getEffectiveness("Normal", "Ghost", undefined, undefined, undefined, { ignoresGhostImmunity: true })).toBe(1)
+    })
+
+    it("should allow Fighting moves to hit Ghost-type defenders", () => {
+      expect(service.getEffectiveness("Fighting", "Ghost", undefined, undefined, undefined, { ignoresGhostImmunity: true })).toBe(1)
+    })
+
+    it("should preserve the secondary type effectiveness when bypassing Ghost immunity", () => {
+      expect(service.getEffectiveness("Normal", "Ghost", "Steel", undefined, undefined, { ignoresGhostImmunity: true })).toBe(0.5)
+    })
+
+    it("should not affect non-Ghost defenders", () => {
+      expect(service.getEffectiveness("Normal", "Water", undefined, undefined, undefined, { ignoresGhostImmunity: true })).toBe(1)
+    })
+
+    it("should not affect other attack types against Ghost", () => {
+      expect(service.getEffectiveness("Fire", "Ghost", undefined, undefined, undefined, { ignoresGhostImmunity: true })).toBe(1)
+    })
+
+    it("should keep Ghost immunity without the flag", () => {
+      expect(service.getEffectiveness("Normal", "Ghost")).toBe(0)
+      expect(service.getEffectiveness("Fighting", "Ghost")).toBe(0)
+    })
+  })
+
+  describe("Freeze-Dry", () => {
+    it("should return 2x effectiveness against mono Water", () => {
+      expect(service.getEffectiveness("Ice", "Water", undefined, undefined, undefined, { moveName: "Freeze-Dry" })).toBe(2)
+    })
+
+    it("should stack with the secondary type when Water is primary", () => {
+      expect(service.getEffectiveness("Ice", "Water", "Ground", undefined, undefined, { moveName: "Freeze-Dry" })).toBe(4)
+    })
+
+    it("should stack with the primary type when Water is secondary", () => {
+      expect(service.getEffectiveness("Ice", "Ground", "Water", undefined, undefined, { moveName: "Freeze-Dry" })).toBe(4)
+    })
+
+    it("should return 1x against Water/Steel where Steel resists", () => {
+      expect(service.getEffectiveness("Ice", "Water", "Steel", undefined, undefined, { moveName: "Freeze-Dry" })).toBe(1)
+    })
+
+    it("should behave like regular Ice when the defender is not Water", () => {
+      expect(service.getEffectiveness("Ice", "Grass", undefined, undefined, undefined, { moveName: "Freeze-Dry" })).toBe(2)
+      expect(service.getEffectiveness("Ice", "Fire", undefined, undefined, undefined, { moveName: "Freeze-Dry" })).toBe(0.5)
+      expect(service.getEffectiveness("Ice", "Steel", undefined, undefined, undefined, { moveName: "Freeze-Dry" })).toBe(0.5)
+      expect(service.getEffectiveness("Ice", "Ground", "Flying", undefined, undefined, { moveName: "Freeze-Dry" })).toBe(4)
+    })
+
+    it("should not affect other Ice moves against Water", () => {
+      expect(service.getEffectiveness("Ice", "Water")).toBe(0.5)
+      expect(service.getEffectiveness("Ice", "Water", undefined, undefined, undefined, { moveName: "Ice Beam" })).toBe(0.5)
+    })
+  })
+
+  describe("Thousand Arrows", () => {
+    it("should hit a pure Flying defender neutrally", () => {
+      expect(service.getEffectiveness("Ground", "Flying", undefined, undefined, undefined, { moveName: "Thousand Arrows" })).toBe(1)
+    })
+
+    it("should ignore the secondary type weakness of a Flying defender", () => {
+      expect(service.getEffectiveness("Ground", "Fire", "Flying", undefined, undefined, { moveName: "Thousand Arrows" })).toBe(1)
+    })
+
+    it("should ignore the secondary type resistance of a Flying defender", () => {
+      expect(service.getEffectiveness("Ground", "Steel", "Flying", undefined, undefined, { moveName: "Thousand Arrows" })).toBe(1)
+    })
+
+    it("should hit a Flying defender neutrally when Flying is the primary type", () => {
+      expect(service.getEffectiveness("Ground", "Flying", "Ground", undefined, undefined, { moveName: "Thousand Arrows" })).toBe(1)
+    })
+
+    it("should hit a Levitate defender keeping the normal effectiveness", () => {
+      expect(service.getEffectiveness("Ground", "Electric", "Water", "Levitate", undefined, { moveName: "Thousand Arrows" })).toBe(2)
+    })
+
+    it("should hit an Eelevate defender keeping the normal effectiveness", () => {
+      expect(service.getEffectiveness("Ground", "Electric", "Water", "Eelevate", undefined, { moveName: "Thousand Arrows" })).toBe(2)
+    })
+
+    it("should hit a Levitate defender holding an Iron Ball", () => {
+      expect(service.getEffectiveness("Ground", "Electric", "Water", "Levitate", { item: "Iron Ball" }, { moveName: "Thousand Arrows" })).toBe(2)
+    })
+
+    it("should hit an Air Balloon holder keeping the normal effectiveness", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, undefined, { item: "Air Balloon" }, { moveName: "Thousand Arrows" })).toBe(1)
+      expect(service.getEffectiveness("Ground", "Electric", "Steel", undefined, { item: "Air Balloon" }, { moveName: "Thousand Arrows" })).toBe(4)
+    })
+
+    it("should not pierce the Earth Eater immunity", () => {
+      expect(service.getEffectiveness("Ground", "Normal", undefined, "Earth Eater", undefined, { moveName: "Thousand Arrows" })).toBe(0)
+    })
+
+    it("should keep the normal effectiveness against a grounded defender", () => {
+      expect(service.getEffectiveness("Ground", "Electric", "Steel", undefined, undefined, { moveName: "Thousand Arrows" })).toBe(4)
+      expect(service.getEffectiveness("Ground", "Normal", undefined, undefined, undefined, { moveName: "Thousand Arrows" })).toBe(1)
+      expect(service.getEffectiveness("Ground", "Grass", undefined, undefined, undefined, { moveName: "Thousand Arrows" })).toBe(0.5)
+    })
+
+    it("should not affect other Ground moves", () => {
+      expect(service.getEffectiveness("Ground", "Flying")).toBe(0)
+      expect(service.getEffectiveness("Ground", "Fire", "Flying", undefined, undefined, { moveName: "Earthquake" })).toBe(0)
+      expect(service.getEffectiveness("Ground", "Electric", "Water", "Levitate", undefined, { moveName: "Earthquake" })).toBe(0)
+    })
+  })
+})

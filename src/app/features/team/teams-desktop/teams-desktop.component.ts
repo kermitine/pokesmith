@@ -1,0 +1,124 @@
+import { Component, computed, effect, inject, input, OnInit, output, signal } from "@angular/core"
+import { FormsModule } from "@angular/forms"
+import { MatButton, MatIconButton } from "@angular/material/button"
+import { MatFormField } from "@angular/material/form-field"
+import { MatIcon } from "@angular/material/icon"
+import { MatInput } from "@angular/material/input"
+import { HiddenDirective } from "@shared/hidden-keeping/hidden.directive"
+import { WidgetComponent } from "@shared/widget/widget.component"
+import { CalcStore } from "@store/calc-store"
+import { ImportPokemonButtonComponent } from "@features/buttons/import-pokemon-button/import-pokemon-button.component"
+import { TeamBoxComponent, TeamPairPosition } from "@features/team/team-box/team-box.component"
+import { Pokemon, Team } from "@multicalc/model"
+import { TeamsService } from "@features/team/teams.service"
+
+@Component({
+  selector: "app-teams-desktop",
+  templateUrl: "./teams-desktop.component.html",
+  styleUrls: ["./teams-desktop.component.scss"],
+  imports: [WidgetComponent, MatFormField, MatInput, FormsModule, MatButton, MatIconButton, MatIcon, TeamBoxComponent, ImportPokemonButtonComponent, HiddenDirective]
+})
+export class TeamsDesktopComponent implements OnInit {
+  store = inject(CalcStore)
+  private teamsService = inject(TeamsService)
+
+  pokemonSelected = output<string>()
+  useTeam = output<string>()
+  secondTeamSelected = output<Team | null>()
+  allowSecondTeamSelection = input<boolean>(false)
+
+  secondTeamId = signal<string | null>(null)
+  currentPage = signal(0)
+
+  teamsCurrentPage = computed(() => this.store.teams().slice(this.currentPage() * 4, (this.currentPage() + 1) * 4))
+  hiddenPrevButton = computed(() => this.currentPage() === 0)
+  hiddenNextButton = computed(() => (this.currentPage() + 1) * 4 >= this.store.teams().length)
+
+  constructor() {
+    effect(() => {
+      const teams = this.store.teams()
+      const emptyTeamsGroups = teams.filter(t => t.isEmpty())
+
+      if (emptyTeamsGroups.length < 2) {
+        this.teamsService.ensureCorrectTeamCount()
+      }
+    })
+  }
+
+  ngOnInit() {
+    const orderedTeams = [...this.store.teams()].sort((a, b) => this.teamsService.moveEmptyListsToEnd(a, b))
+    const newTeams = this.teamsService.cleanTeamsInChunks(orderedTeams)
+    this.store.updateTeams(newTeams)
+    this.teamsService.ensureCorrectTeamCount()
+
+    const activeIndex = this.store.teams().findIndex(t => t.active)
+    this.currentPage.set(Math.max(0, Math.floor(activeIndex / 4)))
+  }
+
+  nextPage() {
+    this.currentPage.set(this.currentPage() + 1)
+  }
+
+  prevPage() {
+    this.currentPage.set(this.currentPage() - 1)
+  }
+
+  importedTeamName?: string
+
+  teamNameImported(name: string) {
+    this.importedTeamName = name
+  }
+
+  pokemonImported(pokemon: Pokemon | Pokemon[]) {
+    const result = this.teamsService.pokemonImported(pokemon, false, this.importedTeamName)
+    this.importedTeamName = undefined
+    this.currentPage.set(Math.floor(result.teamIndex / 4))
+    this.pokemonSelected.emit(result.activePokemonId ?? "")
+  }
+
+  activateTeam(team: Team) {
+    if (this.allowSecondTeamSelection() && this.secondTeamId() !== null) {
+      this.secondTeamId.set(null)
+      this.secondTeamSelected.emit(null)
+    }
+
+    const activePokemonId = this.teamsService.activateTeam(team)
+    this.pokemonSelected.emit(activePokemonId ?? "")
+  }
+
+  activateSecondTeam(team: Team) {
+    const secondTeam = this.teamsService.activateSecondTeam(team, this.allowSecondTeamSelection(), id => this.secondTeamId.set(id))
+
+    if (secondTeam) {
+      this.secondTeamSelected.emit(secondTeam)
+    }
+  }
+
+  pairPositionOf(team: Team): TeamPairPosition | null {
+    if (!this.allowSecondTeamSelection() || this.secondTeamId() === null) return null
+
+    if (this.secondTeamId() === team.id) return "2nd"
+
+    if (team.active) return "1st"
+
+    return null
+  }
+
+  updateTeamName(event: Event) {
+    const teamName = (event.target as HTMLInputElement).value
+    this.teamsService.updateTeamName(teamName)
+  }
+
+  export() {
+    this.teamsService.export(this.store.team())
+  }
+
+  exportPdf() {
+    this.teamsService.exportPdf(this.store.team())
+  }
+
+  deleteTeam() {
+    const activePokemonId = this.teamsService.deleteTeam(false)
+    this.pokemonSelected.emit(activePokemonId ?? "")
+  }
+}

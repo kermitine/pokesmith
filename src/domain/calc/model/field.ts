@@ -1,0 +1,121 @@
+import { GameType, StateSide, StateField, Terrain, Weather } from "@data/types"
+
+export class Side {
+  spikes: number
+  isSR: boolean
+  isReflect: boolean
+  isLightScreen: boolean
+  isProtected: boolean
+  isSeeded: boolean
+  isSaltCured: boolean
+  isTailwind: boolean
+  isHelpingHand: boolean
+  isPowerTrick: boolean
+  isFriendGuard: boolean
+  isAuroraVeil: boolean
+  isBattery: boolean
+  isPowerSpot: boolean
+  isFlowerGift: boolean
+  isSteelySpirit: boolean
+  isSwitching?: "out" | "in"
+
+  constructor(side: StateSide = {}) {
+    this.spikes = side.spikes || 0
+    this.isSR = !!side.isSR
+    this.isReflect = !!side.isReflect
+    this.isLightScreen = !!side.isLightScreen
+    this.isProtected = !!side.isProtected
+    this.isSeeded = !!side.isSeeded
+    this.isSaltCured = !!side.isSaltCured
+    this.isTailwind = !!side.isTailwind
+    this.isHelpingHand = !!side.isHelpingHand
+    this.isPowerTrick = !!side.isPowerTrick
+    this.isFriendGuard = !!side.isFriendGuard
+    this.isAuroraVeil = !!side.isAuroraVeil
+    this.isBattery = !!side.isBattery
+    this.isPowerSpot = !!side.isPowerSpot
+    this.isFlowerGift = !!side.isFlowerGift
+    this.isSteelySpirit = !!side.isSteelySpirit
+    this.isSwitching = side.isSwitching
+  }
+
+  clone(): Side {
+    return new Side(this)
+  }
+}
+
+export class Field {
+  gameType: GameType
+  weather?: Weather
+  terrain?: Terrain
+  isMagicRoom: boolean
+  isWonderRoom: boolean
+  isGravity: boolean
+  isAuraBreak: boolean
+  isFairyAura: boolean
+  isDarkAura: boolean
+  isBeadsOfRuin: boolean
+  isSwordOfRuin: boolean
+  isTabletsOfRuin: boolean
+  isVesselOfRuin: boolean
+  isUnnerve: boolean
+  attackerSide: Side
+  defenderSide: Side
+
+  constructor(field: Partial<StateField> = {}) {
+    this.gameType = field.gameType || "Singles"
+    this.terrain = field.terrain
+    this.weather = field.weather
+    this.isMagicRoom = !!field.isMagicRoom
+    this.isWonderRoom = !!field.isWonderRoom
+    this.isGravity = !!field.isGravity
+    this.isAuraBreak = field.isAuraBreak || false
+    this.isFairyAura = field.isFairyAura || false
+    this.isDarkAura = field.isDarkAura || false
+    this.isBeadsOfRuin = field.isBeadsOfRuin || false
+    this.isSwordOfRuin = field.isSwordOfRuin || false
+    this.isTabletsOfRuin = field.isTabletsOfRuin || false
+    this.isVesselOfRuin = field.isVesselOfRuin || false
+    this.isUnnerve = field.isUnnerve || false
+    this.attackerSide = new Side(field.attackerSide || {})
+    this.defenderSide = new Side(field.defenderSide || {})
+  }
+
+  hasWeather(...weathers: Weather[]): boolean {
+    const weather = this.weather
+
+    if (!weather) return false
+
+    for (const candidate of weathers) {
+      if (candidate === weather) return true
+    }
+
+    return false
+  }
+
+  hasStrongWeather(): boolean {
+    return this.hasWeather("Harsh Sunshine", "Heavy Rain", "Strong Winds")
+  }
+
+  hasTerrain(...terrains: Terrain[]): boolean {
+    const terrain = this.terrain
+
+    if (!terrain) return false
+
+    for (const candidate of terrains) {
+      if (candidate === terrain) return true
+    }
+
+    return false
+  }
+
+  swap(): this {
+    ;[this.attackerSide, this.defenderSide] = [this.defenderSide, this.attackerSide]
+
+    return this
+  }
+
+  clone(): Field {
+    return new Field(this)
+  }
+}

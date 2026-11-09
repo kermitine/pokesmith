@@ -1,0 +1,150 @@
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  min-width: 34em;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.target-pokemon {
+  margin-top: var(--space-lg);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34em, 1fr));
+  grid-auto-rows: minmax(16em, 1fr);
+  column-gap: var(--space-lg);
+  row-gap: var(--space-lg);
+}
+
+.add-target-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  box-sizing: border-box;
+  height: 100%;
+  background-color: var(--highlight);
+}
+
+.add-target-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 100%;
+}
+
+.add-target-placeholder .placeholder-image {
+  width: 120px;
+  height: 120px;
+}
+
+.filters-label {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.opponent-source-select {
+  width: 18em;
+  margin-right: var(--space-xl);
+}
+
+.select-pokemon-fixed {
+  width: auto;
+}
+
+.select-pokemon-filter {
+  width: 17em;
+}
+
+.boost-select {
+  width: 8em;
+}
+
+.boost-select.boost-select-first {
+  margin-left: auto;
+}
+
+.order-toggle {
+  align-self: center;
+}
+
+.default-sps-notice {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--warning);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background-color: var(--warning-surface);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+:host(.side-by-side) {
+  .buttons {
+    --mat-button-filled-horizontal-padding: var(--space-md);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .calc-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md) var(--space-xs);
+    margin-top: var(--space-md);
+  }
+
+  .filters {
+    flex-wrap: wrap;
+  }
+
+  .boosts {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .boost-select {
+    width: 6.5em;
+  }
+
+  .target-pokemon > * {
+    min-height: 16em;
+  }
+
+  .options-toggle {
+    --mat-button-text-label-text-color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .select-pokemon-filter,
+  .select-pokemon-fixed {
+    flex: 1 1 0;
+    min-width: 10em;
+  }
+
+  .target-pokemon {
+    container: opponent-cards / inline-size;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    grid-auto-rows: max-content;
+    align-content: start;
+    margin-top: var(--space-xl);
+  }
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}

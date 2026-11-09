@@ -1,0 +1,177 @@
+import { EV_ITEMS } from "@calc/model/items"
+import { chainMods, getModifiedStat, MOD_0_25X, MOD_0_5X, MOD_1_2X, MOD_1_5X, MOD_2X, overflow32, pokeRound } from "@calc/engine/math"
+import { Field, Side } from "@calc/model/field"
+import { Move } from "@calc/model/move"
+import { Pokemon } from "@calc/model/pokemon"
+import { RawDesc, StatID, Weather } from "@data/types"
+
+export function isGrounded(pokemon: Pokemon, field: Field): boolean {
+  return field.isGravity || pokemon.hasItem("Iron Ball") || (!pokemon.hasType("Flying") && !pokemon.hasAbility("Levitate", "Eelevate") && !pokemon.hasItem("Air Balloon"))
+}
+
+export function effectiveWeather(attacker: Pokemon, field: Field): Weather | undefined {
+  if (attacker.hasAbility("Mega Sol")) return "Sun"
+
+  if (field.hasWeather("Sun", "Harsh Sunshine", "Rain", "Heavy Rain") && attacker.hasItem("Utility Umbrella")) return undefined
+
+  return field.weather
+}
+
+export function computeFinalStats(attacker: Pokemon, defender: Pokemon, field: Field, ...stats: StatID[]): void {
+  computeFinalStatsFor(attacker, field, field.attackerSide, stats)
+  computeFinalStatsFor(defender, field, field.defenderSide, stats)
+}
+
+function computeFinalStatsFor(pokemon: Pokemon, field: Field, side: Side, stats: StatID[]): void {
+  for (const stat of stats) {
+    if (stat === "spe") {
+      pokemon.stats.spe = getFinalSpeed(pokemon, field, side)
+    } else {
+      pokemon.stats[stat] = getModifiedStat(pokemon.rawStats[stat], pokemon.boosts[stat])
+    }
+  }
+}
+
+export function getFinalSpeed(pokemon: Pokemon, field: Field, side: Side): number {
+  const weather = field.weather || ""
+  const terrain = field.terrain
+  let speed = getModifiedStat(pokemon.rawStats.spe, pokemon.boosts.spe)
+  const speedMods: number[] = []
+
+  if (side.isTailwind) {
+    speedMods.push(MOD_2X)
+  }
+
+  if (
+    (pokemon.hasAbility("Unburden") && pokemon.abilityOn) ||
+    (pokemon.hasAbility("Chlorophyll") && weather.includes("Sun")) ||
+    (pokemon.hasAbility("Sand Rush") && weather === "Sand") ||
+    (pokemon.hasAbility("Swift Swim") && weather.includes("Rain")) ||
+    (pokemon.hasAbility("Slush Rush") && weather === "Snow") ||
+    (pokemon.hasAbility("Surge Surfer") && terrain === "Electric")
+  ) {
+    speedMods.push(MOD_2X)
+  } else if (pokemon.hasAbility("Quick Feet") && pokemon.status) {
+    speedMods.push(MOD_1_5X)
+  } else if (pokemon.hasAbility("Slow Start") && pokemon.abilityOn) {
+    speedMods.push(MOD_0_5X)
+  } else if (isQPActive(pokemon, field) && getQPBoostedStat(pokemon) === "spe") {
+    speedMods.push(MOD_1_5X)
+  }
+
+  if (!(pokemon.hasAbility("Unburden") && pokemon.abilityOn)) {
+    if (pokemon.hasItem("Choice Scarf")) {
+      speedMods.push(MOD_1_5X)
+    } else if (pokemon.hasItem("Iron Ball", ...EV_ITEMS)) {
+      speedMods.push(MOD_0_5X)
+    } else if (pokemon.hasItem("Quick Powder") && pokemon.named("Ditto")) {
+      speedMods.push(MOD_2X)
+    }
+  }
+
+  speed = overflow32(pokeRound((speed * chainMods(speedMods, 410, 131172)) / 4096))
+
+  if (pokemon.hasStatus("par") && !pokemon.hasAbility("Quick Feet")) {
+    speed = Math.floor(overflow32(speed * 50) / 100)
+  }
+
+  speed = Math.min(10000, speed)
+
+  return Math.max(0, speed)
+}
+
+export function getQPBoostedStat(pokemon: Pokemon): StatID {
+  if (pokemon.boostedStat && pokemon.boostedStat !== "auto") {
+    return pokemon.boostedStat
+  }
+
+  let bestStat: StatID = "atk"
+
+  for (const stat of ["def", "spa", "spd", "spe"] as StatID[]) {
+    if (getModifiedStat(pokemon.rawStats[stat], pokemon.boosts[stat]) > getModifiedStat(pokemon.rawStats[bestStat], pokemon.boosts[bestStat])) {
+      bestStat = stat
+    }
+  }
+
+  return bestStat
+}
+
+export function isQPActive(pokemon: Pokemon, field: Field): boolean {
+  if (!pokemon.boostedStat) {
+    return false
+  }
+
+  const weather = field.weather || ""
+  const terrain = field.terrain
+
+  return (
+    (pokemon.hasAbility("Protosynthesis") && (weather.includes("Sun") || pokemon.hasItem("Booster Energy"))) || (pokemon.hasAbility("Quark Drive") && (terrain === "Electric" || pokemon.hasItem("Booster Energy"))) || pokemon.boostedStat !== "auto"
+  )
+}
+
+export function getStabMod(pokemon: Pokemon, move: Move, description: RawDesc): number {
+  let stabMod = 4096
+  const forcedStab = !!move.allyPledge && !pokemon.hasOriginalType(move.type)
+
+  if (pokemon.hasOriginalType(move.type) || forcedStab) {
+    stabMod += MOD_0_5X
+  } else if (pokemon.hasAbility("Protean", "Libero") && !pokemon.teraType) {
+    stabMod += MOD_0_5X
+    description.attackerAbility = pokemon.ability
+  }
+
+  const teraType = pokemon.teraType
+
+  if (teraType === move.type && teraType !== "Stellar" && !forcedStab) {
+    stabMod += MOD_0_5X
+    description.attackerTera = teraType
+  }
+
+  if (pokemon.hasAbility("Adaptability") && (pokemon.hasType(move.type) || forcedStab) && teraType !== "Stellar") {
+    stabMod += teraType && pokemon.hasOriginalType(teraType) ? MOD_0_25X : MOD_0_5X
+    description.attackerAbility = pokemon.ability
+  }
+
+  return stabMod
+}
+
+export function getStellarStabMod(pokemon: Pokemon, move: Move, stabMod: number, turns = 0): number {
+  const isStellarBoosted = pokemon.teraType === "Stellar" && ((move.isStellarFirstUse && turns === 0) || pokemon.named("Terapagos-Stellar"))
+
+  if (!isStellarBoosted) return stabMod
+
+  if (pokemon.hasOriginalType(move.type)) return MOD_2X
+
+  return MOD_1_2X
+}
+
+export function countBoosts(boosts: Pokemon["boosts"]): number {
+  let sum = 0
+
+  for (const stat of ["atk", "def", "spa", "spd", "spe"] as StatID[]) {
+    const boost = boosts[stat]
+
+    if (boost && boost > 0) {
+      sum += boost
+    }
+  }
+
+  return sum
+}
+
+export function getWeight(pokemon: Pokemon, description: RawDesc, role: "defender" | "attacker"): number {
+  let weightHG = pokemon.weightKg * 10
+  const abilityFactor = pokemon.hasAbility("Heavy Metal") ? 2 : pokemon.hasAbility("Light Metal") ? 0.5 : 1
+
+  if (abilityFactor !== 1) {
+    weightHG = Math.max(Math.trunc(weightHG * abilityFactor), 1)
+    description[`${role}Ability`] = pokemon.ability
+  }
+
+  if (pokemon.hasItem("Float Stone")) {
+    weightHG = Math.max(Math.trunc(weightHG * 0.5), 1)
+    description[`${role}Item`] = pokemon.item
+  }
+
+  return weightHG / 10
+}

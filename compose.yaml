@@ -1,0 +1,19 @@
+name: pokesmith
+
+services:
+  pokesmith:
+    container_name: pokesmith
+    image: pokesmith:latest
+    pull_policy: build
+    build:
+      context: ${POKESMITH_BUILD_CONTEXT:-https://github.com/kermitine/pokesmith.git#main}
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${POKESMITH_PORT:-8090}:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+    stop_grace_period: 15s

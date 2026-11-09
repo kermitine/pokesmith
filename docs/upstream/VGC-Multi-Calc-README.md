@@ -1,0 +1,199 @@
+# VGC Multi Calc
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=robsonbittencourt_vgc-multicalc&metric=coverage)](https://sonarcloud.io/summary/new_code?id=robsonbittencourt_vgc-multicalc)
+
+> This is a non-profit project, created by a fan for the Pokémon community.
+
+[VGC Multi Calc](https://vgcmulticalc.com) is a damage calculator for Pokémon games, focusing on the latest version, Pokémon Champions, and the official VGC competitive format. It aims to stand out with its design, ease of use, and calculations not found in other alternatives.
+
+In addition to calculations, it allows team building and has the ability to import and export results to [Pokémon Showdown](https://play.pokemonshowdown.com/).
+
+## Access the site here: [vgcmulticalc.com](https://vgcmulticalc.com)
+
+![VGC Multi Calc](media/multi-calc.gif)
+
+## :electric_plug: Getting Started
+
+### Prerequisites
+
+To run this project locally, ensure you have the following tools installed:
+
+- Node.js v24
+
+```
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# Install Node.js v24
+nvm install 24
+
+# Configure Node.js v24 to use
+nvm use 24
+```
+
+- Angular CLI
+
+```
+npm install -g @angular/cli@22
+```
+
+### Installation
+
+- Clone the repository:
+
+```
+git clone https://github.com/robsonbittencourt/vgc-multicalc.git
+cd vgc-multicalc
+```
+
+- Install dependencies:
+
+```
+npm install
+```
+
+### Running the Project
+
+- Start the development server:
+
+```
+npm start
+```
+
+- Open your browser and navigate to:
+
+```
+http://localhost:4200
+```
+
+## :construction_worker: Architecture
+
+The project runs entirely on the client side. All necessary data about Pokémon is contained within the bundle.
+
+Below are some of the main points used in the architecture of this project.
+
+### Angular
+
+The Angular version used is the latest one. One key highlight is the use of [signals](https://angular.dev/guide/signals) for component reactivity. Since this project employs signals in all its components, it no longer uses zone.js, meaning it is a [zoneless](https://angular.dev/guide/experimental/zoneless) application and follows the most current Angular directives.
+
+### NgRx Signal Store
+
+The [NgRx Signal Store](https://ngrx.io/guide/signals) library serves as the foundation for state management throughout the application. It simplifies reactivity by creating signals for stored properties as needed.
+
+### Project structure
+
+The project follows a hexagonal architecture with a single, ESLint-enforced dependency direction: `app → domain → calc`. The UI orchestrates the domain but holds no business logic; the domain receives data as arguments and never touches Angular components or app state.
+
+```
+src                        // All the source of the bundle is here
+├── app                    // Angular UI (components, templates, state)
+│ ├── layout               // App shell (header, footer, nav)
+│ ├── pages                // Page-level components
+│ ├── features             // Components by feature
+│ ├── shared               // Reusable UI components
+│ ├── services             // App/browser services
+│ ├── configuration        // Feature flags and app config
+│ ├── store                // NgRx signal stores (app state)
+│ └── assets               // Assets like fonts and icons
+└── domain                 // Business logic, UI-agnostic
+  ├── calc                 // Pure calculation engine (public API @calc)
+  ├── multicalc            // Domain logic per feature (teams, speed, probability, …)
+  │                        // plus adapters: calc-bridge, pokemon-repository
+  └── data                 // All the necessary Pokémon data
+```
+
+### Deploy
+
+The site is deployed using [Github Pages](https://pages.github.com/). Additionally, a DNS (vgcmulticalc.com) has been created and configured to redirect to the GitHub URL.
+
+The project includes a pipeline in Github Actions that runs tests, linters, and deploys the application with every commit to the main branch.
+
+## :white_check_mark: Tests
+
+The project includes both unit test and E2E test suites.
+
+### Unit Tests
+
+The unit tests are executed using [Vitest](https://vitest.dev). To run all the tests, use the following commands:
+
+```
+# Single run
+npm test
+
+# It automatically re-runs when the files are modified
+npm run test-watch
+
+```
+
+### Performance Tests
+
+The performance tests are designed to measure the execution time of critical operations, such as EV optimization and damage calculation for multiple targets. To run these tests, use the following command:
+
+```bash
+npm run perf
+```
+
+### Linting and Formatting
+
+The project uses ESLint and Prettier to maintain code quality and consistent style. You can run the following commands to check and fix the code:
+
+```bash
+# Run ESLint (TypeScript and HTML)
+npm run lint
+
+# Check code formatting with Prettier
+npm run formatter
+
+# Run both lint and formatter checks
+npm run check
+```
+
+You can view the test coverage report by opening the file `/coverage/lcov-report/index.html`. The coverage report is also available on the [project's Sonar Cloud](https://sonarcloud.io/summary/overall?id=robsonbittencourt_vgc-multicalc&branch=main).
+
+### E2E Tests
+
+The End-To-End tests are written and executed with [Cypress](https://www.cypress.io). To run the tests, use the following commands:
+
+```
+# Run directly from the terminal
+npx cypress run --quiet
+
+# Run in interactive mode
+npx cypress open
+```
+
+![Cypress](media/cypress.png)
+
+#### Smoke Tests
+
+The full E2E suite is thorough but slow. For a quick sanity check that the main flows still work, there is a smoke suite covering the happy path of every screen, on desktop and mobile:
+
+```
+npm run smoke-test
+```
+
+It runs only the tests tagged with `smoke()` and prints a summary at the end. To include a test in the suite, replace its `it(` with `smoke(`:
+
+```typescript
+import { smoke } from "@cy-support/smoke"
+
+smoke("Should show the result of both sides", () => {
+  leftDamageResult.damageIs(0, 117.2, 139.7, 218, 260)
+})
+```
+
+The runner discovers the specs on its own, so no list needs to be kept up to date. A smoke test is a fast signal, not a guarantee. The selection favours tests that assert a calculated value over ones that only check an element is on screen, with one test per functional area.
+
+## :sparkles: Acknowledgments
+
+- [Smogon](https://www.smogon.com/) for providing the original calculator and so many other tools :trophy:
+
+- Thanks to the VGC Community for the feedback and support :heart:
+
+## :octocat: Contributing
+
+Contributions are welcome. Feel free to submit a PR or open an issue. If you have any questions, you can find me on [X/Twitter](https://twitter.com/rluizv).
+
+## :book: License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

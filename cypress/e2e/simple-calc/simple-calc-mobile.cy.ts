@@ -1,0 +1,190 @@
+import { smoke } from "@cy-support/smoke"
+import { poke } from "@cy-support/e2e"
+import { MOBILE_SUITE, goToSimpleCalcMobile } from "@cy-support/setup"
+import { BottomNav } from "@page-object/bottom-nav"
+import { Field } from "@page-object/field"
+import { MobileShell } from "@page-object/mobile-shell"
+import { Opponent } from "@page-object/opponent"
+import { PokemonBuildMobile } from "@page-object/pokemon-build-mobile"
+
+const bottomNav = new BottomNav()
+const shell = new MobileShell()
+const build = new PokemonBuildMobile()
+const field = new Field()
+const opponents = new Opponent()
+
+function importBothSides() {
+  build.activateLeftPokemon()
+  build.importPokemon(poke["ursaluna"])
+
+  build.activateRightPokemon()
+  build.importPokemon(poke["tyranitar"])
+
+  build.activateLeftPokemon()
+}
+
+describe("Bottom nav tabs", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+  })
+
+  it("Should offer Results and Modifiers", () => {
+    bottomNav.tabsAre(["Results", "Modifiers"])
+    bottomNav.onlyActiveTabIs("Results")
+  })
+
+  it("Should switch between the two tabs", () => {
+    bottomNav.goTo("Modifiers")
+    bottomNav.onlyActiveTabIs("Modifiers")
+
+    bottomNav.goTo("Results")
+    bottomNav.onlyActiveTabIs("Results")
+  })
+
+  it("Should keep the scroll of each tab when coming back to it", () => {
+    shell.scrollContentTo(200)
+    shell.rememberContentScroll("resultsScroll")
+
+    bottomNav.goTo("Modifiers")
+
+    shell.tabScrollIs("scrollable-content-field", 0)
+
+    bottomNav.goTo("Results")
+
+    shell.contentScrollIsTheRememberedOne("resultsScroll")
+  })
+})
+
+describe("Switching between the two sides", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+    importBothSides()
+  })
+
+  it("Should start with the left side active", () => {
+    build.leftPokemonIsActive()
+    build.nameIs("Ursaluna")
+  })
+
+  it("Should show the build of the side that was activated", () => {
+    build.activateRightPokemon()
+
+    build.rightPokemonIsActive()
+    build.nameIs("Tyranitar")
+  })
+
+  it("Should make the activated side the attacker", () => {
+    opponents.get("Tyranitar").damageIs(117.2, 139.7)
+
+    build.activateRightPokemon()
+
+    opponents.get("Ursaluna").damageIs(31.3, 36.8)
+  })
+})
+
+describe("Result card", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+    importBothSides()
+  })
+
+  it("Should show the damage of the active attacker", () => {
+    opponents.get("Tyranitar").damageIs(117.2, 139.7)
+  })
+
+  it("Should never collapse the card", () => {
+    shell.tableOverlayIsClosed()
+
+    opponents.get("Tyranitar").descriptionContains("Ursaluna")
+  })
+
+  it("Should change the result when another move is activated", () => {
+    build.activateMoveChip(2)
+
+    opponents.get("Tyranitar").damageIs(12.3, 14.5)
+  })
+})
+
+describe("Role toggle", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+    importBothSides()
+  })
+
+  it("Should invert who attacks whom", () => {
+    opponents.get("Tyranitar").damageIs(117.2, 139.7)
+
+    build.toggleRole("defender")
+
+    opponents.get("Ursaluna").damageIs(31.3, 36.8)
+  })
+})
+
+describe("Table overlay", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+  })
+
+  it("Should open and close the Pokémon table", () => {
+    build.openPokemonTable()
+
+    shell.tableOverlayIsOpen()
+
+    shell.closePokemonTable()
+
+    shell.tableOverlayIsClosed()
+  })
+
+  it("Should hide the result card while the table is open", () => {
+    build.openPokemonTable()
+
+    cy.get(".results-list").should("not.be.visible")
+  })
+
+  it("Should select a Pokémon from the table", () => {
+    build.selectPokemonFromTable("Miraidon")
+
+    build.nameIs("Miraidon")
+  })
+})
+
+describe("Modifiers tab", MOBILE_SUITE, () => {
+  let descriptionWithoutReflect: string
+
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+    importBothSides()
+
+    build.cardDescription().then((text: string) => {
+      descriptionWithoutReflect = text
+    })
+  })
+
+  it("Should show the field on the Modifiers tab", () => {
+    bottomNav.goTo("Modifiers")
+
+    cy.get("app-field").should("be.visible")
+  })
+
+  smoke("Should apply a field condition to the result", () => {
+    opponents.get("Tyranitar").damageIs(117.2, 139.7)
+
+    bottomNav.goTo("Modifiers")
+    cy.get("[data-cy=reflect-defender] button").scrollIntoView()
+    field.reflectDefender()
+    bottomNav.goTo("Results")
+
+    build.cardDescriptionIsNot(descriptionWithoutReflect)
+  })
+})
+
+describe("Narrow screen", MOBILE_SUITE, () => {
+  beforeEach(() => {
+    goToSimpleCalcMobile()
+    importBothSides()
+  })
+
+  it("Should not overflow the page horizontally", () => {
+    shell.pageDoesNotOverflowHorizontally()
+  })
+})

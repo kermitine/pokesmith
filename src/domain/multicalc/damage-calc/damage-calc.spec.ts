@@ -1,0 +1,1332 @@
+import { DamageCalc } from "@multicalc/damage-calc/damage-calc"
+import { Field, FieldSide } from "@multicalc/model/field"
+import { Move } from "@multicalc/model/move"
+import { MoveSet } from "@multicalc/model/moveset"
+import { Pokemon } from "@multicalc/model/pokemon"
+import { Target } from "@multicalc/model/target"
+import { Ability } from "@multicalc/model/ability"
+import { Status } from "@multicalc/model/status"
+import { RollLevelConfig } from "@multicalc/damage-calc/roll-level-config"
+
+describe("Damage Calc Service", () => {
+  let service: DamageCalc
+
+  beforeEach(() => {
+    service = new DamageCalc()
+  })
+
+  it("should calculate damage", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.defender.id).toEqual(target.pokemon.id)
+    expect(damageResult.move).toEqual("Thunderbolt")
+    expect(damageResult.result).toEqual("40 - 48.4%")
+    expect(damageResult.koChance).toEqual("guaranteed 3HKO")
+    expect(damageResult.damage).toEqual(48.4)
+    expect(damageResult.description).toEqual("0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 SpD Flutter Mane: 52-63 (40 - 48.4%) -- guaranteed 3HKO")
+    expect(damageResult.attackerRolls).toEqual([[52, 54, 54, 54, 55, 55, 57, 57, 58, 58, 58, 60, 60, 61, 61, 63]])
+  })
+
+  it("should apply Light Ball attack boost", () => {
+    const attacker = new Pokemon("Pikachu", { item: "Light Ball", nature: "Hasty", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Rising Voltage"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Lucario-Mega", { sps: { hp: 0, spd: 2 } }))
+    const field = new Field({ terrain: "Electric" })
+
+    const damageResult = service.calcDamageAllAttacks(attacker, target.pokemon, field, true)
+
+    expect(damageResult[0].move).toEqual("Rising Voltage")
+    expect(damageResult[0].result).toEqual("157.2 - 184.8%")
+    expect(damageResult[0].koChance).toEqual("guaranteed OHKO")
+    expect(damageResult[0].damage).toEqual(184.8)
+    expect(damageResult[0].description).toEqual("252 SpA Light Ball Pikachu Rising Voltage (140 BP) vs. 0 HP / 12 SpD Lucario-Mega in Electric Terrain: 228-268 (157.2 - 184.8%) -- guaranteed OHKO")
+  })
+
+  it("should calculate damage with multi hit move", () => {
+    const attacker = new Pokemon("Urshifu-Rapid-Strike", {
+      nature: "Adamant",
+      moveSet: new MoveSet(new Move("Surging Strikes"), new Move("Close Combat"), new Move("Aqua Jet"), new Move("Detect")),
+      sps: { hp: 1, atk: 32, def: 0, spa: 0, spd: 0, spe: 32 }
+    })
+
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.defender.id).toEqual(target.pokemon.id)
+    expect(damageResult.move).toEqual("Surging Strikes")
+    expect(damageResult.result).toEqual("133.8 - 159.2%")
+    expect(damageResult.koChance).toEqual("guaranteed OHKO")
+    expect(damageResult.damage).toEqual(159.2)
+    expect(damageResult.description).toEqual("252+ Atk Urshifu-Rapid-Strike Surging Strikes (3 hits) vs. 0 HP / 0 Def Flutter Mane on a critical hit: 174-207 (133.8 - 159.2%) -- guaranteed OHKO")
+    expect(damageResult.attackerRolls[0]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+    expect(damageResult.attackerRolls[1]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+    expect(damageResult.attackerRolls[2]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+  })
+
+  it("should calculate damage to all attacks", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResults = service.calcDamageAllAttacks(attacker, target.pokemon, field, true)
+
+    expect(damageResults.length).toEqual(4)
+
+    expect(damageResults[0].attacker.id).toEqual(attacker.id)
+    expect(damageResults[0].defender.id).toEqual(target.pokemon.id)
+    expect(damageResults[0].move).toEqual("Thunderbolt")
+    expect(damageResults[0].result).toEqual("40 - 48.4%")
+    expect(damageResults[0].koChance).toEqual("guaranteed 3HKO")
+    expect(damageResults[0].damage).toEqual(48.4)
+    expect(damageResults[0].description).toEqual("0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 SpD Flutter Mane: 52-63 (40 - 48.4%) -- guaranteed 3HKO")
+    expect(damageResults[0].attackerRolls).toEqual([[52, 54, 54, 54, 55, 55, 57, 57, 58, 58, 58, 60, 60, 61, 61, 63]])
+
+    expect(damageResults[1].attacker.id).toEqual(attacker.id)
+    expect(damageResults[1].defender.id).toEqual(target.pokemon.id)
+    expect(damageResults[1].move).toEqual("Thunderclap")
+    expect(damageResults[1].result).toEqual("32.3 - 37.6%")
+    expect(damageResults[1].koChance).toEqual("92.7% chance to 3HKO")
+    expect(damageResults[1].damage).toEqual(37.6)
+    expect(damageResults[1].description).toEqual("0 SpA Raging Bolt Thunderclap vs. 0 HP / 0 SpD Flutter Mane: 42-49 (32.3 - 37.6%) -- 92.7% chance to 3HKO")
+    expect(damageResults[1].attackerRolls).toEqual([[42, 42, 42, 43, 43, 43, 45, 45, 45, 46, 46, 46, 48, 48, 48, 49]])
+
+    expect(damageResults[2].attacker.id).toEqual(attacker.id)
+    expect(damageResults[2].defender.id).toEqual(target.pokemon.id)
+    expect(damageResults[2].move).toEqual("Draco Meteor")
+    expect(damageResults[2].result).toEqual("0 - 0%")
+    expect(damageResults[2].koChance).toEqual("Does not cause any damage")
+    expect(damageResults[2].damage).toEqual(0)
+    expect(damageResults[2].description).toEqual("Raging Bolt Draco Meteor vs. Flutter Mane: 0-0 (0 - 0%) -- possibly the worst move ever")
+    expect(damageResults[2].attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+    expect(damageResults[3].attacker.id).toEqual(attacker.id)
+    expect(damageResults[3].defender.id).toEqual(target.pokemon.id)
+    expect(damageResults[3].move).toEqual("Protect")
+    expect(damageResults[2].result).toEqual("0 - 0%")
+    expect(damageResults[2].koChance).toEqual("Does not cause any damage")
+    expect(damageResults[2].damage).toEqual(0)
+    expect(damageResults[3].description).toEqual("Raging Bolt Protect vs. Flutter Mane: 0-0 (0 - 0%)")
+    expect(damageResults[2].attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+  })
+
+  it("should expose the effective move type of each attack", () => {
+    const attacker = new Pokemon("Sylveon", { ability: new Ability("Pixilate"), teraType: "Fire", teraTypeActive: true, moveSet: new MoveSet(new Move("Hyper Voice"), new Move("Tera Blast"), new Move("Weather Ball"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Garchomp"))
+    const field = new Field({ weather: "Rain" })
+
+    const damageResults = service.calcDamageAllAttacks(attacker, target.pokemon, field, true)
+
+    expect(damageResults.map(damageResult => damageResult.moveType)).toEqual(["Fairy", "Fire", "Water", "Normal"])
+  })
+
+  it("should not expose a move type when the effective type has no type icon", () => {
+    const attacker = new Pokemon("Terapagos-Stellar", { teraType: "Stellar", teraTypeActive: true, moveSet: new MoveSet(new Move("Tera Blast"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Garchomp"))
+    const field = new Field()
+
+    const damageResults = service.calcDamageAllAttacks(attacker, target.pokemon, field, true)
+
+    expect(damageResults[0].moveType).toBeUndefined()
+  })
+
+  it("should expose the effective move type of a single attack", () => {
+    const attacker = new Pokemon("Sylveon", { ability: new Ability("Pixilate"), moveSet: new MoveSet(new Move("Hyper Voice"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Garchomp"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.moveType).toEqual("Fairy")
+  })
+
+  it("should calculate damage to two attackers", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(attacker.id)
+    expect(damageResult.defender.id).toEqual(target.pokemon.id)
+    expect(damageResult.move).toEqual("Grassy Glide")
+    expect(damageResult.result).toEqual("72.3 - 87.6%")
+    expect(damageResult.koChance).toEqual("guaranteed 2HKO")
+    expect(damageResult.damage).toEqual(87.6)
+    expect(damageResult.description).toEqual("0 Atk Rillaboom Grassy Glide AND 0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 Def / 0 SpD Assault Vest Flutter Mane: 94-114 (72.3 - 87.6%) -- guaranteed 2HKO")
+    expect(damageResult.attackerRolls).toEqual([[60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72]])
+    expect(damageResult.secondAttackerRolls).toEqual([[34, 36, 36, 36, 36, 37, 37, 37, 39, 39, 39, 39, 40, 40, 40, 42]])
+    expect(damageResult.moveType).toEqual("Grass")
+  })
+
+  it("should double Round base power when the ally already used Round in the same turn", () => {
+    const attacker = new Pokemon("Garchomp-Mega-Z", {
+      item: "Garchompite Z",
+      ability: new Ability("Levitate"),
+      nature: "Modest",
+      sps: { hp: 1, spa: 4, spe: 4 },
+      teraType: "Dragon",
+      moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect"))
+    })
+    const secondAttacker = new Pokemon("Sylveon", {
+      item: "Fairy Feather",
+      ability: new Ability("Pixilate"),
+      nature: "Modest",
+      sps: { spa: 3 },
+      teraType: "Fairy",
+      moveSet: new MoveSet(new Move("Round"), new Move("Hyper Voice"), new Move("Quick Attack"), new Move("Detect"))
+    })
+    const target = new Target(
+      new Pokemon("Floette-Mega", {
+        item: "Floettite",
+        ability: new Ability("Fairy Aura"),
+        nature: "Timid",
+        sps: { hp: 1, spa: 4, spe: 4 },
+        teraType: "Fairy",
+        moveSet: new MoveSet(new Move("Light of Ruin"), new Move("Moonblast"), new Move("Dazzling Gleam"), new Move("Protect"))
+      })
+    )
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(secondAttacker.id)
+    expect(damageResult.result).toEqual("91.3 - 108.6%")
+    expect(damageResult.koChance).toEqual("49.6% chance to OHKO")
+    expect(damageResult.description).toEqual("28+ SpA Garchomp-Mega-Z Round AND 20+ SpA Fairy Feather Pixilate Sylveon Fairy Aura Round (120 BP) vs. 4 HP / 0 SpD Floette-Mega: 137-163 (91.3 - 108.6%) -- 49.6% chance to OHKO")
+  })
+
+  it("should keep sixteen rolls for a status move combined against a defender with Multiscale", () => {
+    const attacker = new Pokemon("Floette-Mega", { item: "Floettite", ability: new Ability("Fairy Aura"), moveSet: new MoveSet(new Move("Protect"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Rillaboom", { item: "Miracle Seed", nature: "Adamant", sps: { atk: 15 }, moveSet: new MoveSet(new Move("Wood Hammer"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Dragonite-Mega", { item: "Dragoninite", nature: "Modest", ability: new Ability("Multiscale"), sps: { hp: 2 } }))
+    const field = new Field({ terrain: "Grassy" })
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    expect(damageResult.secondAttackerRolls).toEqual([[17, 17, 17, 17, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20]])
+    expect(damageResult.damageByRollConfig(RollLevelConfig.high())).toEqual(20)
+  })
+
+  it("should double Round base power when evaluating all attacks of the slower ally", () => {
+    const faster = new Pokemon("Garchomp-Mega-Z", {
+      item: "Garchompite Z",
+      ability: new Ability("Levitate"),
+      nature: "Modest",
+      sps: { hp: 1, spa: 4, spe: 4 },
+      teraType: "Dragon",
+      moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect"))
+    })
+    const slower = new Pokemon("Sylveon", {
+      item: "Fairy Feather",
+      ability: new Ability("Pixilate"),
+      nature: "Modest",
+      sps: { spa: 3 },
+      teraType: "Fairy",
+      moveSet: new MoveSet(new Move("Round"), new Move("Hyper Voice"), new Move("Quick Attack"), new Move("Detect"))
+    })
+    const target = new Target(
+      new Pokemon("Floette-Mega", {
+        item: "Floettite",
+        ability: new Ability("Fairy Aura"),
+        nature: "Timid",
+        sps: { hp: 1, spa: 4, spe: 4 },
+        teraType: "Fairy",
+        moveSet: new MoveSet(new Move("Light of Ruin"), new Move("Moonblast"), new Move("Dazzling Gleam"), new Move("Protect"))
+      })
+    )
+    const field = new Field()
+
+    const damageResults = service.calcDamageAllAttacks(slower, target.pokemon, field, true, false, faster)
+
+    expect(damageResults[0].description).toEqual("20+ SpA Fairy Feather Pixilate Sylveon Fairy Aura Round (120 BP) vs. 4 HP / 0 SpD Fairy Aura Floette-Mega: 112-133 (74.6 - 88.6%) -- guaranteed 2HKO")
+  })
+
+  it("should not double Round base power when the ally does not use Round", () => {
+    const attacker = new Pokemon("Garchomp-Mega-Z", {
+      item: "Garchompite Z",
+      ability: new Ability("Levitate"),
+      nature: "Modest",
+      sps: { hp: 1, spa: 4, spe: 4 },
+      teraType: "Dragon",
+      moveSet: new MoveSet(new Move("Dragon Pulse"), new Move("Fire Blast"), new Move("Round"), new Move("Protect"))
+    })
+    const secondAttacker = new Pokemon("Sylveon", {
+      item: "Fairy Feather",
+      ability: new Ability("Pixilate"),
+      nature: "Modest",
+      sps: { spa: 3 },
+      teraType: "Fairy",
+      moveSet: new MoveSet(new Move("Round"), new Move("Hyper Voice"), new Move("Quick Attack"), new Move("Detect"))
+    })
+    const target = new Target(
+      new Pokemon("Floette-Mega", {
+        item: "Floettite",
+        ability: new Ability("Fairy Aura"),
+        nature: "Timid",
+        sps: { hp: 1, spa: 4, spe: 4 },
+        teraType: "Fairy",
+        moveSet: new MoveSet(new Move("Light of Ruin"), new Move("Moonblast"), new Move("Dazzling Gleam"), new Move("Protect"))
+      })
+    )
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.secondAttackerRolls).toEqual([[57, 57, 58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67]])
+  })
+
+  it("should calculate damage to two attackers considering speed", () => {
+    const attacker = new Pokemon("Raging Bolt", { boosts: { spe: 2 }, moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.secondAttacker?.id).toEqual(secondAttacker.id)
+    expect(damageResult.defender.id).toEqual(target.pokemon.id)
+    expect(damageResult.move).toEqual("Thunderbolt")
+    expect(damageResult.result).toEqual("72.3 - 87.6%")
+    expect(damageResult.koChance).toEqual("guaranteed 2HKO")
+    expect(damageResult.damage).toEqual(87.6)
+    expect(damageResult.description).toEqual("0 SpA Raging Bolt Thunderbolt AND 0 Atk Rillaboom Grassy Glide vs. 0 HP / 0 Def / 0 SpD Assault Vest Flutter Mane: 94-114 (72.3 - 87.6%) -- guaranteed 2HKO")
+    expect(damageResult.attackerRolls).toEqual([[34, 36, 36, 36, 36, 37, 37, 37, 39, 39, 39, 39, 40, 40, 40, 42]])
+    expect(damageResult.secondAttackerRolls).toEqual([[60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72]])
+  })
+
+  it("should let only the faster attacker be halved by Multiscale", () => {
+    const attacker = new Pokemon("Koraidon", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Collision Course"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Miraidon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Electro Drift"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Dragonite", { ability: new Ability("Multiscale"), sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.description).toEqual("252 SpA Miraidon Electro Drift AND 252+ Atk Koraidon Collision Course vs. 252 HP / 0 Def / 0 SpD Dragonite: 95-112 (47.9 - 56.5%) -- guaranteed 2HKO")
+  })
+
+  it("should move the Multiscale reduction to the other attacker when a Speed boost flips the order", () => {
+    const attacker = new Pokemon("Koraidon", { nature: "Adamant", sps: { atk: 32 }, boosts: { spe: 2 }, moveSet: new MoveSet(new Move("Collision Course"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Miraidon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Electro Drift"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Dragonite", { ability: new Ability("Multiscale"), sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.description).toEqual("252+ Atk Koraidon Collision Course AND 252 SpA Miraidon Electro Drift vs. 252 HP / 0 Def / 0 SpD Dragonite: 113-135 (57 - 68.1%) -- guaranteed 2HKO")
+  })
+
+  it("should not trigger Tera Shell when the faster attacker is not super effective", () => {
+    const attacker = new Pokemon("Koraidon", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Collision Course"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Miraidon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Electro Drift"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Terapagos-Terastal", { sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.description).toEqual("252 SpA Miraidon Electro Drift AND 252+ Atk Koraidon Collision Course (133.3251953125 BP) vs. 252 HP / 0 Def / 0 SpD Terapagos-Terastal: 277-330 (137.1 - 163.3%) -- guaranteed OHKO")
+  })
+
+  it("should halve the super effective attacker with Tera Shell when a Speed boost puts it first", () => {
+    const attacker = new Pokemon("Koraidon", { nature: "Adamant", sps: { atk: 32 }, boosts: { spe: 2 }, moveSet: new MoveSet(new Move("Collision Course"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Miraidon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Electro Drift"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Terapagos-Terastal", { sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.description).toEqual("252+ Atk Koraidon Collision Course (133.3251953125 BP) AND 252 SpA Miraidon Electro Drift vs. 252 HP / 0 Def / 0 SpD Terapagos-Terastal: 141-167 (69.8 - 82.6%) -- guaranteed 2HKO")
+  })
+
+  it("should let only the faster attacker be halved by Shadow Shield", () => {
+    const attacker = new Pokemon("Chi-Yu", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Overheat"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Miraidon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Electro Drift"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Lunala", { ability: new Ability("Shadow Shield"), sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.description).toEqual("252 SpA Beads of Ruin Miraidon Electro Drift AND 252+ SpA Beads of Ruin Chi-Yu Overheat vs. 252 HP / 0 SpD Lunala: 214-253 (87.7 - 103.6%) -- 15.2% chance to OHKO")
+  })
+
+  it("should double Assurance in combined damage when its user attacks second, because the faster ally already damaged the target", () => {
+    const attacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Moonblast"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(attacker.id)
+
+    expect(damageResult.secondAttackerRolls).toEqual([[153, 154, 156, 157, 159, 162, 163, 165, 166, 168, 171, 172, 174, 175, 177, 180]])
+    expect(damageResult.result).toEqual("92.3 - 108.5%")
+    expect(damageResult.koChance).toEqual("50% chance to OHKO")
+  })
+
+  it("should double Assurance in combined damage when the flag is set even though its user attacks first", () => {
+    const attacker = new Pokemon("Kingambit", { nature: "Jolly", item: "Choice Scarf", sps: { atk: 32, spe: 32 }, moveSet: new MoveSet(new Move("Assurance", { targetDamaged: true }), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Torkoal", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Body Press"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(secondAttacker.id)
+
+    expect(damageResult.attackerRolls).toEqual([[139, 141, 142, 144, 145, 148, 150, 151, 153, 154, 156, 157, 159, 160, 162, 165]])
+    expect(damageResult.result).toEqual("74.6 - 88.6%")
+    expect(damageResult.koChance).toEqual("guaranteed 2HKO")
+  })
+
+  it("should keep Assurance at 60 BP in combined damage when the faster ally deals no damage", () => {
+    const attacker = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Blissey", { nature: "Bold", sps: { hp: 32, def: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    expect(damageResult.description).toContain("Kingambit Assurance vs.")
+    expect(damageResult.description).not.toContain("Assurance (120 BP)")
+  })
+
+  it("should keep the manually flagged Assurance doubled when the faster ally deals no damage", () => {
+    const attacker = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance", { targetDamaged: true }), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Blissey", { nature: "Bold", sps: { hp: 32, def: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    expect(damageResult.secondAttackerRolls).toEqual([[204, 207, 210, 211, 214, 216, 219, 222, 223, 226, 228, 231, 234, 235, 238, 241]])
+    expect(damageResult.description).toEqual("Flutter Mane Shadow Ball AND 252+ Atk Kingambit Assurance (120 BP) vs. 252 HP / 252+ Def Blissey: 204-241 (56.3 - 66.5%) -- guaranteed 2HKO")
+  })
+
+  it("should swap which attacker the resist berry absorbs when Trick Room is active", () => {
+    const slowAttacker = new Pokemon("Torkoal", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Lava Plume"), new Move(""), new Move(""), new Move("")) })
+    const fastAttacker = new Pokemon("Chi-Yu", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Incinerate"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Amoonguss", { nature: "Bold", item: "Occa Berry", sps: { hp: 32, spd: 32 } }))
+
+    const outsideTrickRoom = service.calcDamageForTwoAttackers(slowAttacker, fastAttacker, target.pokemon, new Field())
+    const insideTrickRoom = service.calcDamageForTwoAttackers(slowAttacker, fastAttacker, target.pokemon, new Field({ isTrickRoom: true }))
+
+    expect(outsideTrickRoom.attacker.id).toEqual(fastAttacker.id)
+    expect(outsideTrickRoom.secondAttacker!.id).toEqual(slowAttacker.id)
+    expect(outsideTrickRoom.attackerRolls).toEqual([[48, 48, 49, 49, 49, 51, 51, 51, 52, 52, 54, 54, 54, 55, 55, 57]])
+    expect(outsideTrickRoom.secondAttackerRolls).toEqual([[102, 104, 104, 108, 108, 108, 110, 110, 114, 114, 114, 116, 116, 120, 120, 122]])
+    expect(outsideTrickRoom.result).toEqual("67.8 - 80.9%")
+
+    expect(insideTrickRoom.attacker.id).toEqual(slowAttacker.id)
+    expect(insideTrickRoom.secondAttacker!.id).toEqual(fastAttacker.id)
+    expect(insideTrickRoom.attackerRolls).toEqual([[51, 52, 52, 54, 54, 54, 55, 55, 57, 57, 57, 58, 58, 60, 60, 61]])
+    expect(insideTrickRoom.secondAttackerRolls).toEqual([[96, 96, 98, 98, 98, 102, 102, 102, 104, 104, 108, 108, 108, 110, 110, 114]])
+    expect(insideTrickRoom.result).toEqual("66.5 - 79.1%")
+  })
+
+  it("should double Assurance under Trick Room when its faster user attacks second", () => {
+    const attacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Torkoal", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Eruption"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } }))
+    const field = new Field({ isTrickRoom: true })
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(secondAttacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(attacker.id)
+    expect(damageResult.description).toContain("Assurance (120 BP)")
+  })
+
+  it("should keep Assurance at 60 BP under Trick Room when its slower user attacks first", () => {
+    const attacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Moonblast"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } }))
+    const field = new Field({ isTrickRoom: true })
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.secondAttacker!.id).toEqual(secondAttacker.id)
+    expect(damageResult.description).toEqual("252+ Atk Kingambit Assurance AND 252 SpA Flutter Mane Moonblast vs. 252 HP / 4 Def / 0 SpD Amoonguss: 127-151 (57.4 - 68.3%) -- guaranteed 2HKO")
+  })
+
+  describe("badly poison", () => {
+    const pikachu = () => new Pokemon("Pikachu", { moveSet: new MoveSet(new Move("Quick Attack"), new Move(""), new Move(""), new Move("")) })
+    const blissey = (status?: Status) => new Pokemon("Blissey", { sps: { hp: 32, def: 32 }, status })
+
+    it("should knock out one turn earlier than a regular poison", () => {
+      const poisoned = service.calcDamage(pikachu(), blissey(Status.POISON), new Field())
+      const badlyPoisoned = service.calcDamage(pikachu(), blissey(Status.BADLY_POISON), new Field())
+
+      expect(poisoned.koChance).toEqual("guaranteed 6HKO after poison damage")
+      expect(badlyPoisoned.koChance).toEqual("guaranteed 5HKO after toxic damage")
+    })
+
+    it("should describe the damage as toxic damage", () => {
+      const damageResult = service.calcDamage(pikachu(), blissey(Status.BADLY_POISON), new Field())
+
+      expect(damageResult.result).toEqual("5.2 - 6.3%")
+      expect(damageResult.description).toEqual("0 Atk Pikachu Quick Attack vs. 252 HP / 252 Def Blissey: 19-23 (5.2 - 6.3%) -- guaranteed 5HKO after toxic damage")
+    })
+  })
+
+  describe("assuranceIsDoubledByAlly", () => {
+    it("should be true when Assurance user is slower and the ally damages the target", () => {
+      const kingambit = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const flutterMane = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Moonblast"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const target = new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } })
+
+      const doubled = service.assuranceIsDoubledByAlly(kingambit, flutterMane, target, new Field())
+
+      expect(doubled).toBe(true)
+    })
+
+    it("should be false when the move is not Assurance", () => {
+      const kingambit = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Iron Head"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const flutterMane = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Moonblast"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const target = new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } })
+
+      const doubled = service.assuranceIsDoubledByAlly(kingambit, flutterMane, target, new Field())
+
+      expect(doubled).toBe(false)
+    })
+
+    it("should be false when the Assurance user attacks first", () => {
+      const kingambit = new Pokemon("Kingambit", { nature: "Jolly", item: "Choice Scarf", sps: { atk: 32, spe: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const torkoal = new Pokemon("Torkoal", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Eruption"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const target = new Pokemon("Amoonguss", { sps: { hp: 32, def: 1 } })
+
+      const doubled = service.assuranceIsDoubledByAlly(kingambit, torkoal, target, new Field())
+
+      expect(doubled).toBe(false)
+    })
+
+    it("should be false when the faster ally deals no damage", () => {
+      const kingambit = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Assurance"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const flutterMane = new Pokemon("Flutter Mane", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move("Protect"), new Move("Protect"), new Move("Protect")) })
+      const target = new Pokemon("Blissey", { nature: "Bold", sps: { hp: 32, def: 32 } })
+
+      const doubled = service.assuranceIsDoubledByAlly(kingambit, flutterMane, target, new Field())
+
+      expect(doubled).toBe(false)
+    })
+  })
+
+  it("should calculate damage to two attackers without damage", () => {
+    const attacker = new Pokemon("Jolteon", { moveSet: new MoveSet(new Move("Thunder"), new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Zapdos", { moveSet: new MoveSet(new Move("Thunder"), new Move("Thunderbolt"), new Move("Air Slash"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Ting-Lu"))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toEqual("Jolteon Thunder AND Zapdos Thunder vs. Ting-Lu: 0-0 (0 - 0%) -- possibly the worst move ever")
+  })
+
+  it("should calculate damage to two attackers when one attacker is immune and the other deals damage", () => {
+    const attacker = new Pokemon("Hydreigon", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Draco Meteor"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Kingambit", { item: "Black Glasses", nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Kowtow Cleave"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Ninetales-Alola", { nature: "Bold", sps: { hp: 32, def: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toEqual("Hydreigon Draco Meteor AND 252+ Atk Black Glasses Kingambit Kowtow Cleave vs. 252 HP / 252+ Def Ninetales-Alola: 42-51 (23.3 - 28.3%) -- 88.5% chance to 4HKO")
+  })
+
+  it("should inject adjusted BP in description when adjuster sets override", () => {
+    const attacker = new Pokemon("Garchomp", { moveSet: new MoveSet(new Move("Stomping Tantrum", { lastMoveFailed: true }), new Move("Earthquake"), new Move("Dragon Claw"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("Stomping Tantrum (150 BP)")
+  })
+
+  it("should not inject adjusted BP when adjuster does not set override", () => {
+    const attacker = new Pokemon("Garchomp", { moveSet: new MoveSet(new Move("Stomping Tantrum", { lastMoveFailed: false }), new Move("Earthquake"), new Move("Dragon Claw"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("BP)")
+  })
+
+  it("should inject adjusted BP in description for both attackers when both have overrides", () => {
+    const attacker = new Pokemon("Garchomp", { moveSet: new MoveSet(new Move("Stomping Tantrum", { lastMoveFailed: true }), new Move("Earthquake"), new Move("Dragon Claw"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Garchomp", { moveSet: new MoveSet(new Move("Stomping Tantrum", { lastMoveFailed: true }), new Move("Earthquake"), new Move("Dragon Claw"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Venusaur"))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description.match(/Stomping Tantrum \(150 BP\)/g)?.length).toBe(2)
+  })
+
+  it("should calculate damage to two attackers one with multi hit move", () => {
+    const attacker = new Pokemon("Urshifu-Rapid-Strike", {
+      nature: "Adamant",
+      moveSet: new MoveSet(new Move("Surging Strikes"), new Move("Close Combat"), new Move("Aqua Jet"), new Move("Detect")),
+      sps: { hp: 1, atk: 32, def: 0, spa: 0, spd: 0, spe: 32 }
+    })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(attacker.id)
+    expect(damageResult.defender.id).toEqual(target.pokemon.id)
+    expect(damageResult.move).toEqual("Surging Strikes")
+    expect(damageResult.result).toEqual("180 - 214.6%")
+    expect(damageResult.koChance).toEqual("guaranteed OHKO")
+    expect(damageResult.damage).toEqual(214.6)
+    expect(damageResult.description).toEqual("252+ Atk Urshifu-Rapid-Strike Surging Strikes (3 hits) AND 0 Atk Rillaboom Grassy Glide vs. 0 HP / 0 Def Flutter Mane on a critical hit: 234-279 (180 - 214.6%) -- guaranteed OHKO")
+    expect(damageResult.attackerRolls[0]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+    expect(damageResult.attackerRolls[1]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+    expect(damageResult.attackerRolls[2]).toEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69])
+    expect(damageResult.secondAttackerRolls).toEqual([[60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72]])
+  })
+
+  it("should calculate damage to two attackers with Tera active in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { teraType: "Fairy", teraTypeActive: true, nature: "Bold", boosts: { def: 1 }, sps: { def: 32, spd: 2 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / +1 252+ Def / 12 SpD Assault Vest Tera Fairy Flutter Mane")
+  })
+
+  it("should calculate damage to two attackers with positive def modifier/nature in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { nature: "Bold", boosts: { def: 1 }, sps: { def: 32, spd: 2 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / +1 252+ Def / 12 SpD Assault Vest Flutter Mane")
+  })
+
+  it("should calculate damage to two attackers with positive spd modifier/nature in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { nature: "Sassy", boosts: { spd: 3 }, sps: { def: 3, spd: 29 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / 20 Def / +3 228+ SpD Assault Vest Flutter Mane")
+  })
+
+  it("should calculate damage to two attackers with negative def modifier/nature in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { nature: "Hasty", boosts: { def: -1 }, sps: { def: 18, spd: 4 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / -1 140- Def / 28 SpD Assault Vest Flutter Mane")
+  })
+
+  it("should calculate damage to two attackers with negative spd modifier/nature in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { nature: "Naive", boosts: { spd: -3 }, sps: { def: 5, spd: 19 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / 36 Def / -3 148- SpD Assault Vest Flutter Mane")
+  })
+
+  it("should calculate damage to two attackers with positive def modifier/nature and negative spd modifier/nature in defender", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move("Fake Out"), new Move("Wood Hammer"), new Move("High Horsepower")) })
+    const target = new Target(new Pokemon("Flutter Mane", { nature: "Lax", boosts: { def: 6, spd: -4 }, sps: { def: 32, spd: 18 }, item: "Assault Vest" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("vs. 0 HP / +6 252+ Def / -4 140- SpD Assault Vest Flutter Mane")
+  })
+
+  it("should calculate damage in a critical hit when attacker have critical hit configured and right is defender", () => {
+    const rightIsDefender = true
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const attackerSide = new FieldSide({ isCriticalHit: true })
+    const field = new Field({ attackerSide })
+
+    const damageResult = service.calcDamageAllAttacks(attacker, target.pokemon, field, rightIsDefender)
+
+    expect(damageResult[0].description).toEqual("0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 SpD Flutter Mane on a critical hit: 79-94 (60.7 - 72.3%) -- guaranteed 2HKO")
+  })
+
+  it("should calculate damage in a critical hit when defender have critical hit configured and right is not defender", () => {
+    const rightIsDefender = false
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move("Thunderclap"), new Move("Draco Meteor"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const defenderSide = new FieldSide({ isCriticalHit: true })
+    const field = new Field({ defenderSide })
+
+    const damageResult = service.calcDamageAllAttacks(attacker, target.pokemon, field, rightIsDefender)
+
+    expect(damageResult[0].description).toEqual("0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 SpD Flutter Mane on a critical hit: 79-94 (60.7 - 72.3%) -- guaranteed 2HKO")
+  })
+
+  it("should calculate damage of a fixed damage move", () => {
+    const attacker = new Pokemon("Annihilape", { moveSet: new MoveSet(new Move("Final Gambit"), new Move("Close Combat"), new Move("Shadow Claw"), new Move("Coaching")) })
+    const target = new Target(new Pokemon("Incineroar"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.move).toEqual("Final Gambit")
+    expect(damageResult.result).toEqual("108.8 - 108.8%")
+    expect(damageResult.koChance).toEqual("guaranteed OHKO")
+    expect(damageResult.damage).toEqual(108.8)
+    expect(damageResult.description).toEqual("Annihilape Final Gambit vs. 0 HP Incineroar: 185-185 (108.8 - 108.8%) -- guaranteed OHKO")
+    expect(damageResult.attackerRolls).toEqual([[185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185, 185]])
+  })
+
+  it("should calculate Ruination damage as half of the target current HP", () => {
+    const attacker = new Pokemon("Wo-Chien", { moveSet: new MoveSet(new Move("Ruination"), new Move("Leech Seed"), new Move("Pollen Puff"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.move).toEqual("Ruination")
+    expect(damageResult.damage).toEqual(50)
+    expect(damageResult.attackerRolls).toEqual([[65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65]])
+  })
+
+  it("should consider berry in damage calculation", () => {
+    const attacker = new Pokemon("Urshifu", { moveSet: new MoveSet(new Move("Close Combat"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flapple", { item: "Sitrus Berry", ability: new Ability("Ripen") }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toEqual("0 Atk Urshifu Close Combat vs. 0 HP / 0 Def Flapple: 102-121 (70.3 - 83.4%) -- 77.3% chance to 2HKO after Sitrus Berry recovery")
+  })
+
+  it("should return berryHP when Sitrus Berry triggers", () => {
+    const attacker = new Pokemon("Urshifu", { moveSet: new MoveSet(new Move("Close Combat"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Incineroar", { item: "Sitrus Berry", nature: "Impish", sps: { hp: 32, def: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.berryHP).toEqual(50)
+  })
+
+  it("should trigger Sitrus Berry and affect second attacker damage (Water Spout)", () => {
+    const attacker1 = new Pokemon("Urshifu", { item: "Choice Band", moveSet: new MoveSet(new Move("Rock Smash"), new Move(""), new Move(""), new Move("")) })
+    const attacker2 = new Pokemon("Kyogre", { moveSet: new MoveSet(new Move("Water Spout"), new Move(""), new Move(""), new Move("")), sps: { spa: 32 }, nature: "Modest" })
+
+    const target = new Target(new Pokemon("Incineroar", { item: "Sitrus Berry", sps: { hp: 32 } }))
+    const field = new Field()
+
+    const result = service.calcDamageForTwoAttackers(attacker1, attacker2, target.pokemon, field)
+
+    expect(result.description).toContain("after Sitrus Berry recovery")
+  })
+
+  it("should trigger Enigma Berry correctly with two attackers (Neutral -> Super Effective)", () => {
+    const attacker1 = new Pokemon("Flutter Mane", { moveSet: new MoveSet(new Move("Moonblast"), new Move(""), new Move(""), new Move("")) })
+    const attacker2 = new Pokemon("Landorus-Therian", { moveSet: new MoveSet(new Move("Bulldoze"), new Move(""), new Move(""), new Move("")) })
+
+    const target = new Target(new Pokemon("Incineroar", { item: "Enigma Berry", sps: { hp: 32 } }))
+    const field = new Field()
+
+    const result = service.koChanceForTwoAttackers(attacker1, attacker2, target.pokemon, field)
+
+    expect(result).toContain("after Enigma Berry recovery")
+  })
+
+  it("should apply Colbur Berry damage reduction when Unnerve is off", () => {
+    const attacker = new Pokemon("Tyranitar-Mega", { sps: { spa: 0 }, moveSet: new MoveSet(new Move("Dark Pulse"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Farigiraf", { item: "Colbur Berry", sps: { hp: 4, spd: 1 } }))
+    const field = new Field({ isUnnerve: false })
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("Colbur Berry")
+  })
+
+  it("should NOT apply Colbur Berry damage reduction when Unnerve is on", () => {
+    const attacker = new Pokemon("Tyranitar-Mega", { sps: { spa: 0 }, moveSet: new MoveSet(new Move("Dark Pulse"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Farigiraf", { item: "Colbur Berry", sps: { hp: 4, spd: 1 } }))
+    const field = new Field({ isUnnerve: true })
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("Colbur Berry")
+  })
+
+  it("should apply Sitrus Berry recovery when Unnerve is off", () => {
+    const attacker = new Pokemon("Urshifu", { moveSet: new MoveSet(new Move("Close Combat"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Incineroar", { item: "Sitrus Berry", nature: "Impish", sps: { hp: 32, def: 32 } }))
+    const field = new Field({ isUnnerve: false })
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.berryHP).toBeGreaterThan(0)
+  })
+
+  it("should NOT apply Sitrus Berry recovery when Unnerve is on", () => {
+    const attacker = new Pokemon("Urshifu", { moveSet: new MoveSet(new Move("Close Combat"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Incineroar", { item: "Sitrus Berry", nature: "Impish", sps: { hp: 32, def: 32 } }))
+    const field = new Field({ isUnnerve: true })
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.berryHP).toEqual(0)
+  })
+
+  it("should not consume the defender's resist berry when a Parental Bond attacker fights alongside a partner with Unnerve", () => {
+    const kangaskhan = new Pokemon("Kangaskhan-Mega", { ability: new Ability("Parental Bond"), sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Fire Punch"), new Move(""), new Move(""), new Move("")) })
+    const aerodactyl = new Pokemon("Aerodactyl", { ability: new Ability("Unnerve"), moveSet: new MoveSet(new Move("Rock Slide"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Ferrothorn", { item: "Occa Berry" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(kangaskhan, aerodactyl, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("Occa Berry")
+  })
+
+  it("should make Poltergeist deal no damage when a faster partner already consumed the defender's resist berry", () => {
+    const sableye = new Pokemon("Sableye", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Poltergeist"), new Move(""), new Move(""), new Move("")) })
+    const kangaskhan = new Pokemon("Kangaskhan-Mega", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Fire Punch"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Ferrothorn", { item: "Occa Berry" }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(sableye, kangaskhan, target.pokemon, field)
+
+    expect(damageResult.attacker.id).toEqual(kangaskhan.id)
+    expect(damageResult.secondAttacker!.id).toEqual(sableye.id)
+    expect(damageResult.description).toEqual("252+ Atk Parental Bond Kangaskhan-Mega Fire Punch AND Sableye Poltergeist vs. 0 HP / 0 Def Occa Berry Ferrothorn: 110-132 (73.8 - 88.5%) -- guaranteed 2HKO")
+    expect(damageResult.secondAttackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+  })
+
+  it("should fill scalar fixed damage into a full roll array for two attackers", () => {
+    const attacker = new Pokemon("Alakazam", { moveSet: new MoveSet(new Move("Seismic Toss"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Chansey", { moveSet: new MoveSet(new Move("Seismic Toss"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Snorlax", { sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field)
+
+    expect(damageResult.attackerRolls).toEqual([[50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50]])
+    expect(damageResult.secondAttackerRolls).toEqual([[50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50]])
+  })
+
+  it("should report the KO chance for a single attacker", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+
+    const koChance = service.koChanceForOneAttacker(attacker, target.pokemon, new Field())
+
+    expect(koChance).toEqual("guaranteed 3HKO")
+  })
+
+  it("should report the combined KO chance for two attackers", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+
+    const koChance = service.koChanceForTwoAttackers(attacker, secondAttacker, target.pokemon, new Field())
+
+    expect(koChance).toEqual("10.2% chance to OHKO")
+  })
+
+  it("should default Dragon Darts to a single hit instead of its maximum", () => {
+    const attacker = new Pokemon("Dragapult", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Dragon Darts"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Blissey", { sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toEqual("252+ Atk Dragapult Dragon Darts vs. 252 HP / 0 Def Blissey: 178-210 (49.1 - 58%) -- 96.9% chance to 2HKO")
+  })
+
+  it("should honour an explicit hit count for Dragon Darts", () => {
+    const attacker = new Pokemon("Dragapult", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Dragon Darts", { hits: "2" }), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Blissey", { sps: { hp: 32 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toEqual("252+ Atk Dragapult Dragon Darts (2 hits) vs. 252 HP / 0 Def Blissey: 356-420 (98.3 - 116%) -- 96.9% chance to OHKO")
+  })
+
+  it("should convert the EVs in the description to SPs when SP mode is on", () => {
+    const attacker = new Pokemon("Chien-Pao", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Icicle Crash"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 20 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field, true, true)
+
+    expect(damageResult.description).toEqual("32+ Atk Sword of Ruin Chien-Pao Icicle Crash vs. 32 HP / 20 Def Amoonguss: 222-264 (100.4 - 119.4%) -- guaranteed OHKO")
+  })
+
+  it("should keep the EVs in the description when SP mode is off", () => {
+    const attacker = new Pokemon("Chien-Pao", { sps: { atk: 32 }, nature: "Adamant", moveSet: new MoveSet(new Move("Icicle Crash"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Amoonguss", { sps: { hp: 32, def: 20 } }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field, true, false)
+
+    expect(damageResult.description).toEqual("252+ Atk Sword of Ruin Chien-Pao Icicle Crash vs. 252 HP / 156 Def Amoonguss: 222-264 (100.4 - 119.4%) -- guaranteed OHKO")
+  })
+
+  it("should read the left attacker crit flag when rightIsDefender is false for two attackers", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Rillaboom", { moveSet: new MoveSet(new Move("Grassy Glide"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane", { item: "Assault Vest" }))
+    const field = new Field({ defenderSide: new FieldSide({ isCriticalHit: true }) })
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target.pokemon, field, false)
+
+    expect(damageResult.description).toEqual("0 Atk Rillaboom Grassy Glide AND 0 SpA Raging Bolt Thunderbolt vs. 0 HP / 0 Def / 0 SpD Assault Vest Flutter Mane on a critical hit: 143-171 (110 - 131.5%) -- guaranteed OHKO")
+  })
+
+  it("should calculate damage against overridden types", () => {
+    const attacker = new Pokemon("Raging Bolt", { moveSet: new MoveSet(new Move("Thunderbolt"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane", { overrideTypes: ["Water"] }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.result).toEqual("80 - 96.9%")
+    expect(damageResult.damage).toEqual(96.9)
+    expect(damageResult.koChance).toEqual("guaranteed 2HKO")
+  })
+
+  it("should treat the unknown type as neutral against every attack", () => {
+    const attacker = new Pokemon("Great Tusk", { moveSet: new MoveSet(new Move("Earthquake"), new Move(""), new Move(""), new Move("")) })
+    const field = new Field()
+
+    const weakToGround = service.calcDamage(attacker, new Pokemon("Pikachu", { overrideTypes: ["Electric"] }), field)
+    const unknownType = service.calcDamage(attacker, new Pokemon("Pikachu", { overrideTypes: ["???"] }), field)
+    const neutralType = service.calcDamage(attacker, new Pokemon("Pikachu", { overrideTypes: ["Normal"] }), field)
+
+    expect(weakToGround.result).toEqual("192.7 - 229%")
+    expect(unknownType.result).toEqual("96.3 - 114.5%")
+    expect(unknownType.result).toEqual(neutralType.result)
+  })
+
+  it("should double Payback base power when the target already moved", () => {
+    const attacker = new Pokemon("Kingambit", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Payback", { targetAlreadyMoved: true }), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamage(attacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ Atk Kingambit Payback (100 BP) vs. 252 HP / 0 Def Snorlax: 136-162 (50.9 - 60.6%) -- guaranteed 2HKO")
+  })
+
+  it("should boost Analytic in a combined attack when the target already moved and the ally moves first", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Psychic", { targetAlreadyMoved: true }), new Move(""), new Move(""), new Move("")) })
+    const fasterAlly = new Pokemon("Dragapult", { nature: "Jolly", sps: { spe: 32 }, moveSet: new MoveSet(new Move("Dragon Darts"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamageForTwoAttackers(analyticUser, fasterAlly, target, new Field())
+
+    expect(damageResult.description).toEqual("0 Atk Dragapult Dragon Darts AND 252+ SpA Analytic Starmie Psychic vs. 252 HP / 0 Def / 0 SpD Snorlax: 133-159 (49.8 - 59.5%) -- 99.9% chance to 2HKO")
+  })
+
+  it("should not boost Analytic in a combined attack when the ally still has to move", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Psychic", { targetAlreadyMoved: true }), new Move(""), new Move(""), new Move("")) })
+    const slowerAlly = new Pokemon("Torkoal", { moveSet: new MoveSet(new Move("Heat Wave"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamageForTwoAttackers(analyticUser, slowerAlly, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ SpA Starmie Psychic AND 0 SpA Torkoal Heat Wave vs. 252 HP / 0 SpD Snorlax: 99-117 (37 - 43.8%) -- guaranteed 3HKO")
+  })
+
+  it("should not boost Analytic when evaluating all attacks of the faster ally", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Psychic", { targetAlreadyMoved: true }), new Move(""), new Move(""), new Move("")) })
+    const slowerAlly = new Pokemon("Torkoal", { moveSet: new MoveSet(new Move("Heat Wave"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResults = service.calcDamageAllAttacks(analyticUser, target, new Field(), true, false, slowerAlly)
+
+    expect(damageResults[0].description).toEqual("252+ SpA Starmie Psychic vs. 252 HP / 0 SpD Snorlax: 66-78 (24.7 - 29.2%) -- 99.7% chance to 4HKO")
+  })
+
+  it("should boost Analytic when evaluating all attacks of the slower ally", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Psychic", { targetAlreadyMoved: true }), new Move(""), new Move(""), new Move("")) })
+    const fasterAlly = new Pokemon("Dragapult", { nature: "Jolly", sps: { spe: 32 }, moveSet: new MoveSet(new Move("Dragon Darts"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResults = service.calcDamageAllAttacks(analyticUser, target, new Field(), true, false, fasterAlly)
+
+    expect(damageResults[0].description).toEqual("252+ SpA Analytic Starmie Psychic vs. 252 HP / 0 SpD Snorlax: 85-102 (31.8 - 38.2%) -- 94.1% chance to 3HKO")
+  })
+
+  it("should block Analytic when the combined ally moves later", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic") })
+    const slowerAlly = new Pokemon("Torkoal")
+
+    expect(service.analyticBlockedByAlly(analyticUser, slowerAlly, new Field())).toBe(true)
+  })
+
+  it("should not block Analytic when the combined ally moves first", () => {
+    const analyticUser = new Pokemon("Starmie", { ability: new Ability("Analytic") })
+    const fasterAlly = new Pokemon("Dragapult", { nature: "Jolly", sps: { spe: 32 } })
+
+    expect(service.analyticBlockedByAlly(analyticUser, fasterAlly, new Field())).toBe(false)
+  })
+
+  it("should double Round base power when a Round was used before in the same turn", () => {
+    const attacker = new Pokemon("Sylveon", { moveSet: new MoveSet(new Move("Round", { roundUsedBefore: true }), new Move("Hyper Voice"), new Move("Quick Attack"), new Move("Protect")) })
+    const target = new Target(new Pokemon("Snorlax"))
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, new Field())
+
+    expect(damageResult.description).toContain("Sylveon Round (120 BP)")
+  })
+
+  it("should report Round doubled by the combined ally that moves first", () => {
+    const slowerRoundUser = new Pokemon("Torkoal", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+    const fasterRoundUser = new Pokemon("Dragapult", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+
+    expect(service.roundDoubledByAlly(slowerRoundUser, fasterRoundUser, new Field())).toBe(true)
+  })
+
+  it("should not report Round doubled for the attacker that uses Round first", () => {
+    const slowerRoundUser = new Pokemon("Torkoal", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+    const fasterRoundUser = new Pokemon("Dragapult", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+
+    expect(service.roundDoubledByAlly(fasterRoundUser, slowerRoundUser, new Field())).toBe(false)
+  })
+
+  it("should not report Round doubled when the Pokemon does not use Round", () => {
+    const slowerPokemon = new Pokemon("Torkoal")
+    const fasterRoundUser = new Pokemon("Dragapult", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+
+    expect(service.roundDoubledByAlly(slowerPokemon, fasterRoundUser, new Field())).toBe(false)
+  })
+
+  it("should not report Round doubled when the ally does not use Round", () => {
+    const slowerRoundUser = new Pokemon("Torkoal", { moveSet: new MoveSet(new Move("Round"), new Move("Fire Blast"), new Move("Dragon Pulse"), new Move("Protect")) })
+    const fasterAlly = new Pokemon("Dragapult")
+
+    expect(service.roundDoubledByAlly(slowerRoundUser, fasterAlly, new Field())).toBe(false)
+  })
+
+  it("should not block anything when the Pokemon does not have Analytic", () => {
+    const pokemon = new Pokemon("Starmie", { ability: new Ability("Natural Cure") })
+    const slowerAlly = new Pokemon("Torkoal")
+
+    expect(service.analyticBlockedByAlly(pokemon, slowerAlly, new Field())).toBe(false)
+  })
+
+  it("should add up every use of Draco Meteor used several times in a row", () => {
+    const attacker = new Pokemon("Dragapult", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Draco Meteor", { timesUsed: "3" }), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamage(attacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ SpA Dragapult Draco Meteor over 3 turns (stat changes considered) vs. 252 HP / 0 SpD Snorlax: 175-208 (65.5 - 77.9%) -- not a KO")
+  })
+
+  it("should ignore the uses in a row when the calculator does not consider them", () => {
+    const attacker = new Pokemon("Dragapult", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Draco Meteor", { timesUsed: "3" }), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = new DamageCalc(1).calcDamage(attacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ SpA Dragapult Draco Meteor vs. 252 HP / 0 SpD Snorlax: 94-112 (35.2 - 41.9%) -- guaranteed 3HKO")
+  })
+
+  it("should keep lowering the Sp. Def for both attackers when Acid Spray is used several times in a row", () => {
+    const attacker = new Pokemon("Sylveon", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Acid Spray", { timesUsed: "3" }), new Move(""), new Move(""), new Move("")) })
+    const secondAttacker = new Pokemon("Gardevoir", { nature: "Quiet", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Psychic"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Dondozo", { nature: "Careful", sps: { hp: 32, spd: 32 }, ability: new Ability("Oblivious") })
+
+    const damageResult = service.calcDamageForTwoAttackers(attacker, secondAttacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252 SpA Sylveon Acid Spray AND 252+ SpA Gardevoir Psychic over 3 turns (stat changes considered) vs. 252 HP / 252+ SpD Dondozo: 812-961 (315.9 - 373.9%) -- guaranteed KO in 3 turns")
+    expect(damageResult.koChance).toEqual("guaranteed KO in 3 turns")
+  })
+
+  it("should double Avalanche base power when the target already damaged the attacker", () => {
+    const attacker = new Pokemon("Beartic", { nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Avalanche", { damagedByTarget: true }), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Garchomp", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamage(attacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ Atk Beartic Avalanche (120 BP) vs. 252 HP / 0 Def Garchomp: 472-556 (219.5 - 258.6%) -- guaranteed OHKO")
+  })
+
+  it("should combine the Pledge declared as used by the ally", () => {
+    const attacker = new Pokemon("Venusaur", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Grass Pledge", { allyPledge: "Water Pledge" }), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamage(attacker, target, new Field())
+
+    expect(damageResult.description).toEqual("252+ SpA Venusaur Grass Pledge (150 BP Grass) vs. 252 HP / 0 SpD Snorlax: 109-129 (40.8 - 48.3%) -- guaranteed 3HKO")
+  })
+
+  it("should combine two different Pledges in a combined attack with only the slower attacker dealing damage", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Fire Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamageForTwoAttackers(fasterPledgeUser, slowerPledgeUser, target, new Field())
+
+    expect(damageResult.description).toEqual("Charizard Fire Pledge AND 252+ SpA Venusaur Grass Pledge (150 BP Fire) vs. 252 HP / 0 SpD Snorlax: 109-129 (40.8 - 48.3%) -- guaranteed 3HKO")
+    expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+  })
+
+  it("should not combine the same Pledge used by both attackers", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResult = service.calcDamageForTwoAttackers(fasterPledgeUser, slowerPledgeUser, target, new Field())
+
+    expect(damageResult.description).toEqual("252 SpA Charizard Grass Pledge AND 252+ SpA Venusaur Grass Pledge vs. 252 HP / 0 SpD Snorlax: 96-115 (35.9 - 43%) -- guaranteed 3HKO")
+  })
+
+  it("should combine the Pledge when evaluating all attacks of the slower ally", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Fire Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResults = service.calcDamageAllAttacks(slowerPledgeUser, target, new Field(), true, false, fasterPledgeUser)
+
+    expect(damageResults[0].description).toEqual("252+ SpA Venusaur Grass Pledge (150 BP Fire) vs. 252 HP / 0 SpD Snorlax: 109-129 (40.8 - 48.3%) -- guaranteed 3HKO")
+  })
+
+  it("should not combine the Pledge when evaluating all attacks of the faster ally", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spa: 32, spe: 32 }, moveSet: new MoveSet(new Move("Fire Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Snorlax", { sps: { hp: 32 } })
+
+    const damageResults = service.calcDamageAllAttacks(fasterPledgeUser, target, new Field(), true, false, slowerPledgeUser)
+
+    expect(damageResults[0].description).toEqual("252 SpA Charizard Fire Pledge vs. 252 HP / 0 SpD Snorlax: 57-67 (21.3 - 25%) -- 0.1% chance to 4HKO")
+  })
+
+  it("should report the ally Pledge that combines with the move of the slower attacker", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spe: 32 }, moveSet: new MoveSet(new Move("Fire Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+
+    expect(service.pledgeCombinedByAlly(slowerPledgeUser, fasterPledgeUser, new Field())).toBe("Fire Pledge")
+  })
+
+  it("should report no ally Pledge for the attacker that waits for the combination", () => {
+    const fasterPledgeUser = new Pokemon("Charizard", { nature: "Timid", sps: { spe: 32 }, moveSet: new MoveSet(new Move("Fire Pledge"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+
+    expect(service.pledgeCombinedByAlly(fasterPledgeUser, slowerPledgeUser, new Field())).toBe("")
+  })
+
+  it("should report no ally Pledge when the moves do not combine", () => {
+    const fasterAlly = new Pokemon("Charizard", { nature: "Timid", sps: { spe: 32 }, moveSet: new MoveSet(new Move("Flamethrower"), new Move(""), new Move(""), new Move("")) })
+    const slowerPledgeUser = new Pokemon("Venusaur", { moveSet: new MoveSet(new Move("Grass Pledge"), new Move(""), new Move(""), new Move("")) })
+
+    expect(service.pledgeCombinedByAlly(slowerPledgeUser, fasterAlly, new Field())).toBe("")
+  })
+
+  it("should keep the immunity of the remaining type after Burn Up", () => {
+    const attacker = new Pokemon("Great Tusk", { moveSet: new MoveSet(new Move("Earthquake"), new Move(""), new Move(""), new Move("")) })
+    const target = new Pokemon("Pikachu", { overrideTypes: ["???", "Flying"] })
+
+    const damageResult = service.calcDamage(attacker, target, new Field())
+
+    expect(damageResult.result).toEqual("0 - 0%")
+    expect(damageResult.damage).toEqual(0)
+  })
+
+  it("should automatically calculate a critical hit when Farfetch'd holds a Leek and uses a high crit ratio move", () => {
+    const attacker = new Pokemon("Farfetch’d", { item: "Leek", moveSet: new MoveSet(new Move("Slash"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Incineroar"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).toContain("on a critical hit")
+  })
+
+  it("should NOT automatically calculate a critical hit when Farfetch'd holds a Leek and uses a regular move", () => {
+    const attacker = new Pokemon("Farfetch’d", { item: "Leek", moveSet: new MoveSet(new Move("Brave Bird"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("on a critical hit")
+  })
+
+  it("should NOT automatically calculate a critical hit when a Scope Lens holder uses a high crit ratio move", () => {
+    const attacker = new Pokemon("Tyranitar", { item: "Scope Lens", moveSet: new MoveSet(new Move("Stone Edge"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Flutter Mane"))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("on a critical hit")
+  })
+
+  it("should not automatically calculate a critical hit when the defender has Shell Armor", () => {
+    const attacker = new Pokemon("Farfetch’d", { item: "Leek", moveSet: new MoveSet(new Move("Slash"), new Move(""), new Move(""), new Move("")) })
+    const target = new Target(new Pokemon("Cloyster", { ability: new Ability("Shell Armor") }))
+    const field = new Field()
+
+    const damageResult = service.calcDamage(attacker, target.pokemon, field)
+
+    expect(damageResult.description).not.toContain("on a critical hit")
+  })
+
+  describe("Added type, matching Showdown damage", () => {
+    it("should make a Ghost move super effective against a Pokémon that received Ghost", () => {
+      const attacker = new Pokemon("Gourgeist", { ability: new Ability("Frisk"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Calm", sps: { hp: 32, spd: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[74, 74, 78, 78, 78, 80, 80, 80, 80, 84, 84, 84, 86, 86, 86, 90]])
+    })
+
+    it("should make a Dark move super effective against a Pokémon that received Ghost", () => {
+      const attacker = new Pokemon("Kingambit", { ability: new Ability("Pressure"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Kowtow Cleave"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[122, 126, 126, 128, 128, 132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146]])
+    })
+
+    it("should make a Pokémon that received Ghost immune to Normal moves", () => {
+      const attacker = new Pokemon("Incineroar", { ability: new Ability("Blaze"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Double-Edge"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    })
+
+    it("should make a Pokémon that received Ghost immune to Fighting moves", () => {
+      const attacker = new Pokemon("Incineroar", { ability: new Ability("Blaze"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Close Combat"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    })
+
+    it("should let Scrappy hit a Pokémon that received Ghost with a Normal move", () => {
+      const attacker = new Pokemon("Kangaskhan", { ability: new Ability("Scrappy"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Double-Edge"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[67, 69, 69, 70, 72, 72, 73, 73, 75, 75, 76, 76, 78, 78, 79, 81]])
+    })
+
+    it("should stack an Ice move to 8x against a Dragon/Ground Pokémon that received Grass", () => {
+      const attacker = new Pokemon("Gardevoir", { ability: new Ability("Synchronize"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Ice Beam"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Calm", sps: { hp: 32, spd: 32 }, addedType: "Grass" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[360, 360, 368, 368, 376, 376, 384, 384, 392, 392, 400, 400, 408, 408, 416, 424]])
+    })
+
+    it("should make a Water move neutral against a Fire Pokémon that received Grass", () => {
+      const attacker = new Pokemon("Pelipper", { ability: new Ability("Keen Eye"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Hydro Pump"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Incineroar", { ability: new Ability("Blaze"), nature: "Calm", sps: { hp: 32, spd: 32 }, addedType: "Grass" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73, 73, 75, 76]])
+    })
+
+    it("should stack a Fire move to 4x against a Steel Pokémon that received Grass", () => {
+      const attacker = new Pokemon("Incineroar", { ability: new Ability("Blaze"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("Flare Blitz"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Kingambit", { ability: new Ability("Pressure"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Grass" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[268, 268, 276, 276, 280, 280, 288, 288, 292, 292, 300, 300, 304, 304, 312, 316]])
+    })
+
+    it("should make a Ground move neutral against a Steel Pokémon that received Grass", () => {
+      const attacker = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Adamant", sps: { atk: 32 }, moveSet: new MoveSet(new Move("High Horsepower"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Kingambit", { ability: new Ability("Pressure"), nature: "Impish", sps: { hp: 32, def: 32 }, addedType: "Grass" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69]])
+    })
+
+    it("should give STAB to a Ghost move of an attacker that received Ghost", () => {
+      const attacker = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Adamant", sps: { atk: 32 }, addedType: "Ghost", moveSet: new MoveSet(new Move("Shadow Claw"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Gardevoir", { ability: new Ability("Synchronize"), nature: "Impish", sps: { hp: 32, def: 32 } })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[126, 128, 128, 132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146, 146, 150]])
+    })
+
+    it("should give STAB to a Grass move of an attacker that received Grass", () => {
+      const attacker = new Pokemon("Incineroar", { ability: new Ability("Blaze"), nature: "Adamant", sps: { atk: 32 }, addedType: "Grass", moveSet: new MoveSet(new Move("Seed Bomb"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Impish", sps: { hp: 32, def: 32 } })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[52, 54, 54, 54, 55, 55, 57, 57, 58, 58, 58, 60, 60, 61, 61, 63]])
+    })
+
+    it("should ignore the received type of a terastalized defender", () => {
+      const attacker = new Pokemon("Gourgeist", { ability: new Ability("Frisk"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Garchomp", { ability: new Ability("Rough Skin"), nature: "Calm", sps: { hp: 32, spd: 32 }, addedType: "Ghost", teraType: "Fire", teraTypeActive: true })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[37, 37, 39, 39, 39, 40, 40, 40, 40, 42, 42, 42, 43, 43, 43, 45]])
+    })
+
+    it("should not stack the received type on a Pokémon that already has it", () => {
+      const attacker = new Pokemon("Gourgeist", { ability: new Ability("Frisk"), nature: "Modest", sps: { spa: 32 }, moveSet: new MoveSet(new Move("Shadow Ball"), new Move(""), new Move(""), new Move("")) })
+      const target = new Pokemon("Gengar", { ability: new Ability("Cursed Body"), nature: "Calm", sps: { hp: 32, spd: 32 }, addedType: "Ghost" })
+
+      const damageResult = service.calcDamage(attacker, target, new Field())
+
+      expect(damageResult.attackerRolls).toEqual([[80, 80, 80, 84, 84, 84, 86, 86, 86, 90, 90, 90, 92, 92, 92, 96]])
+    })
+  })
+})

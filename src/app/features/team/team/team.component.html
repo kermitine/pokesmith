@@ -1,0 +1,86 @@
+<app-widget [title]="'Your Team'" data-cy="your-team">
+  <right-header>
+    <div class="tabs">
+      @if (isEditingCustomSet()) {
+        <app-pokemon-tab [pokemonId]="pokemonId()" selection="primary" (tabActivated)="activatePokemon($event)" (secondTabActivated)="activateSecondPokemon($event)" />
+        <div class="close-tab" (click)="exitCustomSetEditMode()" data-cy="close-edit-custom-set-tab">
+          <mat-icon>close</mat-icon>
+        </div>
+      } @else if (targetOnEdit()) {
+        <app-pokemon-tab [pokemonId]="pokemonId()" selection="primary" (tabActivated)="activatePokemon($event)" (secondTabActivated)="activateSecondPokemon($event)" />
+        <div class="close-tab" (click)="backToActivePokemon()" data-cy="close-tab">
+          <mat-icon>close</mat-icon>
+        </div>
+      } @else {
+        <div class="reorderable-tabs" cdkDropList cdkDropListOrientation="horizontal" (cdkDropListDropped)="dropTab($event)">
+          @for (teamMember of store.team().teamMembers; track teamMember.pokemon.id) {
+            <app-pokemon-tab
+              cdkDrag
+              [cdkDragStartDelay]="{ touch: 300, mouse: 0 }"
+              [pokemonId]="teamMember.pokemon.id"
+              [selection]="tabSelection(teamMember)"
+              (tabActivated)="activatePokemon($event)"
+              (secondTabActivated)="activateSecondPokemon($event)" />
+          }
+        </div>
+
+        @if (showAddTab()) {
+          <app-pokemon-tab [selection]="addingPokemon() ? 'primary' : 'none'" (tabActivated)="startAddingPokemon()" />
+        }
+      }
+    </div>
+  </right-header>
+
+  <div class="pokemon-actions">
+    @if (!isAddMode()) {
+      <app-save-set-button [pokemonId]="pokemonId() ?? ''" [showMatchingSet]="true" (openPokemonTable)="openBuildPokemonTable()" />
+    }
+
+    @if (canDuplicatePokemon()) {
+      <div class="duplicate-pokemon" (click)="duplicatePokemon()" data-cy="duplicate-pokemon-button">
+        <mat-icon class="icon">content_copy</mat-icon>
+        <label>Duplicate</label>
+      </div>
+    }
+
+    <app-import-pokemon-button [show]="canImportPokemon()" [hidden]="addTargetMode() || (!teamMemberOnEdit() && !addingPokemon())" (pokemonImportedEvent)="pokemonImported($event)" />
+    <app-export-pokemon-button [show]="canExportPokemon()" [hidden]="isAddMode() || (!teamMemberOnEdit() && !targetOnEdit())" [pokemonId]="pokemonId() ?? ''" data-cy="export-pokemon-from-team" />
+
+    @if (canShowCombineButton()) {
+      <div [hidden]="!teamMemberOnEdit() || isEditingCustomSet() || isAddMode()" class="combine-damage" (click)="selectSecondAttacker()">
+        @if (combineDamageActive()) {
+          <mat-icon class="icon" data-cy="disable-damage-combined-button">add_circle</mat-icon>
+        } @else {
+          <mat-icon class="icon" data-cy="damage-combined-button">add_circle_outline</mat-icon>
+        }
+        <label>Combine Damage</label>
+      </div>
+    }
+
+    @if (canShowDeleteButton()) {
+      <div [hidden]="!teamMemberOnEdit() || isEditingCustomSet() || isAddMode()" class="delete-pokemon" (click)="removePokemon()" data-cy="delete-from-team-button">
+        <mat-icon class="icon">delete</mat-icon>
+        <label>Delete</label>
+      </div>
+    }
+  </div>
+
+  <app-pokemon-build
+    #pokemonBuild
+    [pokemonId]="buildPokemonId()"
+    (pokemonAdded)="pokemonAdded($event)"
+    (customSetAdded)="customSetAdded($event)"
+    [optimizedEvs]="optimizedEvs()"
+    [optimizedNature]="optimizedNature()"
+    [optimizationStatus]="optimizationStatus()"
+    [optimizationKoChance]="optimizationKoChance()"
+    [optimizationImpossible]="optimizationImpossible()"
+    [optimizationCoverage]="optimizationCoverage()"
+    [optimizationCosts]="optimizationCosts()"
+    [combinedAttackers]="combinedAttackers()"
+    [(optimizerSuccessChance)]="optimizerSuccessChance"
+    (optimizeRequested)="optimizeRequested.emit($event)"
+    (offensiveOptimizeRequested)="offensiveOptimizeRequested.emit($event)"
+    (optimizationApplied)="optimizationApplied.emit()"
+    (optimizationDiscarded)="optimizationDiscarded.emit()" />
+</app-widget>

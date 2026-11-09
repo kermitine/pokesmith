@@ -1,0 +1,518 @@
+{
+  "checked_at_utc": "2026-11-05T03:17:39.761776+00:00",
+  "client_date": "2026-11-04",
+  "purpose": "Read-only public API and repository source checks; no third-party code executed.",
+  "requests": [
+    {
+      "name": "munch_index",
+      "url": "https://munchstats.com/api/v1/index/gen9championsvgc2026regmcbo3/1630/?month=2026-10",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": null,
+        "Cache-Control": "public, max-age=900, must-revalidate",
+        "ETag": "\"b080b81dc0f1bb4cd82c\"",
+        "Content-Type": "application/json"
+      },
+      "summary": {
+        "api_version": 1,
+        "battles": 262609,
+        "category": "showdown",
+        "format": "gen9championsvgc2026regmcbo3",
+        "format_name": "[Gen 9 Champions] VGC 2026 Reg M-C (Bo3)",
+        "month": "2026-10",
+        "pokemon": {
+          "count": 202,
+          "first": [
+            {
+              "count": 4,
+              "first": [
+                "Incineroar",
+                "42.21"
+              ]
+            },
+            {
+              "count": 4,
+              "first": [
+                "Rillaboom",
+                "41.15"
+              ]
+            }
+          ]
+        },
+        "rating": "1630"
+      }
+    },
+    {
+      "name": "munch_incineroar",
+      "url": "https://munchstats.com/api/v1/pokemon/gen9championsvgc2026regmcbo3/1630/Incineroar?month=2026-10",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": null,
+        "Cache-Control": "public, max-age=900, must-revalidate",
+        "ETag": "\"0745be44a955127efbe9\"",
+        "Content-Type": "application/json"
+      },
+      "summary": {
+        "abilities_list": {
+          "count": 2,
+          "first": [
+            {
+              "count": 3,
+              "first": [
+                "Intimidate",
+                "100.0"
+              ]
+            },
+            {
+              "count": 3,
+              "first": [
+                "Blaze",
+                "0.0"
+              ]
+            }
+          ]
+        },
+        "api_version": 1,
+        "base_stats": {
+          "count": 6,
+          "first": [
+            95,
+            115
+          ]
+        },
+        "category": "showdown",
+        "counters_list": {
+          "count": 1,
+          "first": [
+            {
+              "count": 3,
+              "first": [
+                "Sneasler",
+                "53.198"
+              ]
+            }
+          ]
+        },
+        "evs_list": {
+          "count": 5,
+          "first": [
+            {
+              "count": 15,
+              "first": [
+                {
+                  "count": 2,
+                  "first": [
+                    "0 Atk",
+                    "71.734"
+                  ]
+                },
+                {
+                  "count": 2,
+                  "first": [
+                    "15+ Atk",
+                    "5.826"
+                  ]
+                }
+              ]
+            },
+            {
+              "count": 15,
+              "first": [
+                {
+                  "count": 2,
+                  "first": [
+                    "0- SpA",
+                    "77.207"
+                  ]
+                },
+                {
+                  "count": 2,
+                  "first": [
+                    "0 SpA",
+                    "22.558"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "format": "gen9championsvgc2026regmcbo3",
+        "is_transformed": false
+      }
+    },
+    {
+      "name": "pkmn_champions",
+      "url": "https://data.pkmn.cc/stats/gen9championsvgc2026.json",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "max-age=600",
+        "ETag": "\"6aeacfc5-510d79\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "keys": [
+          "battles",
+          "pokemon",
+          "metagame"
+        ],
+        "metadata": {
+          "battles": 1649648
+        },
+        "incineroar": {
+          "lead": {
+            "raw": 0.0508,
+            "real": 0.0508,
+            "weighted": 0.0568
+          },
+          "usage": {
+            "raw": 0.2749,
+            "real": 0.3412,
+            "weighted": 0.3183
+          },
+          "count": 975634,
+          "weight": 0.0945,
+          "viability": {
+            "count": 4,
+            "first": [
+              42108,
+              86
+            ]
+          },
+          "abilities": {
+            "Intimidate": 0.9979,
+            "Blaze": 0.0021
+          },
+          "items": {
+            "Sitrus Berry": 0.6283,
+            "Chople Berry": 0.1693,
+            "Passho Berry": 0.0585,
+            "Rocky Helmet": 0.032,
+            "White Herb": 0.0311,
+            "Leftovers": 0.0227,
+            "Life Orb": 0.0206,
+            "Charcoal": 0.0132
+          },
+          "teraTypes": {
+            "Nothing": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "smogon_chaos",
+      "url": "https://www.smogon.com/stats/2026-10/chaos/gen9championsvgc2026regmcbo3-1630.json",
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:992)>"
+    },
+    {
+      "name": "multicalc_tree",
+      "url": "https://api.github.com/repos/robsonbittencourt/vgc-multicalc/git/trees/main?recursive=1",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"9693f83c7968f7d4c24877df812fbe554f581f1d3c5ae5f9626e71c8272df44a\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "truncated": false,
+        "paths": [
+          "cypress/e2e/type-calc/defensive-coverage-mobile.cy.ts",
+          "cypress/e2e/type-calc/defensive-coverage.cy.ts",
+          "src/app/pages/how-to-use/how-to-use-type-calc/how-to-use-type-calc.component.html",
+          "src/app/pages/how-to-use/how-to-use-type-calc/how-to-use-type-calc.component.ts",
+          "src/app/pages/type-calc/defensive-coverage/defensive-coverage.component.html",
+          "src/app/pages/type-calc/defensive-coverage/defensive-coverage.component.ts"
+        ],
+        "paths_are_examples": true
+      }
+    },
+    {
+      "name": "vgccalc_tree",
+      "url": "https://api.github.com/repos/huydamm/PokemonVGC-Calculator/git/trees/main?recursive=1",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"0adab68d477da7a079e5627302f05b50f7cad0101903a9ebfabdf2d4dd8f85c8\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "truncated": false,
+        "paths": [
+          "src/services/calc.ts",
+          "src/services/sets.ts",
+          "src/services/team.ts"
+        ],
+        "paths_are_examples": true
+      }
+    },
+    {
+      "name": "unburden_tree",
+      "url": "https://api.github.com/repos/leandromesq/unburden/git/trees/main?recursive=1",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"384b478cca264a519df47131801914ca1036785cead578e170d13829d0727892\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "truncated": false,
+        "paths": [
+          "src/lib/calc/damage-engine.ts"
+        ],
+        "paths_are_examples": true
+      }
+    },
+    {
+      "name": "munch_meta",
+      "url": "https://munchstats.com/api/v1/meta",
+      "resolved_url": "https://www.munchstats.com/api/v1/meta",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": null,
+        "Cache-Control": "public, max-age=3600, must-revalidate",
+        "ETag": "\"c981f4d65690f7afc5a2\"",
+        "Content-Type": "application/json"
+      },
+      "summary": {
+        "api_version": 1,
+        "default_format": "gen9championsvgc2026regmcbo3",
+        "default_month": "2026-10",
+        "months": [
+          "2026-10"
+        ]
+      }
+    },
+    {
+      "name": "munch_detail",
+      "url": "https://munchstats.com/api/v1/pokemon/gen9championsvgc2026regmcbo3/1630/Incineroar?month=2026-10",
+      "resolved_url": "https://www.munchstats.com/api/v1/pokemon/gen9championsvgc2026regmcbo3/1630/Incineroar?month=2026-10",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": null,
+        "Cache-Control": "public, max-age=900, must-revalidate",
+        "ETag": "\"0745be44a955127efbe9\"",
+        "Content-Type": "application/json"
+      },
+      "summary": {
+        "fields": [
+          "abilities_list",
+          "api_version",
+          "base_stats",
+          "category",
+          "counters_list",
+          "evs_list",
+          "format",
+          "is_transformed",
+          "items_list",
+          "month",
+          "moves_list",
+          "name",
+          "natures_list",
+          "pokemon_types",
+          "rank",
+          "rating",
+          "spreads_list",
+          "sprite",
+          "teammates_list",
+          "tera_types_list",
+          "trend",
+          "usage",
+          "value_kind"
+        ],
+        "selected": {
+          "format": "gen9championsvgc2026regmcbo3",
+          "items_list": [
+            [
+              "Sitrus Berry",
+              "66.835"
+            ],
+            [
+              "Chople Berry",
+              "17.455"
+            ],
+            [
+              "White Herb",
+              "4.122"
+            ],
+            [
+              "Passho Berry",
+              "3.979"
+            ],
+            [
+              "Leftovers",
+              "3.397"
+            ]
+          ],
+          "month": "2026-10",
+          "moves_list": [
+            [
+              "Fake Out",
+              "99.887"
+            ],
+            [
+              "Parting Shot",
+              "97.625"
+            ],
+            [
+              "Flare Blitz",
+              "95.115"
+            ],
+            [
+              "Darkest Lariat",
+              "35.593"
+            ],
+            [
+              "Throat Chop",
+              "32.366"
+            ]
+          ],
+          "rating": "1630",
+          "spreads_list": [
+            [
+              "Sassy:31/0/15/0/20/0",
+              "4.632"
+            ],
+            [
+              "Adamant:32/15/6/0/13/0",
+              "3.817"
+            ],
+            [
+              "Impish:32/0/10/0/1/23",
+              "2.812"
+            ],
+            [
+              "Sassy:32/0/14/0/20/0",
+              "2.726"
+            ],
+            [
+              "Impish:30/0/20/0/14/2",
+              "2.246"
+            ]
+          ],
+          "value_kind": "usage"
+        }
+      }
+    },
+    {
+      "name": "munch_repo",
+      "url": "https://api.github.com/repos/PizzaTimeJoshua/munchstats",
+      "resolved_url": "https://api.github.com/repos/PizzaTimeJoshua/munchstats",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"01789f75dec0608c52ec362a4fcd4f1b33239e148fa3b5bd1223ed46bbc98672\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "html_url": "https://github.com/PizzaTimeJoshua/munchstats",
+        "pushed_at": "2026-11-04T23:50:16Z",
+        "archived": false,
+        "license": null,
+        "default_branch": "main"
+      }
+    },
+    {
+      "name": "multicalc_repo",
+      "url": "https://api.github.com/repos/robsonbittencourt/vgc-multicalc",
+      "resolved_url": "https://api.github.com/repos/robsonbittencourt/vgc-multicalc",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"a1361132e106c3ffdf67964cdfcc2dcf1a03adc5e5b4936d43cf59d27141b5fb\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "html_url": "https://github.com/robsonbittencourt/vgc-multicalc",
+        "pushed_at": "2026-11-04T18:02:09Z",
+        "archived": false,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT"
+        },
+        "default_branch": "main"
+      }
+    },
+    {
+      "name": "vgccalc_repo",
+      "url": "https://api.github.com/repos/huydamm/PokemonVGC-Calculator",
+      "resolved_url": "https://api.github.com/repos/huydamm/PokemonVGC-Calculator",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "ETag": "W/\"c981c3ed68ee666685f6f8ac537b36997031dad3eaa5413b15e240cde10a44ef\"",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "summary": {
+        "html_url": "https://github.com/huydamm/PokemonVGC-Calculator",
+        "pushed_at": "2026-10-23T15:15:01Z",
+        "archived": false,
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT"
+        },
+        "default_branch": "main"
+      }
+    },
+    {
+      "name": "multicalc_type_guide",
+      "url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/how-to-use/how-to-use-type-calc/how-to-use-type-calc.component.html",
+      "resolved_url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/how-to-use/how-to-use-type-calc/how-to-use-type-calc.component.html",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "max-age=300",
+        "ETag": "\"9658740dcf877e7ddee2cb1826da323bef9f4f9df1dfd8e8654a24081df80ee9\"",
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "summary": {
+        "observations": [
+          "Describes team-wide offensive and defensive coverage.",
+          "Supports comparison against another team.",
+          "Accounts for matchup-changing abilities, items, and moves.",
+          "Provides insights summarizing team coverage."
+        ]
+      }
+    },
+    {
+      "name": "multicalc_insights",
+      "url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/type-calc/type-coverage-insights/type-coverage-insights.component.ts",
+      "resolved_url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/type-calc/type-coverage-insights/type-coverage-insights.component.ts",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "max-age=300",
+        "ETag": "\"36c23ff8bcdaea7d17bd4efb397fe3ee31748beaadeddaf723596cb607fcc587\"",
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "summary": {
+        "lines": 208,
+        "observation": "Source delegates coverage analysis to the internal @multicalc/type-calc module."
+      }
+    },
+    {
+      "name": "multicalc_type_logic",
+      "url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/type-calc/defensive-coverage/defensive-coverage.component.ts",
+      "resolved_url": "https://raw.githubusercontent.com/robsonbittencourt/vgc-multicalc/main/src/app/pages/type-calc/defensive-coverage/defensive-coverage.component.ts",
+      "status": 200,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "max-age=300",
+        "ETag": "\"e868cf2caadc441a465c53309c4fc690bcfac8fdbb5c564513b1bddec4b63f2a\"",
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "summary": {
+        "lines": 126,
+        "observation": "Source delegates coverage analysis to the internal @multicalc/type-calc module."
+      }
+    }
+  ],
+  "evidence_note": "Responses are summarized; observed fields and limited sample values are retained instead of full third-party payloads."
+}

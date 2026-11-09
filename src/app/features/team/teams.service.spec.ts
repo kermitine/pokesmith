@@ -1,0 +1,434 @@
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
+import { TeamsService } from "@app/features/team/teams.service"
+import { CalcStore } from "@store/calc-store"
+import { SnackbarService } from "@app/services/snackbar.service"
+import { PdfExportService } from "@store/user-data/pdf-export.service"
+import { TeamListPlayerInfo } from "@features/modals/team-list-modal/team-list-modal.component"
+import { Team, TeamMember, Pokemon } from "@multicalc/model"
+import { MockOf } from "@app/test-utils"
+import { Router } from "@angular/router"
+import { DeviceDetectorService } from "@app/services/device-detector.service"
+import { PasteOverlayService } from "@app/services/paste-overlay.service"
+import { FeatureFlagsStore } from "@store/feature-flags-store"
+import { buildPasteDraft } from "@store/paste/paste-draft"
+import { SharedTeam } from "@store/paste/shared-team"
+import { getMoveset } from "@data/moveset-data"
+
+describe("TeamsService", () => {
+  let service: TeamsService
+  let store: CalcStore
+  let snackBar: SnackbarService
+  let pdfExportService: PdfExportService
+  let dialogSpy: MockOf<MatDialog>
+  let afterClosedValue: TeamListPlayerInfo | undefined
+
+  const basePlayerInfo: TeamListPlayerInfo = {
+    playerName: "Ash Ketchum",
+    ageDivision: "Masters",
+    pageSelection: "Both",
+    trainerName: "Ash",
+    playerId: "1234-5678-9012",
+    battleTeamName: "Battle Team",
+    dateOfBirth: "05/20/1997",
+    datePartOrder: "mdy",
+    switchProfileName: "AshSwitch",
+    supportId: "AAAA-BBBB"
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+
+    afterClosedValue = basePlayerInfo
+    dialogSpy = {
+      open: vi.fn().mockReturnValue({
+        afterClosed: () => ({ subscribe: (cb: (info: TeamListPlayerInfo | undefined) => void) => cb(afterClosedValue) })
+      })
+    } as unknown as MockOf<MatDialog>
+
+    TestBed.configureTestingModule({
+      providers: [TeamsService, CalcStore, { provide: MatDialog, useValue: dialogSpy }, provideZonelessChangeDetection()]
+    })
+
+    service = TestBed.inject(TeamsService)
+    store = TestBed.inject(CalcStore)
+    snackBar = TestBed.inject(SnackbarService)
+    pdfExportService = TestBed.inject(PdfExportService)
+
+    vi.spyOn(snackBar, "open").mockImplementation(vi.fn())
+    vi.spyOn(pdfExportService, "generatePdf").mockImplementation(vi.fn())
+  })
+
+  describe("activateTeam", () => {
+    it("should activate the given team and return the id of its active Pokémon", () => {
+      const teamX = new Team("123", false, "Team X", [new TeamMember(new Pokemon("Pikachu", { id: "1" }), true), new TeamMember(new Pokemon("Raichu", { id: "2" }), false)])
+      store.updateTeams([teamX])
+
+      const result = service.activateTeam(teamX)
+
+      expect(store.team().id).toBe("123")
+      expect(result).toBe("1")
+    })
+  })
+
+  describe("activateSecondTeam", () => {
+    it("should activate the second team and return it when selection is allowed and the active team is not empty", () => {
+      const teamX = new Team("123", false, "Team X", [new TeamMember(new Pokemon("Pikachu"))])
+      let secondTeamId: string | null = null
+
+      const result = service.activateSecondTeam(teamX, true, id => (secondTeamId = id))
+
+      expect(result).toBe(teamX)
+      expect(secondTeamId).toBe("123")
+    })
+
+    it("should return null when second team selection is not allowed", () => {
+      const teamX = new Team("123", false, "Team X", [new TeamMember(new Pokemon("Pikachu"))])
+
+      const result = service.activateSecondTeam(teamX, false, vi.fn())
+
+      expect(result).toBeNull()
+    })
+
+    it("should return null when the active team is empty", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [])])
+      const teamX = new Team("123", false, "Team X", [new TeamMember(new Pokemon("Pikachu"))])
+
+      const result = service.activateSecondTeam(teamX, true, vi.fn())
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe("updateTeamName", () => {
+    it("should update the active team name", () => {
+      service.updateTeamName("Renamed Team")
+
+      expect(store.team().name).toBe("Renamed Team")
+    })
+  })
+
+  describe("export", () => {
+    it("should open the create paste page with the team loaded", async () => {
+      vi.spyOn(TestBed.inject(DeviceDetectorService), "isDesktop").mockReturnValue(true)
+      const navigateSpy = vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
+      const team = store.team()
+      const pokemon = team.teamMembers.map(tm => tm.pokemon)
+
+      await service.export(team)
+
+      expect(navigateSpy).toHaveBeenCalledWith(["paste"], { state: { pasteDraft: await buildPasteDraft(team.id, team.name, pokemon, store.useSpsMode(), TestBed.inject(FeatureFlagsStore).teraType()) } })
+      expect(pokemon.length).toBeGreaterThan(0)
+    })
+
+    it("should open the create paste overlay on mobile instead of leaving the screen", async () => {
+      vi.spyOn(TestBed.inject(DeviceDetectorService), "isDesktop").mockReturnValue(false)
+      const router = TestBed.inject(Router)
+      const navigateSpy = vi.spyOn(router, "navigate").mockResolvedValue(true)
+      const openSpy = vi.spyOn(TestBed.inject(PasteOverlayService), "open").mockResolvedValue(undefined)
+
+      await service.export(store.team())
+
+      expect(navigateSpy).not.toHaveBeenCalled()
+      expect(openSpy).toHaveBeenCalledWith(expect.objectContaining({ source: store.team().name }))
+    })
+  })
+
+  describe("exportPdf", () => {
+    it("should open the team list dialog with the team name", () => {
+      const team = store.team()
+
+      service.exportPdf(team)
+
+      expect(dialogSpy.open).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ data: { teamName: team.name } }))
+    })
+
+    it("should generate the pdf with the player info returned by the dialog", () => {
+      const team = store.team()
+
+      service.exportPdf(team)
+
+      expect(pdfExportService.generatePdf).toHaveBeenCalledWith(team, basePlayerInfo)
+    })
+
+    it("should not generate a pdf when the dialog is closed without player info", () => {
+      afterClosedValue = undefined
+      const team = store.team()
+
+      service.exportPdf(team)
+
+      expect(pdfExportService.generatePdf).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("addNewTeam", () => {
+    it("should activate the last team instead of creating a new one when it is already empty", () => {
+      const initialCount = store.teams().length
+
+      const id = service.addNewTeam()
+
+      expect(store.teams().length).toBe(initialCount)
+      expect(store.team().id).toBe(store.teams()[initialCount - 1].id)
+      expect(id).toBeUndefined()
+    })
+
+    it("should create a new team when the last team is not empty", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))])])
+
+      const id = service.addNewTeam()
+
+      expect(store.teams().length).toBe(2)
+      expect(store.teams()[1].name).toBe("Team 2")
+      expect(store.team().id).toBe(store.teams()[1].id)
+      expect(id).toBeUndefined()
+    })
+
+    it("should create the first team when there are no teams at all", () => {
+      store.updateTeams([])
+
+      const id = service.addNewTeam()
+
+      expect(store.teams().length).toBe(1)
+      expect(store.teams()[0].name).toBe("Team 1")
+      expect(id).toBeUndefined()
+    })
+  })
+
+  describe("deleteTeam", () => {
+    it("should replace the active team with an empty one keeping the same slot on desktop", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]), new Team("2", false, "Team 2", [new TeamMember(new Pokemon("Raichu"))])])
+
+      service.deleteTeam(false)
+
+      expect(store.teams().length).toBe(2)
+      expect(store.teams()[0].isEmpty()).toBe(true)
+      expect(store.teams()[0].active).toBe(true)
+      expect(snackBar.open).toHaveBeenCalledWith("Team deleted")
+    })
+
+    it("should remove the active team on mobile and activate the first remaining team", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]), new Team("2", false, "Team 2", [new TeamMember(new Pokemon("Raichu"))])])
+
+      service.deleteTeam(true)
+
+      expect(store.teams().length).toBe(1)
+      expect(store.teams()[0].id).toBe("2")
+      expect(store.teams()[0].active).toBe(true)
+      expect(snackBar.open).not.toHaveBeenCalled()
+    })
+
+    it("should create a new empty team on mobile when deleting the only remaining team", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))])])
+
+      service.deleteTeam(true)
+
+      expect(store.teams().length).toBe(1)
+      expect(store.teams()[0].isEmpty()).toBe(true)
+      expect(store.teams()[0].active).toBe(true)
+    })
+  })
+
+  describe("pokemonImported", () => {
+    it("should replace the first empty team slot with the imported Pokémon on desktop", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]), new Team("2", false, "Team 2", [])])
+
+      const result = service.pokemonImported(new Pokemon("Raichu"), false)
+
+      expect(store.teams()[1].teamMembers[0].pokemon.name).toBe("Raichu")
+      expect(store.teams()[1].name).toBe("Team 2")
+      expect(result.activePokemonId).toBe(store.teams()[1].teamMembers[0].pokemon.id)
+      expect(result.teamIndex).toBe(1)
+      expect(snackBar.open).toHaveBeenCalledWith("Team imported from PokePaste")
+    })
+
+    it("should use the provided team name when importing on desktop", () => {
+      store.updateTeams([new Team("1", false, "Team 1", [])])
+
+      service.pokemonImported(new Pokemon("Raichu"), false, "Custom Name")
+
+      expect(store.teams()[0].name).toBe("Custom Name")
+    })
+
+    it("should import a list of Pokémon into a new team on mobile without a snackbar", () => {
+      const initialCount = store.teams().length
+
+      const result = service.pokemonImported([new Pokemon("Pikachu"), new Pokemon("Raichu")], true)
+
+      expect(store.teams().length).toBe(initialCount + 1)
+      const newTeam = store.teams()[store.teams().length - 1]
+      expect(newTeam.teamMembers.map(tm => tm.pokemon.name)).toEqual(["Pikachu", "Raichu"])
+      expect(newTeam.name).toBe(`Team ${initialCount + 1}`)
+      expect(result.teamIndex).toBe(initialCount)
+      expect(snackBar.open).not.toHaveBeenCalled()
+    })
+
+    it("should use the provided team name when importing on mobile", () => {
+      service.pokemonImported(new Pokemon("Pikachu"), true, "Mobile Import")
+
+      const newTeam = store.teams()[store.teams().length - 1]
+      expect(newTeam.name).toBe("Mobile Import")
+    })
+  })
+
+  describe("pokemonImportedAsOpponents", () => {
+    it("should show the imported team as opponents without adding it to the teams", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]), new Team("2", false, "Team 2", [])])
+
+      service.pokemonImportedAsOpponents([new Pokemon("Incineroar"), new Pokemon("Amoonguss")], "Sun Balance")
+
+      const imported = store.transientTeams()[0]
+      expect(imported.name).toBe("Sun Balance")
+      expect(store.teams().map(t => t.name)).toEqual(["Team 1", "Team 2"])
+      expect(store.team().id).toBe("1")
+      expect(store.opponentSource()).toBe(imported.id)
+      expect(store.displayedTargets().map(t => t.pokemon.name)).toEqual(["Incineroar", "Amoonguss"])
+    })
+
+    it("should load only the SPs of the default moveset for the Pokémon without SPs", () => {
+      const withoutSps = new Pokemon("Incineroar", { nature: "Careful", item: "Sitrus Berry", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+      const withSps = new Pokemon("Amoonguss", { sps: { hp: 32, atk: 0, def: 17, spa: 0, spd: 17, spe: 0 } })
+
+      service.pokemonImportedAsOpponents([withoutSps, withSps], "Sun Balance")
+
+      const [incineroar, amoonguss] = store.transientTeams()[0].teamMembers.map(tm => tm.pokemon)
+      expect(incineroar.sps).toEqual(getMoveset("Incineroar")!.sps)
+      expect(incineroar.nature).toBe("Careful")
+      expect(incineroar.item).toBe("Sitrus Berry")
+      expect(incineroar.id).toBe(withoutSps.id)
+      expect(amoonguss.sps).toEqual({ hp: 32, atk: 0, def: 17, spa: 0, spd: 17, spe: 0 })
+      expect(store.sourceHasDefaultSps()).toBe(true)
+    })
+
+    it("should not tell about default SPs when every Pokémon has SPs", () => {
+      service.pokemonImportedAsOpponents([new Pokemon("Amoonguss", { sps: { hp: 32, atk: 0, def: 17, spa: 0, spd: 17, spe: 0 } })], "Paste")
+
+      expect(store.sourceHasDefaultSps()).toBe(false)
+    })
+  })
+
+  describe("importPasteTeam", () => {
+    const paste: SharedTeam = { kind: "team", version: 1, name: "Sun Room", useSpsMode: true, showdown: "Incineroar" }
+
+    it("should import the paste as opponents, named after the paste or with the default name", () => {
+      service.importPasteTeam([new Pokemon("Incineroar")], paste, true)
+      service.importPasteTeam([new Pokemon("Amoonguss")], { ...paste, name: undefined }, true)
+
+      expect(store.transientTeams().map(t => t.name)).toEqual(["Sun Room", "Pokémon team"])
+      expect(store.opponentSource()).toBe(store.transientTeams()[1].id)
+    })
+
+    it("should complete the team slots and fill an empty one with the paste on desktop", () => {
+      vi.spyOn(TestBed.inject(DeviceDetectorService), "isDesktop").mockReturnValue(true)
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))])])
+
+      service.importPasteTeam([new Pokemon("Incineroar")], paste, false)
+
+      expect(store.teams().length).toBe(4)
+      expect(store.teams()[1].name).toBe("Sun Room")
+      expect(store.teams()[1].teamMembers.map(tm => tm.pokemon.name)).toEqual(["Incineroar"])
+      expect(store.team().id).toBe(store.teams()[1].id)
+    })
+
+    it("should add the paste as a new team on mobile", () => {
+      vi.spyOn(TestBed.inject(DeviceDetectorService), "isDesktop").mockReturnValue(false)
+      const initialCount = store.teams().length
+
+      service.importPasteTeam([new Pokemon("Incineroar")], paste, false)
+
+      expect(store.teams().length).toBe(initialCount + 1)
+      expect(store.team().name).toBe("Sun Room")
+    })
+  })
+
+  describe("ensureCorrectTeamCount", () => {
+    it("should add teams to reach a multiple of 4 when the count is not already a multiple of 4", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [])])
+
+      service.ensureCorrectTeamCount()
+
+      expect(store.teams().length).toBe(4)
+    })
+
+    it("should add 4 more teams when the count is a multiple of 4 but fewer than 2 are empty", () => {
+      store.updateTeams([
+        new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]),
+        new Team("2", false, "Team 2", [new TeamMember(new Pokemon("Raichu"))]),
+        new Team("3", false, "Team 3", [new TeamMember(new Pokemon("Clefairy"))]),
+        new Team("4", false, "Team 4", [])
+      ])
+
+      service.ensureCorrectTeamCount()
+
+      expect(store.teams().length).toBe(8)
+    })
+
+    it("should not add any team when the count is a multiple of 4 and at least 2 are empty", () => {
+      store.updateTeams([new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))]), new Team("2", false, "Team 2", []), new Team("3", false, "Team 3", []), new Team("4", false, "Team 4", [new TeamMember(new Pokemon("Raichu"))])])
+
+      service.ensureCorrectTeamCount()
+
+      expect(store.teams().length).toBe(4)
+    })
+  })
+
+  describe("moveEmptyListsToEnd", () => {
+    it("should return 0 when both teams have the same emptiness", () => {
+      const a = new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))])
+      const b = new Team("2", false, "Team 2", [new TeamMember(new Pokemon("Raichu"))])
+
+      expect(service.moveEmptyListsToEnd(a, b)).toBe(0)
+    })
+
+    it("should return 1 when the first team is empty and the second is not", () => {
+      const a = new Team("1", true, "Team 1", [])
+      const b = new Team("2", false, "Team 2", [new TeamMember(new Pokemon("Raichu"))])
+
+      expect(service.moveEmptyListsToEnd(a, b)).toBe(1)
+    })
+
+    it("should return -1 when the first team is not empty and the second is", () => {
+      const a = new Team("1", true, "Team 1", [new TeamMember(new Pokemon("Pikachu"))])
+      const b = new Team("2", false, "Team 2", [])
+
+      expect(service.moveEmptyListsToEnd(a, b)).toBe(-1)
+    })
+  })
+
+  describe("cleanTeamsInChunks", () => {
+    const buildTeams = (pattern: boolean[]): Team[] => pattern.map((hasMember, i) => new Team(`${i}`, i === 0, `Team ${i + 1}`, hasMember ? [new TeamMember(new Pokemon("Pikachu"))] : []))
+
+    it("should remove an all-empty chunk that has a following chunk", () => {
+      const teams = buildTeams([false, false, false, false, true, false, false, false])
+
+      const result = service.cleanTeamsInChunks(teams)
+
+      expect(result.length).toBe(4)
+      expect(result[0].id).toBe("4")
+    })
+
+    it("should remove an all-empty chunk when the previous chunk has an empty team", () => {
+      const teams = buildTeams([true, false, false, false, false, false, false, false])
+
+      const result = service.cleanTeamsInChunks(teams)
+
+      expect(result.length).toBe(4)
+    })
+
+    it("should keep an all-empty last chunk when there is no following chunk and the previous chunk has no empty team", () => {
+      const teams = buildTeams([true, true, true, true, false, false, false, false])
+
+      const result = service.cleanTeamsInChunks(teams)
+
+      expect(result.length).toBe(8)
+    })
+
+    it("should keep a chunk that is not all empty", () => {
+      const teams = buildTeams([true, false, false, false])
+
+      const result = service.cleanTeamsInChunks(teams)
+
+      expect(result.length).toBe(4)
+    })
+  })
+})

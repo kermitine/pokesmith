@@ -1,0 +1,242 @@
+<app-mobile-calc-shell [tabs]="tabs" [activeTab]="activeBottomTab()" (tabSelected)="onTabSelected($event)" [swipeDisabled]="overlay.isAnyOpen()" [bottomNavHidden]="!showBottomNav() || hidingContentForAdd()">
+  <div #scrollContainer cdkScrollable data-cy="scrollable-content" class="scrollable-content header-scroll" [class.table-open]="overlay.isAnyOpen()" (scroll)="onScroll($event)">
+    <div class="team-tabs-sticky" [hidden]="hidingContentForAdd()">
+      <app-team-tabs-mobile [pokemonOnEditId]="pokemonOnEditId()" (pokemonOnEditIdChange)="onEditingPokemonChanged($event)" [(addingPokemon)]="addingPokemon" (memberAddedEvent)="focusPokemonComboBox()" />
+    </div>
+
+    @if (editingPokemon() || addingPokemon()) {
+      <div class="attacker-header" [hidden]="overlay.kind() === 'moves' || overlay.kind() === 'abilities' || overlay.kind() === 'items'">
+        <app-pokemon-search-input
+          #pokemonInput
+          [value]="editingPokemonName()"
+          [searching]="overlay.kind() === 'pokemon'"
+          ariaLabel="Pokémon"
+          dataCy="pokemon-select"
+          (pressed)="buildEditing.onPokemonMouseDown($event)"
+          (cleared)="buildEditing.onPokemonClick()"
+          (valueChanged)="buildEditing.filter($event)" />
+        <div class="attacker-actions">
+          @if (overlay.kind() === "pokemon") {
+            <app-close-table-button data-cy="close-pokemon-table" (click)="onClosePokemonTable()" />
+          } @else {
+            <app-save-set-button [pokemonId]="effectiveEditingId()!" displayMode="button" (openPokemonTable)="overlay.open('pokemon')" />
+            @if (!store.isEditingCustomSet()) {
+              <app-import-pokemon-button [show]="canImportPokemon()" (pokemonImportedEvent)="onHeaderImport($event)" />
+            }
+            @if (!isAddMode()) {
+              <app-export-pokemon-button [pokemonId]="effectiveEditingId()!" />
+            }
+          }
+        </div>
+      </div>
+
+      @if (!overlay.isAnyOpen()) {
+        <div class="set-name-row">
+          <app-save-set-button [pokemonId]="effectiveEditingId()!" displayMode="name" [showMatchingSet]="true" (openPokemonTable)="overlay.open('pokemon')" />
+        </div>
+      }
+
+      <div class="attacker-header" [hidden]="overlay.kind() !== 'items'">
+        <app-pokemon-search-input
+          #itemInput
+          [value]="editingPokemonItem()"
+          [searching]="overlay.kind() === 'items'"
+          ariaLabel="Item"
+          dataCy="item-select"
+          (pressed)="buildEditing.onItemMouseDown($event)"
+          (cleared)="buildEditing.onItemClick()"
+          (valueChanged)="buildEditing.filter($event)" />
+        <div class="attacker-actions">
+          <app-close-table-button data-cy="close-items-table" (click)="buildEditing.closeItemsTable()" />
+        </div>
+      </div>
+    }
+
+    <div class="attacker-build">
+      @if (shouldShowBuild()) {
+        <app-pokemon-build-mobile
+          [pokemonId]="effectiveEditingId()!"
+          [optimizationStatus]="optimizationStatus()"
+          [optimizationKoChance]="optimizationKoChance()"
+          [optimizationImpossible]="optimizationImpossible()"
+          [optimizationCoverage]="optimizationCoverage()"
+          [combinedAttackers]="combinedAttackers()"
+          [optimizationCosts]="optimizationCosts()"
+          [showOffensiveOptimization]="!menuStore.manyVsOneActivated()"
+          [optimizedEvs]="optimizedEvs()"
+          [optimizedNature]="optimizedNature()"
+          [isRightSide]="isEditingTarget()"
+          [hideEvs]="overlay.isAnyOpen()"
+          [hideMoves]="overlay.kind() === 'pokemon' || overlay.kind() === 'abilities' || overlay.kind() === 'items'"
+          [editingMoves]="overlay.kind() === 'moves'"
+          [stickyMoves]="!overlay.isAnyOpen()"
+          [movesStuck]="movesStuck()"
+          [spsScrolledPast]="spsScrolledPast()"
+          [stuckSps]="menuStore.manyVsOneActivated() ? 'defense' : 'attack'"
+          [editingAbility]="overlay.kind() === 'abilities'"
+          [editingItem]="overlay.kind() === 'items'"
+          [optimizerSuccessChance]="optimizerSuccessChance()"
+          (optimizerSuccessChanceChange)="changeOptimizerSuccessChance($event)"
+          (optimizationRequested)="handleOptimizeRequest($event)"
+          (offensiveOptimizationRequested)="handleOffensiveOptimizeRequest($event)"
+          (optimizationApplied)="handleOptimizationApplied()"
+          (optimizationDiscarded)="handleOptimizationDiscarded()"
+          (editMovesRequested)="buildEditing.openMovesTable()"
+          (closeMovesRequested)="buildEditing.closeMovesTable()"
+          (editAbilityRequested)="buildEditing.openAbilitiesTable()"
+          (editItemRequested)="buildEditing.openItemsTable()"
+          (pokemonDeleted)="onEditingPokemonChanged($event)" />
+      }
+
+      @if (effectiveEditingId() || addingPokemon()) {
+        <app-mobile-table-overlay
+          [pokemonId]="overlayPokemonId()"
+          [moveIndex]="editingMoveIndex()"
+          (tableSelect)="buildEditing.selectFromTable($event)"
+          (customSetSelected)="onCustomSetSelected($event)"
+          (customSetEditRequested)="onCustomSetEditRequested($event)" />
+      }
+    </div>
+
+    @if (hasNoTeamPokemon()) {
+      <div class="no-pokemon-message" data-cy="no-pokemon-message">
+        <app-pokemon-sprite name="Psyduck" />
+        <span>You don't have any Pokémon yet</span>
+        <small>Tap + to add your first Pokémon</small>
+      </div>
+    }
+
+    <div class="results-list" cdkDropListGroup [hidden]="hidingContentForAdd() || hasNoTeamPokemon()">
+      @if (!selectPokemonActive()) {
+        <div class="opponents-header">
+          <h2 class="opponents-title">Opponents</h2>
+          <app-segmented-control dense surface="widget" ariaLabel="View" data-cy="multi-calc-view" [options]="viewOptions" [value]="menuStore.multiCalcMobileView()" (valueChange)="menuStore.setMultiCalcMobileView($event)" />
+        </div>
+      }
+
+      @if (menuStore.multiCalcMobileView() === "dense") {
+        <app-ko-columns [damageResults]="filteredDamageResults()" [rollLevelConfig]="rollLevelConfig()" [isAttacker]="menuStore.manyVsOneActivated()" [rows]="true" [mobile]="true" (pokemonActivated)="activateOpponent($event)" />
+      } @else {
+        @for (damageResult of filteredDamageResults(); track getExpansionKey(damageResult)) {
+          <div class="result-card" [attr.data-pokemon-id]="getExpansionKey(damageResult)">
+            <app-pokemon-card
+              cdkDropList
+              cdkDropListOrientation="horizontal"
+              [cdkDropListData]="damageResult.attacker.id"
+              [damageResult]="damageResult"
+              [rollLevelConfig]="rollLevelConfig()"
+              [isAttacker]="menuStore.manyVsOneActivated()"
+              [showDeleteButton]="store.isMyListSource()"
+              [collapsible]="true"
+              [expanded]="expandedDefenderIds().has(getExpansionKey(damageResult))"
+              (expandedChange)="handleExpansionToggle(getExpansionKey(damageResult), $event)"
+              (cdkDropListDropped)="drop($event)"
+              (targetActivated)="activateOpponent($event)"
+              (targetRemoved)="onTargetRemoved()"
+              (dragStarted)="handleDragStarted()"
+              (dragMoved)="handleDragMoved($event)"
+              (dragEnded)="handleDragEnded()"
+              (attackersSeparated)="separateAttackers($event)" />
+          </div>
+        }
+      }
+
+      @if (!selectPokemonActive()) {
+        @if (canAddTarget()) {
+          <app-add-pokemon-card (pokemonAddedToTeam)="addPokemonToTargets()" />
+        }
+
+        <div class="opponent-source">
+          <app-input-select data-cy="opponent-source" label="Opponents" leftLabel="true" [allValues]="opponentSourceOptions()" [value]="store.activeOpponentSource()" (valueChange)="selectOpponentSource($event)" />
+        </div>
+
+        <h3 class="opponents-subtitle">Filters</h3>
+
+        <div class="opponent-filters">
+          <app-input-autocomplete
+            data-cy="pokemon-filter"
+            label="Pokémon"
+            leftLabel="true"
+            labelWidth="4.5em"
+            [enableClear]="cardsFilter() !== ''"
+            [allValues]="targetPokemonNames()"
+            [value]="cardsFilter()"
+            (valueChange)="updateCardsFilter($event)"
+            (cleared)="clearCardsFilter()" />
+
+          <app-input-autocomplete
+            data-cy="set-filter"
+            label="Set"
+            leftLabel="true"
+            labelWidth="4.5em"
+            [emitOnType]="true"
+            [enableClear]="setFilter() !== ''"
+            [allValues]="availableSetNames()"
+            [value]="setFilter()"
+            (valueChange)="updateSetFilter($event)"
+            (cleared)="clearSetFilter()" />
+
+          @if (store.sourceHasDefaultSps()) {
+            <span class="default-sps-notice" data-cy="default-sps-notice">Spreads missing: default {{ store.useSpsMode() ? "SPs" : "EVs" }} loaded</span>
+          }
+        </div>
+
+        <h3 class="opponents-subtitle">Boosts</h3>
+
+        <div class="opponent-boosts">
+          <app-input-select data-cy="opponent-physical-boost" [label]="physicalBoostLabel()" leftLabel="true" [allValues]="statModifiers" [(value)]="physicalBoost" (valueChange)="applyBoostToOpponents(physicalBoostStat(), $event)" />
+
+          <app-input-select data-cy="opponent-special-boost" [label]="specialBoostLabel()" leftLabel="true" [allValues]="statModifiers" [(value)]="specialBoost" (valueChange)="applyBoostToOpponents(specialBoostStat(), $event)" />
+        </div>
+
+        <h3 class="opponents-subtitle">Management</h3>
+
+        <div class="targets-actions">
+          <div class="row full">
+            <button mat-flat-button class="management-button" (click)="exportCalcs()" data-cy="export-calcs-button">Export Calcs</button>
+          </div>
+          @if (store.isMyListSource()) {
+            <div class="row">
+              <app-import-pokemon-button class="management-button" [singlePokemon]="false" (pokemonImportedEvent)="onTargetsImported($event)" />
+              <button mat-flat-button class="management-button" (click)="exportPokemon()" data-cy="export-opponent-pokemon-button">Export</button>
+            </div>
+            <div class="row full last-row">
+              <button mat-flat-button class="warn management-button" (click)="removeAll()" data-cy="delete-opponent-pokemon-button">Delete all</button>
+            </div>
+          } @else {
+            <div class="row full last-row">
+              <button mat-flat-button class="management-button" (click)="exportPokemon()" data-cy="export-opponent-pokemon-button">Export</button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="scrollable-content teams-tab" data-cy="scrollable-content-teams">
+    <app-teams-mobile (pokemonSelected)="onEditingPokemonChanged($event)" (useTeam)="onTeamSelected($event)" />
+  </div>
+
+  <div class="scrollable-content field-tab" data-cy="scrollable-content-field">
+    <div class="widget-list">
+      <div class="modifiers-title">Modifiers</div>
+      <app-widget class="settings-widget">
+        <div class="field-configs">
+          <div class="roll-config-section">
+            <app-roll-config [(config)]="rollLevelConfig" [disabled]="rollLocked()" (rollLevelChange)="handleRollLevelChange($event)" />
+          </div>
+          <div class="toggles">
+            <mat-slide-toggle [checked]="menuStore.orderByDamage()" [disabled]="menuStore.multiCalcMobileView() === 'dense'" (change)="menuStore.toggleOrderByDamage()" [labelPosition]="'before'">Order by Damage</mat-slide-toggle>
+            @if (menuStore.oneVsManyActivated()) {
+              <mat-slide-toggle [checked]="menuStore.oneVsManyBestMoveActivated()" (change)="menuStore.toggleOneVsManyBestMove()" [labelPosition]="'before'">Best Move</mat-slide-toggle>
+            }
+            @if (menuStore.manyVsOneActivated()) {
+              <mat-slide-toggle [checked]="menuStore.manyVsOneBestMoveActivated()" (change)="toggleManyVsOneBestMove()" [labelPosition]="'before'">Best Move</mat-slide-toggle>
+            }
+          </div>
+        </div>
+      </app-widget>
+      <app-field />
+    </div>
+  </div>
+</app-mobile-calc-shell>

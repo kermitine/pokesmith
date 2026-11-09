@@ -1,0 +1,28 @@
+.card {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  padding: var(--space-lg);
+  background-color: var(--highlight);
+  cursor: pointer;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.plus-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--highlight-border);
+  transform: scale(3);
+}
+
+.card:hover .plus-button {
+  transform: scale(3.2);
+  filter: brightness(1.4);
+}

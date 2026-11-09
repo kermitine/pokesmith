@@ -1,0 +1,25 @@
+export type SpeedData = {
+  referenceDate: string
+  baseSpeed: number
+  minSpeedWithIvZero: number
+  minSpeedWithNegativeNature: number
+  minSpeed: number
+  maxSpeed: number
+  maxSpeedWithNature: number
+  choiceScarfPercentage?: number
+  choiceScarfIsMoreUsed?: boolean
+  boosterEnergyPercentage?: number
+  boosterEnergyIsMoreUsed?: boolean
+  statistics: SpeedStatistic[]
+}
+
+export type SpeedStatistic = {
+  type: SpeedStatisticType
+  speed: number
+  percentile: number
+  percentage: number
+  speedSp: number
+  nature: string
+}
+
+export type SpeedStatisticType = "usage" | "scarf" | "booster"

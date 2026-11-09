@@ -1,0 +1,79 @@
+@use "pages/type-calc/coverage-table";
+
+.pokemon-header {
+  font-weight: 600;
+  background-color: var(--surface-hover);
+  border-bottom: 0.125em solid var(--grid-line);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.type-cell .pokemon-container-horizontal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  justify-content: center;
+}
+
+.type-cell .tera-type-label {
+  font-size: var(--font-size-dense);
+  color: var(--text);
+  font-weight: 400;
+}
+
+.effectiveness-cell {
+  text-align: center;
+  font-weight: 600;
+}
+
+.effectiveness-cell.resistance {
+  color: var(--negative-value);
+  font-weight: 600;
+}
+
+.effectiveness-cell.weakness {
+  color: var(--positive-value);
+  font-weight: 600;
+}
+
+.effectiveness-cell.weakness-4x {
+  background-color: var(--effectiveness-weakness-4x-bg);
+  color: var(--positive-value);
+  font-weight: 600;
+}
+
+.total-cell.not-very-effective-0 {
+  background-color: var(--highlight);
+}
+
+.total-cell.not-very-effective-1 {
+  background-color: color-mix(in srgb, var(--heat-mild) 30%, transparent);
+}
+
+.total-cell.not-very-effective-2 {
+  background-color: color-mix(in srgb, var(--heat-warn) 40%, transparent);
+}
+
+.total-cell.not-very-effective-3 {
+  background-color: color-mix(in srgb, var(--heat-bad) 35%, transparent);
+}
+
+.total-cell.not-very-effective-4plus {
+  background-color: color-mix(in srgb, var(--heat-bad) 50%, transparent);
+}
+
+.total-cell.super-effective-0 {
+  background-color: var(--highlight);
+}
+
+.total-cell.super-effective-1-2 {
+  background-color: color-mix(in srgb, var(--heat-good) 25%, transparent);
+}
+
+.total-cell.super-effective-3-4 {
+  background-color: color-mix(in srgb, var(--heat-good) 40%, transparent);
+}
+
+.total-cell.super-effective-5plus {
+  background-color: color-mix(in srgb, var(--heat-good) 55%, transparent);
+}

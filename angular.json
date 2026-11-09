@@ -1,0 +1,161 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "packageManager": "npm",
+    "analytics": false,
+    "schematicCollections": ["angular-eslint"]
+  },
+  "newProjectRoot": "projects",
+  "schematics": {
+    "@schematics/angular:component": {
+      "style": "scss",
+      "type": "component"
+    },
+    "@schematics/angular:directive": {
+      "type": "directive"
+    },
+    "@schematics/angular:service": {
+      "type": "service"
+    },
+    "@schematics/angular:guard": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:interceptor": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:module": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:pipe": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:resolver": {
+      "typeSeparator": "."
+    }
+  },
+  "projects": {
+    "vgc-multicalc": {
+      "projectType": "application",
+      "schematics": {},
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": {
+              "base": "dist/"
+            },
+            "index": "src/app/index.html",
+            "tsConfig": "tsconfig.app.json",
+            "assets": [
+              {
+                "glob": "manifest.json",
+                "input": "src/app",
+                "output": "."
+              },
+              {
+                "glob": "**/*",
+                "input": "src/app/assets",
+                "output": "assets"
+              },
+              {
+                "glob": "robots.txt",
+                "input": "src/app",
+                "output": "."
+              },
+              {
+                "glob": "sitemap.xml",
+                "input": "src/app",
+                "output": "."
+              }
+            ],
+            "styles": ["src/app/styles.scss", "src/app/themes.css", "src/app/pages/pokesmith/pokesmith.scss"],
+            "stylePreprocessorOptions": {
+              "includePaths": ["src/app"]
+            },
+            "scripts": [],
+            "allowedCommonJsDependencies": ["pako"],
+            "browser": "src/app/main.ts"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "560kb",
+                  "maximumError": "700kb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kb",
+                  "maximumError": "10kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "vgc-multicalc:build:production"
+            },
+            "development": {
+              "buildTarget": "vgc-multicalc:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular/build:extract-i18n",
+          "options": {
+            "buildTarget": "vgc-multicalc:build"
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "runner": "vitest",
+            "runnerConfig": "vitest.config.mts",
+            "coverage": false,
+            "coverageReporters": ["lcov", "text-summary", "json-summary", "json"],
+            "coverageExclude": ["src/app/**/*.component.html", "src/app/**/*.component.ts", "src/app/**/*.pipe.ts"]
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html", "cypress"]
+          }
+        },
+        "test-domain": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.domain.spec.json",
+            "runner": "vitest",
+            "runnerConfig": "vitest.domain.config.mts",
+            "coverage": false,
+            "coverageReporters": ["lcov", "text-summary", "json-summary", "json"],
+            "coverageExclude": ["src/app/**/*.component.html", "src/app/**/*.component.ts", "src/app/**/*.pipe.ts"],
+            "include": ["src/domain/**/*.spec.ts"]
+          }
+        }
+      }
+    }
+  }
+}

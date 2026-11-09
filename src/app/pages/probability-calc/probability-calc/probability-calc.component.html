@@ -1,0 +1,15 @@
+<div class="left-column">
+  <app-team class="team" [pokemonId]="pokemonId()" [(addingPokemon)]="addingPokemon" />
+  <app-combined-probability />
+</div>
+
+<div class="right-column">
+  <app-teams-desktop />
+  <div class="field-score-row">
+    <app-probability-field [horizontal]="true" />
+    <app-team-probability />
+  </div>
+  <app-pokemon-probability [pokemon]="probabilityPokemon()" />
+</div>
+
+<app-general-probability class="full-width" />

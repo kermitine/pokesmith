@@ -1,0 +1,12 @@
+<app-filterable-table
+  [data]="movesData()"
+  [haveFocus]="haveFocus()"
+  [selectedValues]="actualMoves()"
+  [columns]="moveColumns()"
+  [dataFilter]="dataFilter()"
+  [initialValue]="initialValue()"
+  [isMobile]="isMobile()"
+  [itemSize]="isMobile() ? 65 : 45"
+  (entrySelected)="moveSelected.emit($event)"
+  (firstListEntry)="firstMoveFromList.emit($event)"
+  (escapeWasPressed)="escapeWasPressed.emit()" />

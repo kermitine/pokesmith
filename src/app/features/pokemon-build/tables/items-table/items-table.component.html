@@ -1,0 +1,12 @@
+<app-filterable-table
+  [data]="itemsData()"
+  [selectedValues]="actualItem()"
+  [columns]="itemColumns"
+  [dataFilter]="dataFilter()"
+  [initialValue]="pokemon().item"
+  [haveFocus]="haveFocus()"
+  [isMobile]="isMobile()"
+  [itemSize]="isMobile() ? 65 : 45"
+  (entrySelected)="itemSelected.emit($event)"
+  (firstListEntry)="firstItemFromList.emit($event)"
+  (escapeWasPressed)="escapeWasPressed.emit()" />

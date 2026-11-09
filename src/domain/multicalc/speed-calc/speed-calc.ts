@@ -1,0 +1,400 @@
+import { pokemonByRegulation } from "@pokemon-repository"
+import { SpeedData } from "@data/speed-data"
+import { SPEED_STATISTICS_REG_MC } from "@data/speed-statistics-reg-mc"
+import { topUsageByRegulation } from "@data/top-usage-regulation"
+import { Ability } from "@multicalc/model/ability"
+import { Field } from "@multicalc/model/field"
+import { isMega } from "@multicalc/model/mega-stone"
+import { Move } from "@multicalc/model/move"
+import { Pokemon } from "@multicalc/model/pokemon"
+import { Status } from "@multicalc/model/status"
+import { getFinalSpeed } from "@multicalc/stat-calc"
+import { MAX_SPS_PER_STAT } from "@multicalc/utils"
+import { SpeedCalcMode } from "@multicalc/speed-calc/speed-calc-mode"
+import { SpeedCalcOptions } from "@multicalc/speed-calc/speed-calc-options"
+import { SpeedDefinition } from "@multicalc/speed-calc/speed-definition"
+import { Regulation } from "@multicalc/types"
+import { getPokemonData } from "@data/pokemon-data"
+
+const MIN = "Min"
+const MAX = "Max"
+const BOOSTER = "Booster"
+const SCARF = "Scarf"
+const NEUTRAL_ITEM = "Leftovers"
+const CHOICE_SCARF = "Choice Scarf"
+const ACTUAL = "Actual"
+const SPEED_TIE = "Speed Tie"
+const YOUR_TEAM = "Yours"
+const OPPONENT = "Opponent"
+const MAX_BASE_SPEED_FOR_TR = 60
+
+export interface SpeedTeamPokemon {
+  opponents: Pokemon[]
+  team: Pokemon[]
+  myTeam: Pokemon[]
+}
+
+export class SpeedCalc {
+  constructor(private readonly statisticsByRegulation: Record<string, Record<string, SpeedData>> = { MC: SPEED_STATISTICS_REG_MC }) {}
+
+  orderedPokemon(pokemon: Pokemon, field: Field, pokemonEachSide: number, teamPokemon: SpeedTeamPokemon, options: SpeedCalcOptions = new SpeedCalcOptions(), opponentsNoPaddingThreshold = 0): SpeedDefinition[] {
+    let speedDefinitions: SpeedDefinition[] = [this.buildActual(pokemon, field, options), ...this.loadMyTeam(teamPokemon.myTeam, options, field), ...this.loadSpeedMeta(teamPokemon, options, field)]
+
+    if (options.targetName.length > 0) {
+      speedDefinitions = speedDefinitions.filter(s => s.pokemonName == options.targetName || this.isActual(s))
+    }
+
+    this.order(speedDefinitions, field.isTrickRoom)
+
+    speedDefinitions = this.mergeByDescription(speedDefinitions, options)
+
+    if (options.targetName.length == 0 && this.shouldLimitQuantity(options, speedDefinitions, opponentsNoPaddingThreshold)) {
+      speedDefinitions = this.limitQuantity(speedDefinitions, pokemonEachSide)
+    }
+
+    return speedDefinitions
+  }
+
+  private shouldLimitQuantity(options: SpeedCalcOptions, speedDefinitions: SpeedDefinition[], opponentsNoPaddingThreshold: number): boolean {
+    if (options.filterType === "team") return false
+
+    if (options.filterType === "opponents" && speedDefinitions.length < opponentsNoPaddingThreshold) return false
+
+    return true
+  }
+
+  orderPairBySpeed(pokemonOne: Pokemon, pokemonTwo: Pokemon, field: Field): [Pokemon, Pokemon] {
+    const speedOne = getFinalSpeed(pokemonOne, field, true)
+    const speedTwo = getFinalSpeed(pokemonTwo, field, true)
+
+    const pokemonOnePriority = this.priorityLevel(pokemonOne.move, field)
+    const pokemonTwoPriority = this.priorityLevel(pokemonTwo.move, field)
+
+    const someoneHasPriority = pokemonOnePriority != 0 || pokemonTwoPriority != 0
+    const equalsPriority = pokemonOnePriority == pokemonTwoPriority
+
+    if (someoneHasPriority && !equalsPriority) {
+      return pokemonOnePriority > pokemonTwoPriority ? [pokemonOne, pokemonTwo] : [pokemonTwo, pokemonOne]
+    }
+
+    const oneMovesFirst = field.isTrickRoom ? speedOne <= speedTwo : speedOne >= speedTwo
+
+    return oneMovesFirst ? [pokemonOne, pokemonTwo] : [pokemonTwo, pokemonOne]
+  }
+
+  private buildActual(pokemon: Pokemon, field: Field, options: SpeedCalcOptions): SpeedDefinition {
+    const descriptions = [ACTUAL, YOUR_TEAM]
+
+    if (options.mode == SpeedCalcMode.Base) {
+      return new SpeedDefinition(pokemon, pokemon.baseSpe, ...descriptions)
+    }
+
+    const speed = getFinalSpeed(pokemon, field, true)
+
+    return new SpeedDefinition(pokemon, speed, ...descriptions)
+  }
+
+  private loadSpeedMeta(teamPokemon: SpeedTeamPokemon, options: SpeedCalcOptions, field: Field): SpeedDefinition[] {
+    if (options.filterType === "opponents") {
+      return this.loadActualSpeeds(teamPokemon.opponents, field, options, OPPONENT)
+    }
+
+    if (options.filterType === "team") {
+      return this.loadActualSpeeds(teamPokemon.team, field, options, OPPONENT)
+    }
+
+    const speedDefinitions: SpeedDefinition[] = []
+
+    const quantity = options.targetName.length > 0 ? undefined : options.topUsage
+    const includeAllPokemon = options._topUsage === "All"
+    const pokemon = pokemonByRegulation(options.regulation, quantity, options.setdex, includeAllPokemon)
+
+    pokemon.forEach(p => {
+      const pokemon = this.adjustPokemonByOptions(p, options)
+
+      this.loadStats(pokemon, field, speedDefinitions, options)
+      this.loadMetaStatistics(pokemon, field, speedDefinitions, options)
+      this.loadBaseSpeed(pokemon, speedDefinitions, options)
+    })
+
+    return speedDefinitions
+  }
+
+  private loadMyTeam(myTeam: Pokemon[], options: SpeedCalcOptions, field: Field): SpeedDefinition[] {
+    if (!options.showMyTeam) return []
+
+    return this.loadActualSpeeds(myTeam, field, options, YOUR_TEAM, false, true)
+  }
+
+  private loadActualSpeeds(pokemon: Pokemon[], field: Field, options: SpeedCalcOptions, description: string, applyModifiers = true, isAttacker = false): SpeedDefinition[] {
+    return pokemon.map(p => {
+      const adjusted = applyModifiers ? this.adjustPokemonByOptions(p, options) : p
+      const speed = options.mode == SpeedCalcMode.Base ? adjusted.baseSpe : getFinalSpeed(adjusted, field, isAttacker)
+      const scarfDescription = applyModifiers && this.holdsChoiceScarf(p, options.choiceScarfActive) ? [SCARF] : []
+
+      return new SpeedDefinition(adjusted, speed, description, ...scarfDescription)
+    })
+  }
+
+  private loadStats(pokemon: Pokemon, field: Field, speedDefinitions: SpeedDefinition[], options: SpeedCalcOptions) {
+    if (options.mode == SpeedCalcMode.StatsAndMeta || options.mode == SpeedCalcMode.Stats) {
+      const item = this.neutralItem(pokemon, options.choiceScarfActive)
+      const statsDefinitions = [this.minSpeed(pokemon, field, item)]
+
+      if (this.isTrickRoomPokemon(pokemon)) {
+        statsDefinitions.push(this.minSpeedNegativeNature(pokemon, field, item))
+      }
+
+      statsDefinitions.push(this.maxSpeedNeutralNature(pokemon, field, item))
+      statsDefinitions.push(this.maxSpeed(pokemon, field, item))
+
+      speedDefinitions.push(...this.describeScarf(statsDefinitions, item))
+
+      if (this.isBoosterSpeedPokemon(pokemon)) {
+        speedDefinitions.push(this.maxBooster(pokemon, field))
+      }
+    }
+  }
+
+  private loadMetaStatistics(pokemon: Pokemon, field: Field, speedDefinitions: SpeedDefinition[], options: SpeedCalcOptions) {
+    if (options.mode == SpeedCalcMode.StatsAndMeta || options.mode == SpeedCalcMode.Meta) {
+      speedDefinitions.push(...this.statistics(pokemon, field, options.regulation, options.choiceScarfActive))
+    }
+  }
+
+  private neutralItem(pokemon: Pokemon, choiceScarfActive: boolean): string {
+    return this.holdsChoiceScarf(pokemon, choiceScarfActive) ? CHOICE_SCARF : NEUTRAL_ITEM
+  }
+
+  private describeScarf(speedDefinitions: SpeedDefinition[], item: string): SpeedDefinition[] {
+    if (item === CHOICE_SCARF) speedDefinitions.forEach(s => s.description.push(SCARF))
+
+    return speedDefinitions
+  }
+
+  private holdsChoiceScarf(pokemon: Pokemon, choiceScarfActive: boolean): boolean {
+    return choiceScarfActive && !isMega(pokemon.name) && !pokemon.isPrimal
+  }
+
+  private loadBaseSpeed(pokemon: Pokemon, speedDefinitions: SpeedDefinition[], options: SpeedCalcOptions) {
+    if (options.mode == SpeedCalcMode.Base) {
+      speedDefinitions.push(new SpeedDefinition(pokemon, pokemon.baseSpe, "Base"))
+    }
+  }
+
+  private limitQuantity(speedDefinitions: SpeedDefinition[], pokemonEachSide: number): SpeedDefinition[] {
+    const actualIndex = speedDefinitions.findIndex(this.isActual)
+
+    const initIndex = Math.max(0, actualIndex - pokemonEachSide)
+    const lastIndex = actualIndex + pokemonEachSide + 1
+    const range = speedDefinitions.slice(initIndex, lastIndex)
+
+    const updatedActualIndex = range.findIndex(this.isActual)
+
+    if (updatedActualIndex < pokemonEachSide) {
+      const diff = pokemonEachSide - updatedActualIndex
+      const padding = Array.from({ length: diff }, () => SpeedDefinition.padding())
+      return [...padding, ...range]
+    }
+
+    return range
+  }
+
+  private isActual(speedDefinition: SpeedDefinition): boolean {
+    return speedDefinition.description.includes(ACTUAL)
+  }
+
+  private order(speedDefinitions: SpeedDefinition[], isTrickRoom: boolean) {
+    speedDefinitions.sort((a, b) => (isTrickRoom ? b.value - a.value : a.value - b.value))
+  }
+
+  private mergeByDescription(speedDefinitions: SpeedDefinition[], options: SpeedCalcOptions): SpeedDefinition[] {
+    const merged: Record<string, SpeedDefinition> = {}
+    const marksSpeedTie = (options.filterType === "opponents" || options.filterType === "team") && options.mode != SpeedCalcMode.Base
+
+    const mergedPokemonId: Record<string, string> = {}
+
+    speedDefinitions.forEach(sd => {
+      const pokemon = sd.pokemon!
+      const key = `${pokemon.name}-${sd.value}`
+
+      if (!merged[key]) {
+        merged[key] = new SpeedDefinition(pokemon, sd.value, ...sd.description)
+        mergedPokemonId[key] = pokemon.id
+      } else {
+        const descriptionsToAdd = sd.description.filter(d => !merged[key].description.includes(d))
+        merged[key].description.push(...descriptionsToAdd)
+
+        const isSpeedTie = pokemon.id !== mergedPokemonId[key]
+
+        if (marksSpeedTie && isSpeedTie && !merged[key].description.includes(SPEED_TIE)) merged[key].description.push(SPEED_TIE)
+      }
+    })
+
+    return Object.values(merged)
+  }
+
+  private adjustPokemonByOptions(pokemon: Pokemon, options: SpeedCalcOptions): Pokemon {
+    const boosts = { ...pokemon.boosts, spe: options.speedModifier }
+    const status = options.paralyzedActive ? Status.PARALYSIS : pokemon.status
+    const item = this.holdsChoiceScarf(pokemon, options.choiceScarfActive) ? CHOICE_SCARF : pokemon.item
+
+    const speedAbilities = ["Swift Swim", "Sand Rush", "Surge Surfer", "Chlorophyll", "Slush Rush"]
+    const matchedAbility = speedAbilities.find(ability => pokemon.availableAbilities.some(a => a.name === ability))
+    const abilityName = matchedAbility ? matchedAbility : pokemon.ability.name
+
+    return pokemon.clone({ id: pokemon.id, boosts, status, item, ability: new Ability(abilityName) })
+  }
+
+  minSpeed(pokemon: Pokemon, field: Field, item = NEUTRAL_ITEM): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ item, nature: "Bashful", sps: { spe: 0 }, ivs: { spe: 31 } })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+
+    return new SpeedDefinition(clonedPokemon, speed, MIN)
+  }
+
+  minSpeedNegativeNature(pokemon: Pokemon, field: Field, item = NEUTRAL_ITEM): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ item, nature: "Brave", sps: { spe: 0 }, ivs: { spe: 31 } })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+
+    return new SpeedDefinition(clonedPokemon, speed, MIN, "Nature -")
+  }
+
+  maxSpeedNeutralNature(pokemon: Pokemon, field: Field, item = NEUTRAL_ITEM): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ nature: "Bashful", item, sps: { spe: MAX_SPS_PER_STAT }, ivs: { spe: 31 } })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+
+    return new SpeedDefinition(clonedPokemon, speed, MAX)
+  }
+
+  maxSpeed(pokemon: Pokemon, field: Field, item = NEUTRAL_ITEM): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ nature: "Timid", item, sps: { spe: MAX_SPS_PER_STAT }, ivs: { spe: 31 } })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+
+    return new SpeedDefinition(clonedPokemon, speed, MAX, "Nature +")
+  }
+
+  maxBooster(pokemon: Pokemon, field: Field): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ ability: new Ability(pokemon.ability.name, true), nature: "Timid", sps: { spe: MAX_SPS_PER_STAT }, higherStat: "spe" })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+    const description = BOOSTER
+
+    return new SpeedDefinition(clonedPokemon, speed, description)
+  }
+
+  statistics(pokemon: Pokemon, field: Field, regulation: Regulation, choiceScarfActive = false): SpeedDefinition[] {
+    const speedDefinitions: SpeedDefinition[] = []
+    const speedData = this.retrieveSpeedStatistics(pokemon.name, regulation)
+
+    if (speedData) {
+      const item = this.neutralItem(pokemon, choiceScarfActive)
+
+      speedData.statistics
+        .filter(s => s.type === "usage")
+        .forEach(speedStatistic => {
+          const clonedPokemon = pokemon.clone({ item, nature: speedStatistic.nature, sps: { spe: speedStatistic.speedSp } })
+          const speed = getFinalSpeed(clonedPokemon, field, false)
+
+          const speedDefinition = new SpeedDefinition(clonedPokemon, speed, `${speedStatistic.percentage}% Usage`)
+
+          return speedDefinitions.push(speedDefinition)
+        })
+
+      this.describeScarf(speedDefinitions, item)
+
+      const scarfStatistic = speedData.statistics.find(s => s.type === "scarf")
+
+      if (scarfStatistic && !choiceScarfActive) {
+        speedDefinitions.push(this.scarfSpeed(pokemon, field, scarfStatistic.percentage))
+      }
+    }
+
+    return speedDefinitions
+  }
+
+  scarfSpeed(pokemon: Pokemon, field: Field, percentage: number): SpeedDefinition {
+    const clonedPokemon = pokemon.clone({ nature: "Timid", item: CHOICE_SCARF, sps: { spe: MAX_SPS_PER_STAT }, ivs: { spe: 31 } })
+
+    const speed = getFinalSpeed(clonedPokemon, field, false)
+
+    return new SpeedDefinition(clonedPokemon, speed, `${percentage}% ${SCARF}`)
+  }
+
+  retrieveSpeedStatistics(pokemonName: string, regulation: Regulation): SpeedData | undefined {
+    return this.statisticsByRegulation[regulation]?.[pokemonName]
+  }
+
+  hasStatisticsForRegulation(regulation: Regulation): boolean {
+    return Object.values(this.statisticsByRegulation[regulation] ?? {}).some(data => data.statistics.length > 0)
+  }
+
+  hasUsageDataForRegulation(regulation: Regulation): boolean {
+    return (topUsageByRegulation[regulation] ?? []).length > 0
+  }
+
+  private isTrickRoomPokemon(pokemon: Pokemon): boolean {
+    return getPokemonData(pokemon.name)!.baseStats.spe <= MAX_BASE_SPEED_FOR_TR
+  }
+
+  private isBoosterSpeedPokemon(pokemon: Pokemon): boolean {
+    return pokemon.isParadoxAbility && !this.isTrickRoomPokemon(pokemon)
+  }
+
+  private priorityLevel(move: Move, field: Field): number {
+    if (move.name == "Grassy Glide" && field.terrain == "Grassy") {
+      return 1
+    }
+
+    const priority5 = ["Helping Hand"]
+    const priority4 = ["Baneful Bunker", "Burning Bulwark", "Detect", "Endure", "King's Shield", "Protect", "Spiky Shield", "Silk Trap"]
+    const priority3 = ["Fake Out", "Quick Guard", "Upper Hand", "Wide Guard"]
+    const priority2 = ["Ally Switch", "Extreme Speed", "Feint", "First Impression", "Follow Me", "Rage Powder"]
+    const priority1 = ["Accelerock", "Aqua Jet", "Baby-Doll Eyes", "Bullet Punch", "Ice Shard", "Jet Punch", "Mach Punch", "Quick Attack", "Shadow Sneak", "Sucker Punch", "Thunderclap", "Vacuum Wave", "Water Shuriken"]
+
+    const priorityMinus3 = ["Beak Blast", "Focus Punch"]
+    const priorityMinus4 = ["Avalanche"]
+    const priorityMinus5 = ["Counter", "Mirror Coat"]
+    const priorityMinus6 = ["Circle Throw", "Dragon Tail", "Roar", "Whirlwind", "Teleport"]
+    const priorityMinus7 = ["Trick Room"]
+
+    switch (move.name) {
+      case priority5.find(a => a === move.name):
+        return 5
+
+      case priority4.find(a => a === move.name):
+        return 4
+
+      case priority3.find(a => a === move.name):
+        return 3
+
+      case priority2.find(a => a === move.name):
+        return 2
+
+      case priority1.find(a => a === move.name):
+        return 1
+
+      case priorityMinus3.find(a => a === move.name):
+        return -3
+
+      case priorityMinus4.find(a => a === move.name):
+        return -4
+
+      case priorityMinus5.find(a => a === move.name):
+        return -5
+
+      case priorityMinus6.find(a => a === move.name):
+        return -6
+
+      case priorityMinus7.find(a => a === move.name):
+        return -7
+
+      default:
+        return 0
+    }
+  }
+}

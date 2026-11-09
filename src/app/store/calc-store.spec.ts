@@ -1,0 +1,2566 @@
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { patchState } from "@ngrx/signals"
+import { CalcStore, META_SOURCE, MY_LIST_SOURCE, PokemonState, TargetState, TeamState } from "./calc-store"
+import { Ability, Move, MoveSet, Pokemon, Status, Target, Team, TeamMember } from "@multicalc/model"
+import { Regulation } from "@multicalc/types"
+import { getMoveset } from "@data/moveset-data"
+import { topUsageByRegulation } from "@data/top-usage-regulation"
+
+describe("Calc Store", () => {
+  let store: CalcStore
+  const defaultId = "0dc51a43-1de8-4213-9686-fb07f2507b06"
+
+  beforeEach(() => {
+    localStorage.clear()
+    TestBed.configureTestingModule({
+      providers: [CalcStore, provideZonelessChangeDetection()]
+    })
+
+    store = TestBed.inject(CalcStore)
+  })
+
+  describe("computed", () => {
+    it("should load default left Pokémon", () => {
+      expect(store.leftPokemon().name).toBe("Charizard")
+    })
+
+    it("should load default right Pokémon", () => {
+      expect(store.rightPokemon().name).toBe("Dragonite")
+    })
+
+    it("should load Team 1 as default", () => {
+      expect(store.team().name).toBe("Team 1")
+      expect(store.team().teamMembers.length).toBe(4)
+      expect(store.team().teamMembers[0].pokemon.name).toBe("Charizard")
+      expect(store.team().teamMembers[1].pokemon.name).toBe("Dragonite")
+      expect(store.team().teamMembers[2].pokemon.name).toBe("Venusaur")
+      expect(store.team().teamMembers[3].pokemon.name).toBe("Incineroar")
+    })
+
+    it("should load Team 1 populated and another 3 empty Teams", () => {
+      expect(store.teams().length).toBe(4)
+
+      expect(store.teams()[0].name).toBe("Team 1")
+      expect(store.teams()[0].teamMembers.length).toBe(4)
+
+      expect(store.teams()[1].name).toBe("Team 2")
+      expect(store.teams()[1].teamMembers.length).toBe(0)
+
+      expect(store.teams()[2].name).toBe("Team 3")
+      expect(store.teams()[2].teamMembers.length).toBe(0)
+
+      expect(store.teams()[3].name).toBe("Team 4")
+      expect(store.teams()[3].teamMembers.length).toBe(0)
+    })
+
+    it("should load some Targets as default", () => {
+      expect(store.targets().length).toBe(9)
+      expect(store.targets()[0].pokemon.name).toBe("Blastoise")
+      expect(store.targets()[1].pokemon.name).toBe("Arcanine")
+      expect(store.targets()[2].pokemon.name).toBe("Machamp")
+      expect(store.targets()[3].pokemon.name).toBe("Alakazam")
+    })
+
+    it("should load active Pokémon from active Team as attacker", () => {
+      expect(store.attackerId()).toBe(store.team().activePokemon()!.id)
+    })
+
+    it("should load active Pokémon that is not second attacker from active Team as attacker", () => {
+      const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu", { id: "123" }), true), new TeamMember(new Pokemon("Raichu", { id: "456" }), true)])
+
+      store.updateTeams([teamX])
+      store.updateSecondAttacker("123")
+
+      expect(store.attackerId()).toBe("456")
+    })
+
+    it("should return an empty attackerId when there is no active team member", () => {
+      const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu", { id: "123" }), false)])
+
+      store.updateTeams([teamX])
+
+      expect(store.attackerId()).toBe("")
+    })
+
+    it("should load team member at index 0", () => {
+      expect(store.teamMember0()?.name).toBe("Charizard")
+    })
+
+    it("should load team member at index 1", () => {
+      expect(store.teamMember1()?.name).toBe("Dragonite")
+    })
+
+    it("should load team member at index 2", () => {
+      expect(store.teamMember2()?.name).toBe("Venusaur")
+    })
+
+    it("should load team member at index 3", () => {
+      expect(store.teamMember3()?.name).toBe("Incineroar")
+    })
+
+    it("should return null for team member at index 4 when team has less than 5 members", () => {
+      expect(store.teamMember4()).toBeNull()
+    })
+
+    it("should return null for team member at index 5 when team has less than 6 members", () => {
+      expect(store.teamMember5()).toBeNull()
+    })
+
+    it("should load team member at index 4 when team has 5 members", () => {
+      const teamX = new Team("123", true, "Team X", [
+        new TeamMember(new Pokemon("Pikachu", { id: "1" }), true),
+        new TeamMember(new Pokemon("Raichu", { id: "2" }), false),
+        new TeamMember(new Pokemon("Clefairy", { id: "3" }), false),
+        new TeamMember(new Pokemon("Clefable", { id: "4" }), false),
+        new TeamMember(new Pokemon("Jigglypuff", { id: "5" }), false)
+      ])
+
+      store.updateTeams([teamX])
+
+      expect(store.teamMember4()?.name).toBe("Jigglypuff")
+    })
+
+    it("should load team member at index 5 when team has 6 members", () => {
+      const teamX = new Team("123", true, "Team X", [
+        new TeamMember(new Pokemon("Pikachu", { id: "1" }), true),
+        new TeamMember(new Pokemon("Raichu", { id: "2" }), false),
+        new TeamMember(new Pokemon("Clefairy", { id: "3" }), false),
+        new TeamMember(new Pokemon("Clefable", { id: "4" }), false),
+        new TeamMember(new Pokemon("Jigglypuff", { id: "5" }), false),
+        new TeamMember(new Pokemon("Wigglytuff", { id: "6" }), false)
+      ])
+
+      store.updateTeams([teamX])
+
+      expect(store.teamMember5()?.name).toBe("Wigglytuff")
+    })
+
+    describe("duplicateItemPokemonIds", () => {
+      it("should return empty Set when default team has no duplicate items", () => {
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(0)
+      })
+
+      it("should mark both Pokémon ids when two team members share the same item", () => {
+        const id0 = store.team().teamMembers[0].pokemon.id
+        const id1 = store.team().teamMembers[1].pokemon.id
+
+        store.item(id0, "Leftovers")
+        store.item(id1, "Leftovers")
+
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(2)
+        expect(duplicates.has(id0)).toBe(true)
+        expect(duplicates.has(id1)).toBe(true)
+      })
+
+      it("should mark all three Pokémon ids when three team members share the same item", () => {
+        const id0 = store.team().teamMembers[0].pokemon.id
+        const id1 = store.team().teamMembers[1].pokemon.id
+        const id2 = store.team().teamMembers[2].pokemon.id
+
+        store.item(id0, "Leftovers")
+        store.item(id1, "Leftovers")
+        store.item(id2, "Leftovers")
+
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(3)
+        expect(duplicates.has(id0)).toBe(true)
+        expect(duplicates.has(id1)).toBe(true)
+        expect(duplicates.has(id2)).toBe(true)
+      })
+
+      it("should ignore Pokémon without item even when multiple team members share '(none)'", () => {
+        const id0 = store.team().teamMembers[0].pokemon.id
+        const id1 = store.team().teamMembers[1].pokemon.id
+
+        store.item(id0, "(none)")
+        store.item(id1, "(none)")
+
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(0)
+      })
+
+      it("should compute no duplicates for a team with a single Pokémon", () => {
+        store.activateTeam(store.teams()[1].id)
+        const addedId = store.addPokemonToTeam("Pikachu")
+
+        store.item(addedId, "Leftovers")
+
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(0)
+      })
+
+      it("should recompute when an item changes and resolves a previous duplicate", () => {
+        const id0 = store.team().teamMembers[0].pokemon.id
+        const id1 = store.team().teamMembers[1].pokemon.id
+
+        store.item(id0, "Leftovers")
+        store.item(id1, "Leftovers")
+        expect(store.duplicateItemPokemonIds().size).toBe(2)
+
+        store.item(id1, "Life Orb")
+
+        expect(store.duplicateItemPokemonIds().size).toBe(0)
+      })
+
+      it("should not consider Pokémon from inactive teams when computing duplicates", () => {
+        const activeId = store.team().teamMembers[0].pokemon.id
+        const inactiveTeamId = store.teams()[1].id
+
+        store.item(activeId, "Leftovers")
+        store.activateTeam(inactiveTeamId)
+        const inactiveMemberId = store.addPokemonToTeam("Pikachu")
+        store.item(inactiveMemberId, "Leftovers")
+        store.activateTeam(store.teams()[0].id)
+
+        const duplicates = store.duplicateItemPokemonIds()
+
+        expect(duplicates.size).toBe(0)
+      })
+    })
+  })
+
+  describe("methods", () => {
+    describe("Update Pokémon", () => {
+      it("should update Pokémon name", () => {
+        store.name(defaultId, "Pikachu")
+
+        expect(store.team().activePokemon()!.name).toBe("Pikachu")
+      })
+
+      it("should update Pokémon status", () => {
+        store.status(defaultId, "Burn")
+
+        expect(store.team().activePokemon()!.status).toBe(Status.BURN)
+      })
+
+      it("should restart the toxic counter at one when Badly Poison is applied again", () => {
+        store.status(defaultId, Status.BADLY_POISON.description)
+        store.toxicCounter(defaultId, 8)
+
+        store.status(defaultId, "Burn")
+        store.status(defaultId, Status.BADLY_POISON.description)
+
+        expect(store.team().activePokemon()!.toxicCounter).toBe(1)
+      })
+
+      it("should keep the toxic counter while staying on Badly Poison", () => {
+        store.status(defaultId, Status.BADLY_POISON.description)
+        store.toxicCounter(defaultId, 8)
+
+        store.status(defaultId, Status.BADLY_POISON.description)
+
+        expect(store.team().activePokemon()!.toxicCounter).toBe(8)
+      })
+
+      it("should update Pokémon item", () => {
+        store.item(defaultId, "Leftovers")
+
+        expect(store.team().activePokemon()!.item).toBe("Leftovers")
+      })
+
+      it("should update Pokémon nature", () => {
+        store.nature(defaultId, "Modest")
+
+        expect(store.team().activePokemon()!.nature).toBe("Modest")
+      })
+
+      it("should update Pokémon ability", () => {
+        store.ability(defaultId, "Intimidade")
+
+        expect(store.team().activePokemon()!.ability.name).toBe("Intimidade")
+      })
+
+      it("should update Pokémon ability on", () => {
+        store.abilityOn(defaultId, true)
+
+        expect(store.team().activePokemon()!.ability.on).toBe(true)
+      })
+
+      it("should turn Stamina off", () => {
+        store.ability(defaultId, "Stamina")
+        store.staminaOff(defaultId, true)
+
+        expect(store.team().activePokemon()!.staminaOff).toBe(true)
+        expect(store.team().activePokemon()!.abilityActive).toBe(false)
+      })
+
+      it("should turn Stamina back on", () => {
+        store.ability(defaultId, "Stamina")
+        store.staminaOff(defaultId, true)
+        store.staminaOff(defaultId, false)
+
+        expect(store.team().activePokemon()!.abilityActive).toBe(true)
+      })
+
+      it("should update Commander Active to true", () => {
+        store.commander(defaultId, false)
+        store.commander(defaultId, true)
+
+        expect(store.team().activePokemon()!.commanderActive).toBe(true)
+      })
+
+      it("should update Commander Active to false", () => {
+        store.commander(defaultId, true)
+        store.commander(defaultId, false)
+
+        expect(store.team().activePokemon()!.commanderActive).toBe(false)
+      })
+
+      it("should do nothing when try to apply Commander but Pokémon it is not Dondozo", () => {
+        store.name(defaultId, "Pikachu")
+
+        store.toggleCommanderActive(defaultId)
+
+        expect(store.team().activePokemon()!.commanderActive).toBe(false)
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should turn Pokémon Commander to true when it is false and apply +2 boosts", () => {
+        store.name(defaultId, "Dondozo")
+
+        store.toggleCommanderActive(defaultId)
+
+        expect(store.team().activePokemon()!.commanderActive).toBe(true)
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 2, def: 2, spa: 2, spd: 2, spe: 2 })
+      })
+
+      it("should turn Pokémon Commander to false when it is true and remove any boosts", () => {
+        store.name(defaultId, "Dondozo")
+        store.toggleCommanderActive(defaultId)
+        expect(store.team().activePokemon()!.commanderActive).toBe(true)
+
+        store.toggleCommanderActive(defaultId)
+        expect(store.team().activePokemon()!.commanderActive).toBe(false)
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should update Pokémon Tera Type", () => {
+        store.teraType(defaultId, "Fire")
+
+        expect(store.team().activePokemon()!.teraType).toBe("Fire")
+      })
+
+      it("should override Pokémon types", () => {
+        store.overrideTypes(defaultId, ["Ghost", "Steel"])
+
+        expect(store.team().activePokemon()!.type1).toBe("Ghost")
+        expect(store.team().activePokemon()!.type2).toBe("Steel")
+      })
+
+      it("should override Pokémon types with a single type", () => {
+        store.overrideTypes(defaultId, ["Water"])
+
+        expect(store.team().activePokemon()!.type1).toBe("Water")
+        expect(store.team().activePokemon()!.type2).toBeUndefined()
+      })
+
+      it("should restore species types when the override is cleared", () => {
+        store.name(defaultId, "Charizard")
+        store.overrideTypes(defaultId, ["Water"])
+
+        store.overrideTypes(defaultId, undefined)
+
+        expect(store.team().activePokemon()!.type1).toBe("Fire")
+        expect(store.team().activePokemon()!.type2).toBe("Flying")
+      })
+
+      it("should discard the type override when the species changes", () => {
+        store.name(defaultId, "Charizard")
+        store.overrideTypes(defaultId, ["Water"])
+
+        store.name(defaultId, "Pikachu")
+
+        expect(store.team().activePokemon()!.overrideTypes).toBeUndefined()
+        expect(store.team().activePokemon()!.type1).toBe("Electric")
+      })
+
+      it("should discard the type override when loading another Pokémon", () => {
+        store.loadPokemonInfo(defaultId, "Charizard")
+        store.overrideTypes(defaultId, ["Water"])
+
+        store.loadPokemonInfo(defaultId, "Flutter Mane")
+
+        expect(store.team().activePokemon()!.overrideTypes).toBeUndefined()
+        expect(store.team().activePokemon()!.type1).toBe("Ghost")
+        expect(store.team().activePokemon()!.type2).toBe("Fairy")
+      })
+
+      it("should update Pokémon Tera Type active to true", () => {
+        store.teraTypeActive(defaultId, false)
+
+        store.teraTypeActive(defaultId, true)
+
+        expect(store.team().activePokemon()!.teraTypeActive).toBe(true)
+      })
+
+      it("should update Pokémon Tera Type active to false", () => {
+        store.teraTypeActive(defaultId, true)
+
+        store.teraTypeActive(defaultId, false)
+
+        expect(store.team().activePokemon()!.teraTypeActive).toBe(false)
+      })
+
+      it("should update Pokémon Hp Percentage", () => {
+        store.hpPercentage(defaultId, 55)
+
+        expect(store.team().activePokemon()!.hpPercentage).toBe(55)
+      })
+
+      it("should update Pokémon Evs", () => {
+        store.evs(defaultId, { hp: 10, atk: 10, def: 10, spa: 10, spd: 10, spe: 10 })
+
+        expect(store.team().activePokemon()!.sps).toEqual({ hp: 1, atk: 1, def: 1, spa: 1, spd: 1, spe: 1 })
+      })
+
+      it("should update Pokémon Ivs", () => {
+        store.ivs(defaultId, { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+
+        expect(store.team().activePokemon()!.ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+      })
+
+      it("should update Pokémon Boosts", () => {
+        store.boosts(defaultId, { atk: 1, def: 2, spa: -1, spd: -2, spe: -3 })
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 1, def: 2, spa: -1, spd: -2, spe: -3 })
+      })
+
+      it("should increase Pokémon Bonus Boosts", () => {
+        store.bonusBoost(defaultId, "atk", +1)
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: 1 })
+      })
+
+      it("should decrease Pokémon Boosts and Bonus only if have a previous bonus", () => {
+        store.boosts(defaultId, { atk: 0 })
+        store.bonusBoost(defaultId, "atk", 1)
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: 1 })
+
+        store.bonusBoost(defaultId, "atk", -1)
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: -1 })
+      })
+
+      it("should not increase Pokémon Boosts and Bonus if already maximized", () => {
+        store.boosts(defaultId, { atk: 6 })
+
+        store.bonusBoost(defaultId, "atk", +1)
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: 6, def: 0, spa: 0, spd: 0, spe: 0 })
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should not decrease Pokémon Boosts and Bonus if already minimized", () => {
+        store.boosts(defaultId, { atk: -6 })
+
+        store.bonusBoost(defaultId, "atk", -1)
+
+        expect(store.team().activePokemon()!.boosts).toEqual({ atk: -6, def: 0, spa: 0, spd: 0, spe: 0 })
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      describe("terrain seeds", () => {
+        it("should apply a Defense boost when Electric Seed matches Electric Terrain", () => {
+          store.item(defaultId, "Electric Seed")
+
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(1)
+        })
+
+        it("should apply a Special Defense boost when Psychic Seed matches Psychic Terrain", () => {
+          store.item(defaultId, "Psychic Seed")
+
+          store.syncTerrainSeeds("Psychic")
+
+          expect(store.team().activePokemon()!.boosts.spd).toBe(1)
+        })
+
+        it("should not apply a boost when the terrain does not match the seed", () => {
+          store.item(defaultId, "Psychic Seed")
+
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.spd).toBe(0)
+          expect(store.team().activePokemon()!.boosts.def).toBe(0)
+        })
+
+        it("should release the boost when the terrain goes away", () => {
+          store.item(defaultId, "Grassy Seed")
+          store.syncTerrainSeeds("Grassy")
+
+          store.syncTerrainSeeds(null)
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(0)
+        })
+
+        it("should keep the boost applied only once when the same terrain is synced again", () => {
+          store.item(defaultId, "Misty Seed")
+
+          store.syncTerrainSeeds("Misty")
+          store.syncTerrainSeeds("Misty")
+          store.syncTerrainSeeds("Misty")
+
+          expect(store.team().activePokemon()!.boosts.spd).toBe(1)
+        })
+
+        it("should preserve a boost the user set manually when the terrain goes away", () => {
+          store.boosts(defaultId, { atk: 0, def: 2, spa: 0, spd: 0, spe: 0 })
+          store.item(defaultId, "Electric Seed")
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(3)
+
+          store.syncTerrainSeeds(null)
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(2)
+        })
+
+        it("should move the boost when the terrain changes to another matching seed stat", () => {
+          store.item(defaultId, "Psychic Seed")
+          store.syncTerrainSeeds("Psychic")
+
+          store.item(defaultId, "Electric Seed")
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.spd).toBe(0)
+          expect(store.team().activePokemon()!.boosts.def).toBe(1)
+        })
+
+        it("should release the boost when the seed is replaced by another item", () => {
+          store.item(defaultId, "Electric Seed")
+          store.syncTerrainSeeds("Electric")
+
+          store.item(defaultId, "Leftovers")
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(0)
+        })
+
+        it("should not exceed the maximum boost", () => {
+          store.boosts(defaultId, { atk: 0, def: 6, spa: 0, spd: 0, spe: 0 })
+          store.item(defaultId, "Electric Seed")
+
+          store.syncTerrainSeeds("Electric")
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(6)
+        })
+
+        it("should apply the boost to a Pokémon on the opponent side", () => {
+          const targetId = store.addPokemonToTargets("Rillaboom")
+          store.item(targetId, "Grassy Seed")
+
+          store.syncTerrainSeeds("Grassy")
+
+          expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.boosts.def).toBe(1)
+        })
+
+        it("should not release below the minimum boost when the user lowered the stat after the seed applied", () => {
+          store.item(defaultId, "Electric Seed")
+          store.syncTerrainSeeds("Electric")
+          store.boosts(defaultId, { atk: 0, def: -6, spa: 0, spd: 0, spe: 0 })
+
+          store.syncTerrainSeeds(null)
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(-6)
+        })
+
+        it("should drop the seed mark when another Pokémon is loaded in the slot", () => {
+          store.item(defaultId, "Electric Seed")
+          store.syncTerrainSeeds("Electric")
+
+          store.loadPokemonInfo(defaultId, "Rillaboom")
+          store.syncTerrainSeeds(null)
+
+          expect(store.team().activePokemon()!.boosts.def).toBe(0)
+        })
+      })
+
+      it("should update Pokémon Move one", () => {
+        store.moveOne(defaultId, "Earthquake")
+
+        expect(store.team().activePokemon()!.move1Name).toBe("Earthquake")
+      })
+
+      it("should update Pokémon Move two", () => {
+        store.moveTwo(defaultId, "Earthquake")
+
+        expect(store.team().activePokemon()!.move2Name).toBe("Earthquake")
+      })
+
+      it("should update Pokémon Move three", () => {
+        store.moveThree(defaultId, "Earthquake")
+
+        expect(store.team().activePokemon()!.move3Name).toBe("Earthquake")
+      })
+
+      it("should update Pokémon Move four", () => {
+        store.moveFour(defaultId, "Earthquake")
+
+        expect(store.team().activePokemon()!.move4Name).toBe("Earthquake")
+      })
+
+      it("should activate Move", () => {
+        store.moveOne(defaultId, "Earthquake")
+        store.activateMove(defaultId, 0)
+
+        expect(store.team().activePokemon()!.activeMoveName).toBe("Earthquake")
+        expect(store.team().activePokemon()!.activeMoveIndex).toBe(0)
+      })
+
+      it("should activate moves independently even if they have the same name", () => {
+        store.moveOne(defaultId, "Thunderbolt")
+        store.moveTwo(defaultId, "Thunderbolt")
+
+        store.activateMove(defaultId, 0)
+        expect(store.team().activePokemon()!.activeMoveIndex).toBe(0)
+        expect(store.team().activePokemon()!.activeMovePosition).toBe(1)
+
+        store.activateMove(defaultId, 1)
+        expect(store.team().activePokemon()!.activeMoveIndex).toBe(1)
+        expect(store.team().activePokemon()!.activeMovePosition).toBe(2)
+      })
+
+      it("should activate first Move by position", () => {
+        store.moveOne(defaultId, "Earthquake")
+        store.moveTwo(defaultId, "Rock Slide")
+        store.activateMoveByPosition(defaultId, 1)
+
+        expect(store.team().activePokemon()!.activeMoveName).toBe("Earthquake")
+      })
+
+      it("should activate second Move by position", () => {
+        store.moveOne(defaultId, "Earthquake")
+        store.moveTwo(defaultId, "Rock Slide")
+        store.activateMoveByPosition(defaultId, 2)
+
+        expect(store.team().activePokemon()!.activeMoveName).toBe("Rock Slide")
+      })
+
+      it("should update Allies Fainted", () => {
+        store.moveOne(defaultId, "Last Respects")
+        store.alliesFainted(defaultId, "3", 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1.alliesFainted).toBe("3")
+      })
+
+      it("should update Move Hits", () => {
+        store.moveOne(defaultId, "Rage Fist")
+        store.hits(defaultId, "2", 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1.hits).toBe("2")
+      })
+
+      it("should update Move Hits Taken", () => {
+        store.moveOne(defaultId, "Rage Fist")
+        store.hitsTaken(defaultId, "3", 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1.hitsTaken).toBe("3")
+      })
+    })
+
+    describe("Update Teams", () => {
+      it("should update active Team Members", () => {
+        store.updateTeamMembersActive(true, false, true, false, true, false)
+
+        expect(store.team().teamMembers[0].active).toBe(true)
+        expect(store.team().teamMembers[1].active).toBe(false)
+        expect(store.team().teamMembers[2].active).toBe(true)
+        expect(store.team().teamMembers[3].active).toBe(false)
+      })
+
+      it("should activate Team Member", () => {
+        store.updateTeamMembersActive(true, true, false, false, false, false)
+
+        store.activateTeamMember(2)
+
+        expect(store.team().teamMembers[0].active).toBe(false)
+        expect(store.team().teamMembers[1].active).toBe(false)
+        expect(store.team().teamMembers[2].active).toBe(true)
+        expect(store.team().teamMembers[3].active).toBe(false)
+      })
+
+      it("should activate first Team Member if index is negative", () => {
+        store.updateTeamMembersActive(true, true, false, false, false, false)
+
+        store.activateTeamMember(-2)
+
+        expect(store.team().teamMembers[0].active).toBe(true)
+        expect(store.team().teamMembers[1].active).toBe(false)
+        expect(store.team().teamMembers[2].active).toBe(false)
+        expect(store.team().teamMembers[3].active).toBe(false)
+      })
+
+      it("should activate first Team Member if index is out of bounds", () => {
+        store.updateTeamMembersActive(true, true, false, false, false, false)
+
+        store.activateTeamMember(5)
+
+        expect(store.team().teamMembers[0].active).toBe(true)
+        expect(store.team().teamMembers[1].active).toBe(false)
+        expect(store.team().teamMembers[2].active).toBe(false)
+        expect(store.team().teamMembers[3].active).toBe(false)
+      })
+
+      it("should add Team", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu")), new TeamMember(new Pokemon("Raichu"))])
+        const teamY = new Team("456", true, "Team Y", [new TeamMember(new Pokemon("Clefairy")), new TeamMember(new Pokemon("Clefable"))])
+
+        store.updateTeams([teamX])
+
+        store.addTeam(teamY)
+
+        expect(store.teams().length).toBe(2)
+      })
+
+      it("should replace Team", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu")), new TeamMember(new Pokemon("Raichu"))])
+
+        const teamY = new Team("456", true, "Team Y", [new TeamMember(new Pokemon("Clefairy")), new TeamMember(new Pokemon("Clefable"))])
+
+        store.updateTeams([teamX])
+
+        store.replaceTeam(teamY, "123")
+
+        expect(store.teams().length).toBe(1)
+        expect(store.team().id).toBe("456")
+      })
+
+      it("should replace active Team", () => {
+        const newTeam = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu")), new TeamMember(new Pokemon("Raichu"))])
+
+        store.replaceActiveTeam(newTeam)
+
+        expect(store.team().name).toBe("Team X")
+        expect(store.team().teamMembers[0].pokemon.name).toBe("Pikachu")
+        expect(store.team().teamMembers[1].pokemon.name).toBe("Raichu")
+      })
+
+      it("should replace active Team", () => {
+        const teamName = "New Team With Cool Name"
+
+        store.updateActiveTeamName(teamName)
+
+        expect(store.team().name).toBe(teamName)
+      })
+
+      it("should update Teams", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu")), new TeamMember(new Pokemon("Raichu"))])
+        const teamY = new Team("456", false, "Team Y", [new TeamMember(new Pokemon("Clefairy")), new TeamMember(new Pokemon("Clefable"))])
+
+        store.updateTeams([teamX, teamY])
+
+        expect(store.teams()[0].name).toBe("Team X")
+        expect(store.teams()[0].teamMembers[0].pokemon.name).toBe("Pikachu")
+        expect(store.teams()[0].teamMembers[1].pokemon.name).toBe("Raichu")
+
+        expect(store.teams()[1].name).toBe("Team Y")
+        expect(store.teams()[1].teamMembers[0].pokemon.name).toBe("Clefairy")
+        expect(store.teams()[1].teamMembers[1].pokemon.name).toBe("Clefable")
+      })
+
+      it("should activate Team with informed id and deactivate anothers", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu")), new TeamMember(new Pokemon("Raichu"))])
+        const teamY = new Team("456", false, "Team Y", [new TeamMember(new Pokemon("Clefairy")), new TeamMember(new Pokemon("Clefable"))])
+
+        store.updateTeams([teamX, teamY])
+
+        store.activateTeam("456")
+
+        expect(store.teams()[0].active).toBe(false)
+        expect(store.teams()[1].active).toBe(true)
+      })
+    })
+
+    describe("Toggles and filters", () => {
+      it("should report no pending changes for a set that was never edited", () => {
+        expect(store.activeSetHasChanges()).toBe(false)
+      })
+
+      it("should flip the SPs mode, which starts enabled", () => {
+        expect(store.useSpsMode()).toBe(true)
+
+        store.toggleSpsMode()
+
+        expect(store.useSpsMode()).toBe(false)
+      })
+
+      it("should enable Protosynthesis for every Pokémon that has the ability", () => {
+        store.name(defaultId, "Roaring Moon")
+        store.ability(defaultId, "Protosynthesis")
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(true)
+      })
+
+      it("should disable Protosynthesis for every Pokémon that has the ability", () => {
+        store.name(defaultId, "Roaring Moon")
+        store.ability(defaultId, "Protosynthesis")
+        store.toggleProtosynthesis(true)
+
+        store.toggleProtosynthesis(false)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(false)
+      })
+
+      it("should enable Quark Drive for every Pokémon that has the ability", () => {
+        store.name(defaultId, "Iron Bundle")
+        store.ability(defaultId, "Quark Drive")
+
+        store.toggleQuarkDrive(true)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(true)
+      })
+
+      it("should enable Protosynthesis for a Pokémon on the opponent side", () => {
+        const targetId = store.addPokemonToTargets("Roaring Moon")
+        store.ability(targetId, "Protosynthesis")
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(true)
+      })
+
+      it("should disable Protosynthesis for a Pokémon on the opponent side", () => {
+        const targetId = store.addPokemonToTargets("Roaring Moon")
+        store.ability(targetId, "Protosynthesis")
+        store.toggleProtosynthesis(true)
+
+        store.toggleProtosynthesis(false)
+
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(false)
+      })
+
+      it("should enable Quark Drive for a Pokémon on the opponent side", () => {
+        const targetId = store.addPokemonToTargets("Iron Thorns")
+        store.ability(targetId, "Quark Drive")
+
+        store.toggleQuarkDrive(true)
+
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(true)
+      })
+
+      it("should disable Protosynthesis after the teams were rebuilt while it was enabled", () => {
+        store.name(defaultId, "Roaring Moon")
+        store.ability(defaultId, "Protosynthesis")
+        store.toggleProtosynthesis(true)
+
+        store.updateTeams(store.teams())
+        store.toggleProtosynthesis(false)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(false)
+      })
+
+      it("should disable Protosynthesis after the active team was replaced while it was enabled", () => {
+        store.name(defaultId, "Roaring Moon")
+        store.ability(defaultId, "Protosynthesis")
+        store.toggleProtosynthesis(true)
+
+        store.replaceActiveTeam(store.team())
+        store.toggleProtosynthesis(false)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(false)
+      })
+
+      it("should disable Protosynthesis after the targets were rebuilt while it was enabled", () => {
+        const targetId = store.addPokemonToTargets("Roaring Moon")
+        store.ability(targetId, "Protosynthesis")
+        store.toggleProtosynthesis(true)
+
+        store.updateTargets(store.targets())
+        store.toggleProtosynthesis(false)
+
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(false)
+      })
+
+      it("should enable Protosynthesis for the two Pokémon of One vs One at once", () => {
+        const leftId = store.leftPokemon().id
+        const rightId = store.rightPokemon().id
+        store.name(leftId, "Great Tusk")
+        store.ability(leftId, "Protosynthesis")
+        store.name(rightId, "Flutter Mane")
+        store.ability(rightId, "Protosynthesis")
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.leftPokemon().abilityOn).toBe(true)
+        expect(store.rightPokemon().abilityOn).toBe(true)
+      })
+
+      it("should enable Protosynthesis for the team, the opponents and the two sides in the same toggle", () => {
+        const targetId = store.addPokemonToTargets("Roaring Moon")
+        store.ability(targetId, "Protosynthesis")
+        store.name(defaultId, "Great Tusk")
+        store.ability(defaultId, "Protosynthesis")
+        store.name(store.leftPokemon().id, "Flutter Mane")
+        store.ability(store.leftPokemon().id, "Protosynthesis")
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.team().activePokemon()!.abilityOn).toBe(true)
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(true)
+        expect(store.leftPokemon().abilityOn).toBe(true)
+      })
+
+      it("should not enable Protosynthesis for an opponent that has another ability", () => {
+        const targetId = store.addPokemonToTargets("Roaring Moon")
+        store.ability(targetId, "Intimidate")
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.targets().find(target => target.pokemon.id === targetId)!.pokemon.abilityOn).toBe(false)
+      })
+
+      it("should replace every bonus boost at once", () => {
+        store.bonusBoosts(defaultId, { atk: 2, spe: 1 })
+
+        expect(store.team().activePokemon()!.bonusBoosts).toEqual({ atk: 2, spe: 1 })
+      })
+
+      it("should mark a move as having failed on the previous turn", () => {
+        store.lastMoveFailed(defaultId, true, 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1!.lastMoveFailed).toBe(true)
+      })
+
+      it("should mark a Round as used before in the same turn", () => {
+        store.roundUsedBefore(defaultId, true, 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1!.roundUsedBefore).toBe(true)
+      })
+
+      it("should mark a move as hitting an already damaged target", () => {
+        store.targetDamaged(defaultId, true, 2)
+
+        expect(store.team().activePokemon()!.moveSet.move2!.targetDamaged).toBe(true)
+      })
+
+      it("should clear the already damaged target of a move", () => {
+        store.targetDamaged(defaultId, true, 2)
+
+        store.targetDamaged(defaultId, false, 2)
+
+        expect(store.team().activePokemon()!.moveSet.move2!.targetDamaged).toBe(false)
+      })
+
+      it("should not mark the other moves when one move hits an already damaged target", () => {
+        store.targetDamaged(defaultId, true, 2)
+
+        const moveSet = store.team().activePokemon()!.moveSet
+
+        expect(moveSet.move1!.targetDamaged).toBe(false)
+        expect(moveSet.move3!.targetDamaged).toBe(false)
+        expect(moveSet.move4!.targetDamaged).toBe(false)
+      })
+
+      it("should mark a move as used after the target already moved", () => {
+        store.targetAlreadyMoved(defaultId, true, 3)
+
+        expect(store.team().activePokemon()!.moveSet.move3!.targetAlreadyMoved).toBe(true)
+      })
+
+      it("should clear the target already moved flag of a move", () => {
+        store.targetAlreadyMoved(defaultId, true, 3)
+
+        store.targetAlreadyMoved(defaultId, false, 3)
+
+        expect(store.team().activePokemon()!.moveSet.move3!.targetAlreadyMoved).toBe(false)
+      })
+
+      it("should not mark the other moves when one move is used after the target already moved", () => {
+        store.targetAlreadyMoved(defaultId, true, 3)
+
+        const moveSet = store.team().activePokemon()!.moveSet
+
+        expect(moveSet.move1!.targetAlreadyMoved).toBe(false)
+        expect(moveSet.move2!.targetAlreadyMoved).toBe(false)
+        expect(moveSet.move4!.targetAlreadyMoved).toBe(false)
+      })
+
+      it("should mark a move as used after being damaged by the target", () => {
+        store.damagedByTarget(defaultId, true, 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1!.damagedByTarget).toBe(true)
+      })
+
+      it("should clear the damaged by target flag of a move", () => {
+        store.damagedByTarget(defaultId, true, 1)
+
+        store.damagedByTarget(defaultId, false, 1)
+
+        expect(store.team().activePokemon()!.moveSet.move1!.damagedByTarget).toBe(false)
+      })
+
+      it("should declare how many times in a row a move was used", () => {
+        store.timesUsed(defaultId, "3", 2)
+
+        expect(store.team().activePokemon()!.moveSet.move2!.timesUsed).toEqual("3")
+      })
+
+      it("should not change the times used in a row of the other moves", () => {
+        store.timesUsed(defaultId, "3", 2)
+
+        const moveSet = store.team().activePokemon()!.moveSet
+
+        expect(moveSet.move1!.timesUsed).toEqual("1")
+        expect(moveSet.move3!.timesUsed).toEqual("1")
+        expect(moveSet.move4!.timesUsed).toEqual("1")
+      })
+
+      it("should declare the Pledge used by the ally for a move", () => {
+        store.allyPledge(defaultId, "Water Pledge", 4)
+
+        expect(store.team().activePokemon()!.moveSet.move4!.allyPledge).toBe("Water Pledge")
+      })
+
+      it("should clear the ally Pledge of a move", () => {
+        store.allyPledge(defaultId, "Water Pledge", 4)
+
+        store.allyPledge(defaultId, "", 4)
+
+        expect(store.team().activePokemon()!.moveSet.move4!.allyPledge).toBe("")
+      })
+    })
+
+    describe("Transient teams", () => {
+      it("should keep the transient team out of the teams and offer it as an opponent source", () => {
+        const transientTeam = new Team("paste-team", false, "Sun Room", [new TeamMember(new Pokemon("Incineroar"), true)])
+
+        store.addTransientTeam(transientTeam, false)
+
+        expect(store.teams().map(t => t.id)).not.toContain("paste-team")
+        expect(store.buildUserData().teams.map(t => t.name)).not.toContain("Sun Room")
+        expect(store.opponentTeamOptions().map(t => t.name)).toEqual(["Team 1", "Sun Room"])
+      })
+
+      it("should not offer empty teams as an opponent source", () => {
+        store.addTransientTeam(new Team("empty-team", false, "Empty", []), false)
+
+        expect(store.opponentTeamOptions().map(t => t.name)).toEqual(["Team 1"])
+      })
+
+      it("should use the members of the transient team as targets when it is the opponent source", () => {
+        store.addTransientTeam(new Team("paste-team", false, "Sun Room", [new TeamMember(new Pokemon("Incineroar"), true), new TeamMember(new Pokemon("Amoonguss"))]), false)
+
+        store.selectOpponentSource("paste-team")
+
+        expect(store.displayedTargets().map(t => t.pokemon.name)).toEqual(["Incineroar", "Amoonguss"])
+      })
+
+      it("should tell when the transient team of the opponent source had its SPs loaded from the default moveset", () => {
+        store.addTransientTeam(new Team("paste-team", false, "Sun Room", [new TeamMember(new Pokemon("Incineroar"), true)]), true)
+
+        store.selectOpponentSource("paste-team")
+
+        expect(store.sourceHasDefaultSps()).toBe(true)
+      })
+
+      it("should not tell about default SPs when the team of the opponent source kept its own SPs", () => {
+        store.addTransientTeam(new Team("default-sps", false, "Default", [new TeamMember(new Pokemon("Incineroar"), true)]), true)
+        store.addTransientTeam(new Team("own-sps", false, "Own", [new TeamMember(new Pokemon("Amoonguss"), true)]), false)
+
+        store.selectOpponentSource("own-sps")
+
+        expect(store.sourceHasDefaultSps()).toBe(false)
+      })
+
+      it("should not tell about default SPs when the opponent source is not a team", () => {
+        store.addTransientTeam(new Team("paste-team", false, "Sun Room", [new TeamMember(new Pokemon("Incineroar"), true)]), true)
+
+        expect(store.sourceHasDefaultSps()).toBe(false)
+      })
+
+      it("should find and update a Pokémon of a transient team", () => {
+        const incineroar = new Pokemon("Incineroar")
+        const amoonguss = new Pokemon("Amoonguss")
+        store.addTransientTeam(new Team("paste-team", false, "Sun Room", [new TeamMember(incineroar, true), new TeamMember(amoonguss)]), false)
+
+        store.item(amoonguss.id, "Rocky Helmet")
+
+        expect(store.findPokemonById(amoonguss.id).item).toBe("Rocky Helmet")
+        expect(store.findPokemonStateById(amoonguss.id)!.item).toBe("Rocky Helmet")
+        expect(store.findPokemonById(incineroar.id).item).toBe(incineroar.item)
+      })
+
+      it("should enable Protosynthesis for a Pokémon of a transient team", () => {
+        const roaringMoon = new Pokemon("Roaring Moon", { ability: new Ability("Protosynthesis") })
+        store.addTransientTeam(new Team("paste-team", false, "Paradox", [new TeamMember(roaringMoon, true)]), false)
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.transientTeams()[0].teamMembers[0].pokemon.abilityOn).toBe(true)
+      })
+    })
+
+    describe("Opponent source", () => {
+      it("should show My List by default", () => {
+        expect(store.activeOpponentSource()).toBe(MY_LIST_SOURCE)
+        expect(store.isMyListSource()).toBe(true)
+        expect(store.displayedTargets()).toEqual(store.targets())
+      })
+
+      it("should load the 60 most used Pokémon of the format when Meta is selected", () => {
+        store.selectOpponentSource(META_SOURCE)
+
+        expect(store.activeOpponentSource()).toBe(META_SOURCE)
+        expect(store.isMyListSource()).toBe(false)
+        expect(store.displayedTargets().length).toBe(60)
+        expect(
+          store
+            .displayedTargets()
+            .map(t => t.pokemon.name)
+            .slice(0, 3)
+        ).toEqual(topUsageByRegulation["MC"].slice(0, 3))
+        expect(store.targets().length).toBe(9)
+      })
+
+      it("should keep the changes made to a Meta Pokémon while the session lasts", () => {
+        store.selectOpponentSource(META_SOURCE)
+        const metaPokemonId = store.displayedTargets()[0].pokemon.id
+
+        store.item(metaPokemonId, "Rocky Helmet")
+        store.selectOpponentSource(MY_LIST_SOURCE)
+        store.selectOpponentSource(META_SOURCE)
+
+        expect(store.displayedTargets()[0].pokemon.id).toBe(metaPokemonId)
+        expect(store.findPokemonById(metaPokemonId).item).toBe("Rocky Helmet")
+        expect(store.findPokemonStateById(metaPokemonId)!.item).toBe("Rocky Helmet")
+      })
+
+      it("should not save the Meta Pokémon in the user data", () => {
+        store.selectOpponentSource(META_SOURCE)
+
+        expect(store.buildUserData().targets.length).toBe(9)
+      })
+
+      it("should find and update the second Pokémon of a combined Meta pair", () => {
+        const pikachu = new Pokemon("Pikachu")
+        const rillaboom = new Pokemon("Rillaboom")
+        store.selectOpponentSource(META_SOURCE)
+        store.updateDisplayedTargets([new Target(pikachu, rillaboom)])
+
+        store.item(rillaboom.id, "Choice Band")
+
+        expect(store.metaTargets()[0].secondPokemon!.item).toBe("Choice Band")
+        expect(store.findPokemonById(rillaboom.id).item).toBe("Choice Band")
+        expect(store.findCombinedAllyById(rillaboom.id)!.name).toBe("Pikachu")
+        expect(store.findCombinedAllyById(pikachu.id)!.name).toBe("Rillaboom")
+      })
+
+      it("should enable Protosynthesis for a Meta Pokémon", () => {
+        const roaringMoon = new Pokemon("Roaring Moon", { ability: new Ability("Protosynthesis") })
+        store.selectOpponentSource(META_SOURCE)
+        store.updateDisplayedTargets([new Target(roaringMoon)])
+
+        store.toggleProtosynthesis(true)
+
+        expect(store.metaTargets()[0].pokemon.abilityOn).toBe(true)
+      })
+
+      it("should update My List when it is the opponent source", () => {
+        store.updateDisplayedTargets([new Target(new Pokemon("Pikachu"))])
+
+        expect(store.targets().map(t => t.pokemon.name)).toEqual(["Pikachu"])
+      })
+
+      it("should show the members of a team when it is the opponent source", () => {
+        const teamId = store.teams()[0].id
+
+        store.selectOpponentSource(teamId)
+
+        expect(store.activeOpponentSource()).toBe(teamId)
+        expect(store.isMyListSource()).toBe(false)
+        expect(store.sourceTeam()!.name).toBe("Team 1")
+        expect(store.displayedTargets().map(t => t.pokemon.name)).toEqual(["Charizard", "Dragonite", "Venusaur", "Incineroar"])
+      })
+
+      it("should combine and reorder the members of a team without changing the team", () => {
+        const team = store.teams()[0]
+        const [charizard, dragonite, venusaur, incineroar] = team.teamMembers.map(member => member.pokemon)
+        store.selectOpponentSource(team.id)
+
+        store.updateDisplayedTargets([new Target(venusaur), new Target(charizard, incineroar), new Target(dragonite)])
+
+        expect(store.displayedTargets().map(t => [t.pokemon.name, t.secondPokemon?.name])).toEqual([
+          ["Venusaur", undefined],
+          ["Charizard", "Incineroar"],
+          ["Dragonite", undefined]
+        ])
+        expect(store.findCombinedAllyById(incineroar.id)!.name).toBe("Charizard")
+        expect(store.teams()[0].teamMembers.map(member => member.pokemon.name)).toEqual(["Charizard", "Dragonite", "Venusaur", "Incineroar"])
+      })
+
+      it("should keep the remaining Pokémon of a pair in place when its ally leaves the team and append the new members", () => {
+        const team = store.teams()[0]
+        const [charizard, dragonite, venusaur, incineroar] = team.teamMembers.map(member => member.pokemon)
+        store.selectOpponentSource(team.id)
+        store.updateDisplayedTargets([new Target(dragonite, charizard), new Target(venusaur, incineroar)])
+
+        const pikachu = new Pokemon("Pikachu")
+        store.updateTeams([new Team(team.id, true, team.name, [new TeamMember(charizard, true), new TeamMember(venusaur), new TeamMember(pikachu)])])
+
+        expect(store.displayedTargets().map(t => [t.pokemon.name, t.secondPokemon?.name])).toEqual([
+          ["Charizard", undefined],
+          ["Venusaur", undefined],
+          ["Pikachu", undefined]
+        ])
+      })
+
+      it("should fall back to My List when the team of the opponent source no longer exists", () => {
+        store.selectOpponentSource("a-team-that-does-not-exist")
+
+        expect(store.activeOpponentSource()).toBe(MY_LIST_SOURCE)
+        expect(store.isMyListSource()).toBe(true)
+        expect(store.displayedTargets()).toEqual(store.targets())
+      })
+
+      it("should tell whether a Pokémon is one of the displayed opponents", () => {
+        const pikachu = new Pokemon("Pikachu")
+        const rillaboom = new Pokemon("Rillaboom")
+        store.updateTargets([new Target(pikachu, rillaboom)])
+
+        expect(store.isDisplayedOpponent(pikachu.id)).toBe(true)
+        expect(store.isDisplayedOpponent(rillaboom.id)).toBe(true)
+        expect(store.isDisplayedOpponent(store.team().teamMembers[0].pokemon.id)).toBe(false)
+      })
+
+      describe("Persistence", () => {
+        function savedOpponentSource() {
+          TestBed.tick()
+
+          return JSON.parse(localStorage.getItem("userData")!).champions.opponentSource
+        }
+
+        function reloadStore() {
+          TestBed.tick()
+          TestBed.resetTestingModule()
+          TestBed.configureTestingModule({ providers: [CalcStore, provideZonelessChangeDetection()] })
+
+          return TestBed.inject(CalcStore)
+        }
+
+        function fillThirdTeam() {
+          store.updateTeams(store.teams().map((team, index) => (index === 2 ? new Team(team.id, false, team.name, [new TeamMember(new Pokemon("Pikachu"), true)]) : team)))
+
+          return store.teams()[2]
+        }
+
+        it("should save My List as the opponent source by default", () => {
+          expect(savedOpponentSource()).toBe(MY_LIST_SOURCE)
+        })
+
+        it("should save Meta as the opponent source", () => {
+          store.selectOpponentSource(META_SOURCE)
+
+          expect(savedOpponentSource()).toBe(META_SOURCE)
+        })
+
+        it("should save the position of the team chosen as the opponent source", () => {
+          store.selectOpponentSource(fillThirdTeam().id)
+
+          expect(savedOpponentSource()).toBe(2)
+        })
+
+        it("should save My List when a pasted team is the opponent source", () => {
+          const pasted = new Team("pasted-team", false, "Pasted", [new TeamMember(new Pokemon("Pikachu"), true)])
+          store.addTransientTeam(pasted, false)
+
+          store.selectOpponentSource(pasted.id)
+
+          expect(store.activeOpponentSource()).toBe(pasted.id)
+          expect(savedOpponentSource()).toBe(MY_LIST_SOURCE)
+        })
+
+        it("should not save the opponent source while local storage is locked", () => {
+          patchState(store, { updateLocalStorage: false })
+          localStorage.clear()
+
+          store.selectOpponentSource(META_SOURCE)
+          TestBed.tick()
+
+          expect(JSON.parse(localStorage.getItem("userData")!).champions).toBeUndefined()
+        })
+
+        it("should restore Meta as the opponent source after reloading", () => {
+          store.selectOpponentSource(META_SOURCE)
+
+          const reloaded = reloadStore()
+
+          expect(reloaded.activeOpponentSource()).toBe(META_SOURCE)
+          expect(reloaded.displayedTargets().length).toBe(60)
+        })
+
+        it("should restore the team chosen as the opponent source after reloading", () => {
+          store.selectOpponentSource(fillThirdTeam().id)
+
+          const reloaded = reloadStore()
+
+          expect(reloaded.activeOpponentSource()).toBe(reloaded.teams()[2].id)
+          expect(reloaded.sourceTeam()!.name).toBe("Team 3")
+          expect(reloaded.displayedTargets().map(t => t.pokemon.name)).toEqual(["Pikachu"])
+        })
+
+        it("should restore My List when the saved team no longer exists", () => {
+          localStorage.setItem("userData", JSON.stringify({ champions: { opponentSource: 7 } }))
+
+          const reloaded = reloadStore()
+
+          expect(reloaded.activeOpponentSource()).toBe(MY_LIST_SOURCE)
+        })
+      })
+    })
+
+    describe("Add Pokémon by name", () => {
+      it("should add a real Pokémon to the active team with its moveset loaded", () => {
+        const initialCount = store.team().teamMembers.length
+
+        const id = store.addPokemonToTeam("Kangaskhan-Mega")
+
+        const result = store.findPokemonById(id)
+        expect(store.team().teamMembers.length).toBe(initialCount + 1)
+        expect(result.name).toBe("Kangaskhan-Mega")
+        expect(result.item).toBe("Kangaskhanite")
+        expect(result.ability.name).toBe("Parental Bond")
+      })
+
+      it("should activate the added Pokémon when the team has no active member", () => {
+        store.updateTeams([new Team("123", true, "Team X", [])])
+
+        const id = store.addPokemonToTeam("Incineroar")
+
+        expect(store.team().activePokemon()!.id).toBe(id)
+      })
+
+      it("should keep the current active member when one already exists", () => {
+        const previousActiveId = store.team().activePokemon()!.id
+
+        const id = store.addPokemonToTeam("Incineroar")
+
+        expect(store.team().activePokemon()!.id).toBe(previousActiveId)
+        expect(store.team().activePokemon()!.id).not.toBe(id)
+      })
+
+      it("should add a real Pokémon to the targets with its moveset loaded", () => {
+        const initialCount = store.targets().length
+
+        const id = store.addPokemonToTargets("Kangaskhan-Mega")
+
+        const added = store.targets().find(t => t.pokemon.id === id)!
+        expect(store.targets().length).toBe(initialCount + 1)
+        expect(added.pokemon.name).toBe("Kangaskhan-Mega")
+        expect(added.pokemon.item).toBe("Kangaskhanite")
+      })
+    })
+
+    describe("Update Targets", () => {
+      it("should remove all Targets", () => {
+        store.removeAllTargets()
+
+        expect(store.targets().length).toBe(0)
+      })
+
+      it("should update Targets", () => {
+        const targets = [new Target(new Pokemon("Pikachu")), new Target(new Pokemon("Raichu"))]
+
+        store.updateTargets(targets)
+
+        expect(store.targets().length).toBe(2)
+        expect(store.targets()[0].pokemon.name).toBe("Pikachu")
+        expect(store.targets()[1].pokemon.name).toBe("Raichu")
+      })
+    })
+
+    describe("Update another Pokémon", () => {
+      it("should update second Attacker", () => {
+        const pokemonId = "123"
+
+        store.updateSecondAttacker(pokemonId)
+
+        expect(store.secondAttackerId()).toBe(pokemonId)
+      })
+
+      it("should replace a Pokémon by id while keeping the original id", () => {
+        store.changePokemon(defaultId, new Pokemon("Flutter Mane"))
+
+        expect(store.team().activePokemon()!.name).toBe("Flutter Mane")
+        expect(store.team().activePokemon()!.id).toBe(defaultId)
+      })
+
+      it("should update left Pokémon", () => {
+        const leftPokemon = new Pokemon("Pikachu")
+
+        store.changeLeftPokemon(leftPokemon)
+
+        expect(store.leftPokemon().name).toBe("Pikachu")
+      })
+
+      it("should update right Pokémon", () => {
+        const rightPokemon = new Pokemon("Raichu")
+
+        store.changeRightPokemon(rightPokemon)
+
+        expect(store.rightPokemon().name).toBe("Raichu")
+      })
+
+      it("should update left Pokémon by id", () => {
+        const id = store.leftPokemon().id
+
+        store.name(id, "Pikachu")
+
+        expect(store.leftPokemon().name).toBe("Pikachu")
+      })
+
+      it("should update right Pokémon by id", () => {
+        const id = store.rightPokemon().id
+
+        store.name(id, "Pikachu")
+
+        expect(store.rightPokemon().name).toBe("Pikachu")
+      })
+
+      it("should update Pokémon in target by id", () => {
+        const pokemon = new Pokemon("Pikachu", { ability: new Ability("Lightning Rod") })
+        const targets = [new Target(pokemon, new Pokemon("Raichu"))]
+        store.updateTargets(targets)
+
+        store.ability(pokemon.id, "Static")
+
+        expect(store.targets()[0].pokemon.ability.name).toBe("Static")
+      })
+
+      it("should update second Pokémon in target by id", () => {
+        const secondPokemon = new Pokemon("Raichu", { ability: new Ability("Lightning Rod") })
+        const targets = [new Target(new Pokemon("Pikachu"), secondPokemon)]
+        store.updateTargets(targets)
+
+        store.ability(secondPokemon.id, "Static")
+
+        expect(store.targets()[0].secondPokemon?.ability.name).toBe("Static")
+      })
+    })
+
+    describe("Find Pokémon state by id", () => {
+      it("should find the state of a Pokémon added to the targets", () => {
+        const targetId = store.addPokemonToTargets("Amoonguss")
+
+        const result = store.findPokemonStateById(targetId)
+
+        expect(result!.name).toBe("Amoonguss")
+        expect(result!.id).toBe(targetId)
+      })
+
+      it("should find the state of a second attacker in a target", () => {
+        const secondPokemon = new Pokemon("Rillaboom")
+        store.updateTargets([new Target(new Pokemon("Pikachu"), secondPokemon)])
+
+        const result = store.findPokemonStateById(secondPokemon.id)
+
+        expect(result!.name).toBe("Rillaboom")
+      })
+
+      it("should return undefined when no Pokémon has the given id", () => {
+        expect(store.findPokemonStateById("a-id-that-does-not-exist")).toBeUndefined()
+      })
+    })
+
+    describe("findCombinedAllyById", () => {
+      it("should find the ally when asking for the first Pokémon of a combined pair", () => {
+        const first = new Pokemon("Pikachu")
+        const second = new Pokemon("Rillaboom")
+        store.updateTargets([new Target(first, second)])
+
+        const ally = store.findCombinedAllyById(first.id)
+
+        expect(ally!.name).toBe("Rillaboom")
+      })
+
+      it("should find the ally when asking for the second Pokémon of a combined pair", () => {
+        const first = new Pokemon("Pikachu")
+        const second = new Pokemon("Rillaboom")
+        store.updateTargets([new Target(first, second)])
+
+        const ally = store.findCombinedAllyById(second.id)
+
+        expect(ally!.name).toBe("Pikachu")
+      })
+
+      it("should return undefined for a target without a combined ally", () => {
+        const alone = new Pokemon("Pikachu")
+        store.updateTargets([new Target(alone)])
+
+        expect(store.findCombinedAllyById(alone.id)).toBeUndefined()
+      })
+
+      it("should return undefined when no Pokémon has the given id", () => {
+        store.updateTargets([new Target(new Pokemon("Pikachu"), new Pokemon("Rillaboom"))])
+
+        expect(store.findCombinedAllyById("a-id-that-does-not-exist")).toBeUndefined()
+      })
+
+      it("should find the ally of a combined attacker when asking for the first attacker", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+
+        const ally = store.findCombinedAllyById(store.attackerId())
+
+        expect(ally!.id).toBe(secondAttacker.id)
+      })
+
+      it("should find the ally of a combined attacker when asking for the second attacker", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+        const attackerId = store.attackerId()
+
+        const ally = store.findCombinedAllyById(secondAttacker.id)
+
+        expect(ally!.id).toBe(attackerId)
+      })
+
+      it("should return undefined for the active attacker when no second attacker is combined", () => {
+        expect(store.findCombinedAllyById(store.attackerId())).toBeUndefined()
+      })
+
+      it("should return undefined for a Pokémon outside the combined attacker pair", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+        const outsiderId = store.team().teamMembers[2].pokemon.id
+
+        const ally = store.findCombinedAllyById(outsiderId)
+
+        expect(ally).toBeUndefined()
+      })
+    })
+
+    describe("Combined attackers", () => {
+      it("should have no combined attackers when no second attacker is combined", () => {
+        expect(store.combinedAttackers()).toEqual([])
+      })
+
+      it("should name the attacker and the second attacker of the pair", () => {
+        const attacker = store.team().teamMembers[0].pokemon
+        const secondAttacker = store.team().teamMembers[1].pokemon
+
+        store.updateSecondAttacker(secondAttacker.id)
+
+        expect(store.combinedAttackers()).toEqual([
+          { pokemonId: attacker.id, name: attacker.name },
+          { pokemonId: secondAttacker.id, name: secondAttacker.name }
+        ])
+      })
+
+      it("should have no combined attackers when the second attacker is not in the team", () => {
+        store.updateSecondAttacker("an-id-that-does-not-exist")
+
+        expect(store.combinedAttackers()).toEqual([])
+      })
+
+      it("should not belong to the pair when no second attacker is combined", () => {
+        expect(store.belongsToCombinedPair(store.attackerId())).toBe(false)
+      })
+
+      it("should belong to the pair when it is the first attacker", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+
+        expect(store.belongsToCombinedPair(store.attackerId())).toBe(true)
+      })
+
+      it("should belong to the pair when it is the second attacker", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+
+        expect(store.belongsToCombinedPair(secondAttacker.id)).toBe(true)
+      })
+
+      it("should not belong to the pair when it is outside the pair", () => {
+        const secondAttacker = store.team().teamMembers[1].pokemon
+        store.updateSecondAttacker(secondAttacker.id)
+        const outsiderId = store.team().teamMembers[2].pokemon.id
+
+        expect(store.belongsToCombinedPair(outsiderId)).toBe(false)
+      })
+    })
+
+    describe("Find Pokémon by id", () => {
+      it("should find a Pokémon that is the second attacker of a target", () => {
+        const secondPokemon = new Pokemon("Raichu", { ability: new Ability("Lightning Rod") })
+        store.updateTargets([new Target(new Pokemon("Pikachu"), secondPokemon)])
+
+        const result = store.findPokemonById(secondPokemon.id)
+
+        expect(result.name).toBe("Raichu")
+      })
+
+      it("should find Pokémon by id when searched Pokémon is left Pokémon", () => {
+        const leftPokemonId = store.leftPokemon().id
+        const leftPokemonName = store.leftPokemon().name
+
+        const result = store.findPokemonById(leftPokemonId)
+
+        expect(result.name).toBe(leftPokemonName)
+      })
+
+      it("should find Pokémon by id when searched Pokémon is right Pokémon", () => {
+        const rightPokemonId = store.rightPokemon().id
+        const rightPokemonName = store.rightPokemon().name
+
+        const result = store.findPokemonById(rightPokemonId)
+
+        expect(result.name).toBe(rightPokemonName)
+      })
+
+      it("should find Pokémon by id when searched Pokémon is in Team 1", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu", { id: "123" })), new TeamMember(new Pokemon("Raichu", { id: "456" }))])
+
+        const teamY = new Team("456", false, "Team Y", [new TeamMember(new Pokemon("Clefairy", { id: "789" })), new TeamMember(new Pokemon("Clefable", { id: "012" }))])
+
+        store.updateTeams([teamX, teamY])
+
+        const result = store.findPokemonById("456")
+
+        expect(result.name).toBe("Raichu")
+      })
+
+      it("should find Pokémon by id when searched Pokémon is in Team 2", () => {
+        const teamX = new Team("123", true, "Team X", [new TeamMember(new Pokemon("Pikachu", { id: "123" })), new TeamMember(new Pokemon("Raichu", { id: "456" }))])
+
+        const teamY = new Team("456", false, "Team Y", [new TeamMember(new Pokemon("Clefairy", { id: "789" })), new TeamMember(new Pokemon("Clefable", { id: "012" }))])
+
+        store.updateTeams([teamX, teamY])
+
+        const result = store.findPokemonById("012")
+
+        expect(result.name).toBe("Clefable")
+      })
+
+      it("should find Pokémon by id when searched Pokémon is in Targets", () => {
+        const targets = [new Target(new Pokemon("Pikachu", { id: "123" })), new Target(new Pokemon("Raichu", { id: "456" }))]
+        store.updateTargets(targets)
+
+        const result = store.findPokemonById("456")
+
+        expect(result.name).toBe("Raichu")
+      })
+
+      it("should find Pokémon by id when searched Pokémon is in Targets as second attacker", () => {
+        const targets = [new Target(new Pokemon("Pikachu", { id: "123" }), new Pokemon("Tyranitar", { id: "789" })), new Target(new Pokemon("Raichu", { id: "456" }))]
+        store.updateTargets(targets)
+
+        const result = store.findPokemonById("789")
+
+        expect(result.name).toBe("Tyranitar")
+      })
+
+      it("should update Target by id", () => {
+        const targets = [new Target(new Pokemon("Pikachu", { id: "123" })), new Target(new Pokemon("Raichu", { id: "456" }))]
+        store.updateTargets(targets)
+
+        store.name("456", "Tyranitar")
+
+        const pokemon = store.findPokemonById("456")
+        expect(pokemon.name).toBe("Tyranitar")
+      })
+
+      it("should return undefind when do not find Pokémon by id", () => {
+        const result = store.findNullablePokemonById("123456")
+
+        expect(result).toBeUndefined()
+      })
+    })
+
+    describe("Load Pokémon Info", () => {
+      it("should load Pokémon information using it name", () => {
+        const moveset = getMoveset("Kangaskhan-Mega")!
+
+        store.loadPokemonInfo(defaultId, "Kangaskhan-Mega")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.name).toBe("Kangaskhan-Mega")
+        expect(result.nature).toBe(moveset.nature)
+        expect(result.item).toBe(moveset.items[0])
+        expect(result.ability.name).toBe(moveset.ability)
+        expect(result.teraType).toBe(moveset.teraType)
+        expect(result.teraTypeActive).toBe(false)
+        expect(result.sps).toEqual(moveset.sps)
+        expect(result.move1Name).toBe(moveset.moves[0])
+        expect(result.move2Name).toBe(moveset.moves[1])
+        expect(result.move3Name).toBe(moveset.moves[2])
+        expect(result.move4Name).toBe(moveset.moves[3])
+        expect(result.activeMoveName).toBe(moveset.moves[0])
+      })
+
+      it("should reset previous commander state", () => {
+        store.commander(defaultId, true)
+
+        store.loadPokemonInfo(defaultId, "Incineroar")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.commanderActive).toBe(false)
+      })
+
+      it("should reset previous hp percentage state", () => {
+        store.hpPercentage(defaultId, 50)
+
+        store.loadPokemonInfo(defaultId, "Incineroar")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.hpPercentage).toBe(100)
+      })
+
+      it("should set +1 atk when Pokémon is Zacian", () => {
+        store.loadPokemonInfo(defaultId, "Zacian")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should set +1 atk when Pokémon is Zacian-Crowned", () => {
+        store.loadPokemonInfo(defaultId, "Zacian-Crowned")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should set +1 def when Pokémon is Zamazenta", () => {
+        store.loadPokemonInfo(defaultId, "Zamazenta")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.boosts).toEqual({ atk: 0, def: 1, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should set +1 def when Pokémon is Zamazenta-Crowned", () => {
+        store.loadPokemonInfo(defaultId, "Zamazenta-Crowned")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.boosts).toEqual({ atk: 0, def: 1, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should reset previous stats boosts state", () => {
+        store.boosts(defaultId, { atk: 1, def: 2, spa: 3, spd: 4, spe: 5 })
+
+        store.loadPokemonInfo(defaultId, "Incineroar")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+      })
+
+      it("should reset previous higher stat state", () => {
+        store.higherStat(defaultId, "atk")
+
+        store.loadPokemonInfo(defaultId, "Flutter Mane")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.higherStat).toBe("spe")
+      })
+
+      it("should reset previous custom higher stat state when ability changes", () => {
+        store.loadPokemonInfo(defaultId, "Flutter Mane")
+        store.higherStat(defaultId, "atk")
+
+        store.ability(defaultId, "Intimidate")
+        const result = store.findPokemonById(defaultId)
+
+        expect(result.higherStat).toBe("spe")
+      })
+
+      it("should not change the moveset fields when the given Pokémon name has no known moveset", () => {
+        store.name(defaultId, "Charizard")
+
+        store.loadPokemonInfo(defaultId, "Not-A-Real-Pokemon-Name")
+
+        const result = store.findPokemonById(defaultId)
+        expect(result.name).toBe("Charizard")
+      })
+
+      it("should clear the active custom set when loading info into the set's bound Pokémon", () => {
+        store.addCustomSet(defaultId, "My Set")
+        const setId = store.customSetsState()[0].id
+        store.enterCustomSetEditMode(defaultId, setId)
+
+        store.loadPokemonInfo(defaultId, "Incineroar")
+
+        expect(store.activeSetId()).toBeNull()
+        expect(store.activeSetPokemonId()).toBeNull()
+      })
+    })
+
+    describe("activateTeamMemberByPokemonId", () => {
+      it("should activate the team member matching the given Pokémon id", () => {
+        store.updateTeamMembersActive(true, false, false, false, false, false)
+        const targetId = store.team().teamMembers[2].pokemon.id
+
+        store.activateTeamMemberByPokemonId(targetId)
+
+        expect(store.team().teamMembers[2].active).toBe(true)
+      })
+
+      it("should do nothing when no team member matches the given Pokémon id", () => {
+        store.updateTeamMembersActive(true, false, false, false, false, false)
+
+        store.activateTeamMemberByPokemonId("non-existent-id")
+
+        expect(store.team().teamMembers[0].active).toBe(true)
+        expect(store.team().teamMembers[1].active).toBe(false)
+      })
+    })
+
+    describe("activateTeamMember on an empty team", () => {
+      it("should keep the team unchanged when the active team has no members", () => {
+        store.activateTeam(store.teams()[1].id)
+
+        store.activateTeamMember(0)
+
+        expect(store.team().teamMembers.length).toBe(0)
+      })
+    })
+
+    describe("reorderTeamMembers", () => {
+      it("should move a team member backwards to the given position", () => {
+        store.reorderTeamMembers(2, 0)
+
+        expect(store.team().teamMembers.map(member => member.pokemon.name)).toEqual(["Venusaur", "Charizard", "Dragonite", "Incineroar"])
+      })
+
+      it("should move a team member forwards to the given position", () => {
+        store.reorderTeamMembers(0, 3)
+
+        expect(store.team().teamMembers.map(member => member.pokemon.name)).toEqual(["Dragonite", "Venusaur", "Incineroar", "Charizard"])
+      })
+
+      it("should keep the active flag on the moved Pokémon", () => {
+        store.updateTeamMembersActive(false, false, true, false, false, false)
+
+        store.reorderTeamMembers(2, 0)
+
+        expect(store.team().teamMembers[0].pokemon.name).toBe("Venusaur")
+        expect(store.team().teamMembers[0].active).toBe(true)
+        expect(store.team().teamMembers.filter(member => member.active).length).toBe(1)
+      })
+
+      it("should keep the active flag on a Pokémon dragged over by another one", () => {
+        store.updateTeamMembersActive(true, false, false, false, false, false)
+
+        store.reorderTeamMembers(3, 0)
+
+        expect(store.team().teamMembers[1].pokemon.name).toBe("Charizard")
+        expect(store.team().teamMembers[1].active).toBe(true)
+      })
+
+      it("should keep the team unchanged when the origin and the destination are the same", () => {
+        store.reorderTeamMembers(1, 1)
+
+        expect(store.team().teamMembers.map(member => member.pokemon.name)).toEqual(["Charizard", "Dragonite", "Venusaur", "Incineroar"])
+      })
+
+      it("should keep the team unchanged when the origin is out of range", () => {
+        store.reorderTeamMembers(4, 0)
+
+        expect(store.team().teamMembers.map(member => member.pokemon.name)).toEqual(["Charizard", "Dragonite", "Venusaur", "Incineroar"])
+      })
+
+      it("should keep the team unchanged when the destination is out of range", () => {
+        store.reorderTeamMembers(0, 4)
+
+        expect(store.team().teamMembers.map(member => member.pokemon.name)).toEqual(["Charizard", "Dragonite", "Venusaur", "Incineroar"])
+      })
+
+      it("should keep the Pokémon data of the moved team member", () => {
+        const movedId = store.team().teamMembers[2].pokemon.id
+
+        store.reorderTeamMembers(2, 0)
+
+        expect(store.team().teamMembers[0].pokemon.id).toBe(movedId)
+      })
+    })
+
+    describe("Paste link", () => {
+      const pasteUrl = "https://vgcmulticalc.com/paste/x7Kq2mPz"
+
+      beforeEach(() => {
+        store.linkPasteToTeam(store.team().id, pasteUrl)
+      })
+
+      it("should show the paste link of the active team", () => {
+        expect(store.activeTeamPasteUrl()).toBe(pasteUrl)
+      })
+
+      it("should show the paste link only while its team is active", () => {
+        const linkedTeamId = store.team().id
+        const otherTeamId = store.teams()[1].id
+
+        store.activateTeam(otherTeamId)
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+
+        store.activateTeam(linkedTeamId)
+
+        expect(store.activeTeamPasteUrl()).toBe(pasteUrl)
+      })
+
+      it("should keep the paste link when the teams are rebuilt with the same ids", () => {
+        store.updateTeams([...store.teams()].reverse())
+
+        expect(store.teams()[3].id).toBe(store.team().id)
+        expect(store.activeTeamPasteUrl()).toBe(pasteUrl)
+      })
+
+      it("should keep the paste link when the battle state of a member changes", () => {
+        const pokemonId = store.team().teamMembers[1].pokemon.id
+
+        store.activateTeamMember(1)
+        store.updateTeamMembersActive(true, true, false, false, false, false)
+        store.hpPercentage(pokemonId, 37)
+        store.boosts(pokemonId, { atk: 2 })
+        store.status(pokemonId, Status.BURN.description)
+        store.activateMove(pokemonId, 2)
+        store.hits(pokemonId, "3", 1)
+
+        expect(store.activeTeamPasteUrl()).toBe(pasteUrl)
+      })
+
+      it("should drop the paste link when a pasted field of a member changes", () => {
+        store.item(store.team().teamMembers[2].pokemon.id, "Life Orb")
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when a move of a member changes", () => {
+        store.updateMove(store.team().teamMembers[3].pokemon.id, "Taunt", 1)
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when the team name changes", () => {
+        store.updateActiveTeamName("Sun Room")
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when a member is added", () => {
+        store.addTeamMember(new Pokemon("Pikachu"))
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when a member is removed", () => {
+        store.removeTeamMember(store.team().teamMembers[0].pokemon.id)
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when the members are reordered", () => {
+        store.reorderTeamMembers(3, 1)
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should drop the paste link when the active team is replaced", () => {
+        store.replaceActiveTeam(store.team().addMember(new Pokemon("Raichu")))
+
+        expect(store.activeTeamPasteUrl()).toBeUndefined()
+      })
+
+      it("should keep the paste link of the other teams when one team changes", () => {
+        const linkedTeamId = store.team().id
+
+        store.activateTeam(store.teams()[1].id)
+        store.updateActiveTeamName("Rain")
+        store.activateTeam(linkedTeamId)
+
+        expect(store.activeTeamPasteUrl()).toBe(pasteUrl)
+      })
+
+      it("should save the paste link with the team", () => {
+        expect(store.buildUserData().teams[0].pasteUrl).toBe(pasteUrl)
+      })
+    })
+
+    describe("User data", () => {
+      beforeEach(() => {
+        const mockStorage: Record<string, string | null> = {}
+
+        vi.spyOn(localStorage, "getItem").mockImplementation((key: string): string | null => {
+          return mockStorage[key] || null
+        })
+
+        vi.spyOn(localStorage, "setItem").mockImplementation((key: string, value: string): void => {
+          mockStorage[key] = value
+        })
+      })
+
+      it("should update state locking local storage", () => {
+        const state = {
+          updateLocalStorage: true,
+          leftPokemonState: pikachuState,
+          rightPokemonState: pikachuState,
+          secondAttackerId: "123",
+          teamsState: teamsState,
+          targetsState: targetsState,
+          targetMetaRegulation: "H" as Regulation,
+          simpleCalcLeftRollLevel: "low",
+          simpleCalcRightRollLevel: "medium",
+          multiCalcRollLevel: "high",
+          manyVsTeamRollLevel: "low",
+          useSpsMode: false,
+          customSetsState: [],
+          activeSetId: null,
+          activeSetPokemonId: null,
+          activeSetDirty: false,
+          isEditingCustomSet: false
+        }
+
+        store.updateStateLockingLocalStorage(state)
+
+        TestBed.tick()
+
+        expect(store.secondAttackerId()).toBe("123")
+        expect(store.updateLocalStorage()).toBe(false)
+      })
+
+      it("should build user data using state", () => {
+        const result = store.buildUserData()
+
+        expect(result.leftPokemon.name).toBe("Charizard")
+        expect(result.rightPokemon.name).toBe("Dragonite")
+
+        expect(result.teams.length).toBe(4)
+        expect(result.teams[0].active).toBe(true)
+        expect(result.teams[0].name).toBe("Team 1")
+        expect(result.teams[0].teamMembers[0].active).toBe(true)
+        expect(result.teams[0].teamMembers[0].pokemon.name).toBe("Charizard")
+        expect(result.teams[0].teamMembers[1].active).toBe(false)
+        expect(result.teams[0].teamMembers[1].pokemon.name).toBe("Dragonite")
+
+        expect(result.targets.length).toBe(9)
+        expect(result.targets[0].pokemon.name).toBe("Blastoise")
+        expect(result.targets[1].pokemon.name).toBe("Arcanine")
+      })
+
+      it("should update local storage when state changes", () => {
+        store.name(defaultId, "Pikachu")
+
+        TestBed.tick()
+
+        const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+        expect(actualStorage.champions.teams[0].teamMembers[0].pokemon.name).toBe("Pikachu")
+      })
+
+      it("should update local storage when state changes mantaining existent data", () => {
+        store.name(defaultId, "Pikachu")
+
+        TestBed.tick()
+
+        const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+        expect(actualStorage.champions.leftPokemon.name).toBe("Charizard")
+      })
+
+      it("should update simpleCalcLeftRollLevel", () => {
+        store.updateSimpleCalcLeftRollLevel("low")
+
+        expect(store.simpleCalcLeftRollLevel()).toBe("low")
+      })
+
+      it("should update simpleCalcRightRollLevel", () => {
+        store.updateSimpleCalcRightRollLevel("medium")
+
+        expect(store.simpleCalcRightRollLevel()).toBe("medium")
+      })
+
+      it("should update multiCalcRollLevel", () => {
+        store.updateMultiCalcRollLevel("low")
+
+        expect(store.multiCalcRollLevel()).toBe("low")
+      })
+
+      it("should update manyVsTeamRollLevel", () => {
+        store.updateManyVsTeamRollLevel("medium")
+
+        expect(store.manyVsTeamRollLevel()).toBe("medium")
+      })
+    })
+  })
+
+  describe("custom sets", () => {
+    it("should start with no custom sets", () => {
+      expect(store.customSetsState().length).toBe(0)
+    })
+
+    it("should add a custom set from a slot", () => {
+      const pokemonId = store.leftPokemonState().id
+
+      store.addCustomSet(pokemonId, "Sun Sweeper")
+
+      expect(store.customSetsState().length).toBe(1)
+      expect(store.customSetsState()[0].setName).toBe("Sun Sweeper")
+      expect(store.customSetsState()[0].basePokemonName).toBe(store.leftPokemonState().name)
+    })
+
+    it("should not add a set when pokemonId is invalid", () => {
+      store.addCustomSet("invalid-id", "Test")
+
+      expect(store.customSetsState().length).toBe(0)
+    })
+
+    it("should remove a custom set by id", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Set A")
+      store.addCustomSet(pokemonId, "Set B")
+      const idToRemove = store.customSetsState()[0].id
+
+      store.removeCustomSet(idToRemove)
+
+      expect(store.customSetsState().length).toBe(1)
+      expect(store.customSetsState()[0].setName).toBe("Set B")
+    })
+
+    it("should duplicate a custom set", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Original")
+      const originalId = store.customSetsState()[0].id
+
+      store.duplicateCustomSet(originalId)
+
+      expect(store.customSetsState().length).toBe(2)
+      expect(store.customSetsState()[1].setName).toBe("Original (copy)")
+      expect(store.customSetsState()[1].id).not.toBe(originalId)
+    })
+
+    it("should group custom sets by pokemon name in customSetsByPokemon", () => {
+      const leftId = store.leftPokemonState().id
+      const rightId = store.rightPokemonState().id
+      store.addCustomSet(leftId, "Set 1")
+      store.addCustomSet(leftId, "Set 2")
+      store.addCustomSet(rightId, "Set 3")
+
+      const map = store.customSetsByPokemon()
+      const leftName = store.leftPokemonState().name
+      const rightName = store.rightPokemonState().name
+
+      expect(map.get(leftName)?.length).toBe(2)
+      expect(map.get(rightName)?.length).toBe(1)
+    })
+
+    it("should persist custom sets to localStorage", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Persisted Set")
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.champions.customSets.length).toBe(1)
+      expect(actualStorage.champions.customSets[0].setName).toBe("Persisted Set")
+    })
+
+    it("should clear activeSetId when removing the active set", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Active Set")
+      const setId = store.customSetsState()[0].id
+      store.selectCustomSet(pokemonId, setId)
+
+      store.removeCustomSet(setId)
+
+      expect(store.activeSetId()).toBeNull()
+    })
+
+    it("should set activeSetId and activeSetPokemonId when selecting a set", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+
+      store.enterCustomSetEditMode(pokemonId, setId)
+
+      expect(store.activeSetId()).toBe(setId)
+      expect(store.activeSetPokemonId()).toBe(pokemonId)
+    })
+
+    it("should load the set state into the slot when selecting a set", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.name(pokemonId, "Koraidon")
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+      store.name(pokemonId, "Miraidon")
+
+      store.selectCustomSet(pokemonId, setId)
+
+      expect(store.leftPokemonState().name).toBe("Koraidon")
+    })
+
+    it("should clear the active set binding via clearActiveSet", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+      store.selectCustomSet(pokemonId, setId)
+
+      store.clearActiveSet()
+
+      expect(store.activeSetId()).toBeNull()
+      expect(store.activeSetPokemonId()).toBeNull()
+    })
+
+    it("should not auto-save edits into any set after clearActiveSet", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.name(pokemonId, "Koraidon")
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+      store.selectCustomSet(pokemonId, setId)
+      store.clearActiveSet()
+
+      store.item(pokemonId, "Choice Band")
+
+      TestBed.tick()
+
+      const savedSet = store.customSetsState().find(s => s.id === setId)!
+      expect(savedSet.state.item).not.toBe("Choice Band")
+    })
+
+    it("should rename the active set via updateActiveSetName", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Untouched Set")
+      store.addCustomSet(pokemonId, "My Set")
+      const untouchedId = store.customSetsState()[0].id
+      const setId = store.customSetsState()[1].id
+      store.enterCustomSetEditMode(pokemonId, setId)
+
+      store.updateActiveSetName("Sun Sweeper")
+
+      expect(store.customSetsState().find(s => s.id === setId)!.setName).toBe("Sun Sweeper")
+      expect(store.customSetsState().find(s => s.id === untouchedId)!.setName).toBe("Untouched Set")
+    })
+
+    it("should do nothing when selecting a set id that does not exist", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.name(pokemonId, "Koraidon")
+
+      store.selectCustomSet(pokemonId, "non-existent-set-id")
+
+      expect(store.leftPokemonState().name).toBe("Koraidon")
+    })
+
+    it("should do nothing when entering edit mode with a set id that does not exist", () => {
+      const pokemonId = store.leftPokemonState().id
+
+      store.enterCustomSetEditMode(pokemonId, "non-existent-set-id")
+
+      expect(store.activeSetId()).toBeNull()
+    })
+
+    it("should do nothing when duplicating a set id that does not exist", () => {
+      store.duplicateCustomSet("non-existent-set-id")
+
+      expect(store.customSetsState().length).toBe(0)
+    })
+
+    it("should keep an unrelated activeSetId untouched when removing a different set", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Set A")
+      const setAId = store.customSetsState()[0].id
+      store.selectCustomSet(pokemonId, setAId)
+      store.addCustomSet(pokemonId, "Set B")
+      const setBId = store.customSetsState()[1].id
+
+      store.removeCustomSet(setBId)
+
+      expect(store.customSetsState().length).toBe(1)
+    })
+
+    it("should do nothing when exiting edit mode with no active set", () => {
+      store.exitCustomSetEditMode()
+
+      expect(store.activeSetId()).toBeNull()
+      expect(store.isEditingCustomSet()).toBe(false)
+    })
+
+    it("should save the current Pokémon state into the set when exiting edit mode", () => {
+      const pokemonId = store.leftPokemonState().id
+      store.addCustomSet(pokemonId, "Untouched Set")
+      store.addCustomSet(pokemonId, "My Set")
+      const untouchedId = store.customSetsState()[0].id
+      const setId = store.customSetsState()[1].id
+      store.enterCustomSetEditMode(pokemonId, setId)
+      store.item(pokemonId, "Choice Band")
+
+      store.exitCustomSetEditMode()
+
+      const savedSet = store.customSetsState().find(s => s.id === setId)!
+      const untouchedSet = store.customSetsState().find(s => s.id === untouchedId)!
+      expect(savedSet.state.item).toBe("Choice Band")
+      expect(untouchedSet.setName).toBe("Untouched Set")
+      expect(store.activeSetId()).toBeNull()
+    })
+
+    it("should clear edit mode without saving when the bound Pokémon can no longer be found", () => {
+      const pokemonId = store.team().teamMembers[0].pokemon.id
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+      store.enterCustomSetEditMode(pokemonId, setId)
+      store.removeTeamMember(pokemonId)
+
+      store.exitCustomSetEditMode()
+
+      expect(store.activeSetId()).toBeNull()
+      expect(store.activeSetPokemonId()).toBeNull()
+      expect(store.isEditingCustomSet()).toBe(false)
+    })
+
+    it("should do nothing when updating the active set with no active set id", () => {
+      store.updateActiveSet("New Name")
+
+      expect(store.customSetsState().length).toBe(0)
+    })
+
+    it("should update the active set's name and snapshot the current Pokémon state", () => {
+      const pokemonId = store.team().teamMembers[0].pokemon.id
+      store.addCustomSet(pokemonId, "Untouched Set")
+      store.addCustomSet(pokemonId, "Original Name")
+      const untouchedId = store.customSetsState()[0].id
+      const setId = store.customSetsState()[1].id
+      store.enterCustomSetEditMode(pokemonId, setId)
+      store.item(pokemonId, "Choice Specs")
+
+      store.updateActiveSet("Updated Name")
+
+      const updatedSet = store.customSetsState().find(s => s.id === setId)!
+      const untouchedSet = store.customSetsState().find(s => s.id === untouchedId)!
+      expect(updatedSet.setName).toBe("Updated Name")
+      expect(updatedSet.state.item).toBe("Choice Specs")
+      expect(untouchedSet.setName).toBe("Untouched Set")
+    })
+
+    it("should do nothing when updating the active set but the bound Pokémon can no longer be found", () => {
+      const pokemonId = store.team().teamMembers[0].pokemon.id
+      store.addCustomSet(pokemonId, "My Set")
+      const setId = store.customSetsState()[0].id
+      store.enterCustomSetEditMode(pokemonId, setId)
+      store.removeTeamMember(pokemonId)
+
+      store.updateActiveSet("Updated Name")
+
+      expect(store.customSetsState().find(s => s.id === setId)!.setName).toBe("My Set")
+    })
+
+    it("should do nothing when updating the active set name with no active set id", () => {
+      store.updateActiveSetName("New Name")
+
+      expect(store.customSetsState().length).toBe(0)
+    })
+  })
+
+  describe("Added type", () => {
+    const moveSet = (...names: string[]) => {
+      const [move1, move2, move3, move4] = [...names, "", "", "", ""].map(name => new Move(name))
+
+      return new MoveSet(move1, move2, move3, move4)
+    }
+
+    const gourgeist = (id: string) => new Pokemon("Gourgeist", { id, moveSet: moveSet("Shadow Ball", "Trick-or-Treat") })
+    const trevenant = (id: string) => new Pokemon("Trevenant", { id, moveSet: moveSet("Wood Hammer", "Forest's Curse") })
+
+    beforeEach(() => {
+      store.updateTeams([new Team("team", true, "Team", [new TeamMember(gourgeist("gourgeist"), true), new TeamMember(new Pokemon("Incineroar", { id: "incineroar" })), new TeamMember(new Pokemon("Garchomp", { id: "team-garchomp" }))])])
+      store.updateTargets([new Target(new Pokemon("Garchomp", { id: "garchomp" }), new Pokemon("Amoonguss", { id: "amoonguss" })), new Target(trevenant("trevenant"))])
+    })
+
+    it("should add the type to every opponent when a team member used the move", () => {
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      expect(store.targets()[0].pokemon.addedType).toBe("Ghost")
+      expect(store.targets()[0].secondPokemon!.addedType).toBe("Ghost")
+      expect(store.findPokemonById("garchomp").addedType).toBe("Ghost")
+    })
+
+    it("should only offer the type to the teammates when a team member used the move", () => {
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      expect(store.addedTypeOffer("incineroar")).toEqual({ type: "Ghost", optional: true })
+      expect(store.team().teamMembers[1].pokemon.addedType).toBeUndefined()
+      expect(store.team().teamMembers[0].pokemon.addedType).toBeUndefined()
+    })
+
+    it("should add the type to a teammate that turned it on", () => {
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      store.addedTypeOn("incineroar", true)
+
+      expect(store.team().teamMembers[1].pokemon.addedType).toBe("Ghost")
+      expect(store.teamMember1()!.addedType).toBe("Ghost")
+      expect(store.findPokemonById("incineroar").addedType).toBe("Ghost")
+    })
+
+    it("should add the type only to the team when an opponent used the move", () => {
+      store.typeAddingMove("trevenant", "Forest's Curse")
+
+      expect(store.team().teamMembers[1].pokemon.addedType).toBe("Grass")
+      expect(store.team().teamMembers[2].pokemon.addedType).toBe("Grass")
+      expect(store.targets()[0].pokemon.addedType).toBeUndefined()
+      expect(store.targets()[0].secondPokemon!.addedType).toBeUndefined()
+    })
+
+    it("should not add the type to a team member that already has it", () => {
+      store.typeAddingMove("trevenant", "Forest's Curse")
+
+      expect(store.team().teamMembers[0].pokemon.addedType).toBeUndefined()
+    })
+
+    it("should keep a single type adding move used in the Multi Calc", () => {
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      store.typeAddingMove("trevenant", "Forest's Curse")
+      store.typeAddingMove("trevenant", "Forest's Curse")
+
+      expect(store.findPokemonById("gourgeist").typeAddingMove).toBeUndefined()
+      expect(store.findPokemonById("trevenant").typeAddingMove).toBe("Forest's Curse")
+      expect(store.targets()[0].pokemon.addedType).toBeUndefined()
+    })
+
+    it("should remove the added type when the move is no longer marked as used", () => {
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      store.typeAddingMove("gourgeist", undefined)
+
+      expect(store.findPokemonById("gourgeist").typeAddingMove).toBeUndefined()
+      expect(store.targets()[0].pokemon.addedType).toBeUndefined()
+    })
+
+    it("should add the type to the other side of the Simple Calc", () => {
+      store.changeLeftPokemon(gourgeist("left"))
+      store.changeRightPokemon(new Pokemon("Garchomp", { id: "right" }))
+
+      store.typeAddingMove("left", "Trick-or-Treat")
+
+      expect(store.rightPokemon().addedType).toBe("Ghost")
+      expect(store.findPokemonById("right").addedType).toBe("Ghost")
+      expect(store.addedTypeOffer("right")).toEqual({ type: "Ghost", optional: false })
+      expect(store.leftPokemon().addedType).toBeUndefined()
+    })
+
+    it("should keep a single type adding move used in the Simple Calc without touching the Multi Calc", () => {
+      store.changeLeftPokemon(new Pokemon("Garchomp", { id: "left", moveSet: moveSet("Trick-or-Treat") }))
+      store.changeRightPokemon(trevenant("right"))
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+      store.typeAddingMove("left", "Trick-or-Treat")
+
+      store.typeAddingMove("right", "Forest's Curse")
+
+      expect(store.findPokemonById("left").typeAddingMove).toBeUndefined()
+      expect(store.leftPokemon().addedType).toBe("Grass")
+      expect(store.findPokemonById("gourgeist").typeAddingMove).toBe("Trick-or-Treat")
+    })
+
+    it("should offer nothing to a Pokémon out of reach of any type adding move", () => {
+      expect(store.addedTypeOffer("incineroar")).toBeUndefined()
+    })
+
+    it("should add the type to the Meta opponents when a team member used the move", () => {
+      store.selectOpponentSource(META_SOURCE)
+
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      const metaTarget = store.displayedTargets()[1].pokemon
+
+      expect(metaTarget.addedType).toBe("Ghost")
+      expect(store.findPokemonById(metaTarget.id).addedType).toBe("Ghost")
+    })
+
+    it("should add the type to the team when a member of the opponent team used the move", () => {
+      store.addTransientTeam(new Team("paste-team", false, "Paste", [new TeamMember(trevenant("paste-trevenant"), true), new TeamMember(new Pokemon("Amoonguss", { id: "paste-amoonguss" }))]), false)
+      store.selectOpponentSource("paste-team")
+
+      store.typeAddingMove("paste-trevenant", "Forest's Curse")
+
+      expect(store.team().teamMembers[1].pokemon.addedType).toBe("Grass")
+      expect(store.findPokemonById("paste-amoonguss").addedType).toBeUndefined()
+    })
+
+    it("should add the type to the opponent team members when a team member used the move", () => {
+      store.addTransientTeam(new Team("paste-team", false, "Paste", [new TeamMember(new Pokemon("Amoonguss", { id: "paste-amoonguss" }), true)]), false)
+      store.selectOpponentSource("paste-team")
+
+      store.typeAddingMove("gourgeist", "Trick-or-Treat")
+
+      expect(store.findPokemonById("paste-amoonguss").addedType).toBe("Ghost")
+      expect(store.displayedTargets()[0].pokemon.addedType).toBe("Ghost")
+    })
+
+    it("should use My List as opponents when the selected opponent team is empty", () => {
+      store.addTransientTeam(new Team("empty-team", false, "Empty", []), false)
+      store.selectOpponentSource("empty-team")
+
+      store.typeAddingMove("trevenant", "Forest's Curse")
+
+      expect(store.team().teamMembers[1].pokemon.addedType).toBe("Grass")
+    })
+  })
+})
+
+const pikachuState: PokemonState = {
+  id: "123",
+  name: "Pikachu",
+  nature: "Timid",
+  item: "Light Ball",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Static",
+  abilityOn: false,
+  commanderActive: false,
+  teraType: "Electric",
+  teraTypeActive: true,
+  activeMove: 0,
+  moveSet: [{ name: "Thunderbolt" }, { name: "Quick Attack" }, { name: "Volt Tackle" }, { name: "Iron Tail" }],
+  boosts: { atk: -1, def: -2, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const raichuState: PokemonState = {
+  id: "456",
+  name: "Raichu",
+  nature: "Timid",
+  item: "Choice Specs",
+  status: Status.HEALTHY.description,
+  toxicCounter: 1,
+  ability: "Lightning Rod",
+  abilityOn: false,
+  commanderActive: false,
+  teraType: "Electric",
+  teraTypeActive: true,
+  activeMove: 0,
+  moveSet: [{ name: "Thunderbolt" }, { name: "Quick Attack" }, { name: "Volt Tackle" }, { name: "Iron Tail" }],
+  boosts: { atk: 0, def: 0, spa: 1, spd: 2, spe: 3 },
+  bonusBoosts: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+  evs: { hp: 0, atk: 0, def: 4, spa: 252, spd: 0, spe: 252 },
+  ivs: { hp: 26, atk: 27, def: 28, spa: 29, spd: 30, spe: 31 },
+  hpPercentage: 100,
+  automaticAbilityOn: false
+}
+
+const teamsState: TeamState[] = [
+  {
+    id: "123",
+    active: true,
+    name: "Team 1",
+    teamMembers: [{ active: true, pokemon: pikachuState }]
+  }
+]
+
+const targetsState: TargetState[] = [
+  {
+    pokemon: pikachuState,
+    secondPokemon: raichuState
+  }
+]

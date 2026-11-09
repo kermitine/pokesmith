@@ -1,0 +1,148 @@
+import { Component, computed, inject, input, output, signal } from "@angular/core"
+import { FormsModule } from "@angular/forms"
+import { MatButton } from "@angular/material/button"
+import { MatFormField } from "@angular/material/form-field"
+import { MatIcon } from "@angular/material/icon"
+import { MatInput } from "@angular/material/input"
+import { CdkDragEnd } from "@angular/cdk/drag-drop"
+import { CalcStore } from "@store/calc-store"
+import { ImportPokemonButtonComponent } from "@features/buttons/import-pokemon-button/import-pokemon-button.component"
+import { TeamBoxComponent } from "@features/team/team-box/team-box.component"
+import { Pokemon, Team } from "@multicalc/model"
+import { TeamsService } from "@features/team/teams.service"
+import { MobileCreationFlowService } from "@features/team/creation-flow/mobile-creation-flow.service"
+import { SnackbarService } from "@app/services/snackbar.service"
+
+@Component({
+  selector: "app-teams-mobile",
+  templateUrl: "./teams-mobile.component.html",
+  styleUrls: ["./teams-mobile.component.scss"],
+  imports: [MatFormField, MatInput, FormsModule, MatButton, MatIcon, TeamBoxComponent, ImportPokemonButtonComponent]
+})
+export class TeamsMobileComponent {
+  store = inject(CalcStore)
+  private teamsService = inject(TeamsService)
+  private creationFlow = inject(MobileCreationFlowService)
+  private snackbar = inject(SnackbarService)
+
+  pokemonSelected = output<string>()
+  useTeam = output<string>()
+  secondTeamSelected = output<Team | null>()
+  allowSecondTeamSelection = input<boolean>(false)
+
+  secondTeamId = signal<string | null>(null)
+
+  secondTeamObject = computed(() => {
+    const id = this.secondTeamId()
+
+    if (!id) return null
+
+    return this.store.teams().find(t => t.id === id) ?? null
+  })
+
+  canDelete = computed(() => !this.store.team().isEmpty())
+
+  visibleTeams = computed(() => {
+    const secondTeamId = this.secondTeamId()
+
+    return this.store.teams().filter(t => !t.isEmpty() && t.id !== secondTeamId)
+  })
+
+  hasNoTeams = computed(() => this.visibleTeams().length === 0)
+
+  importedTeamName?: string
+
+  teamNameImported(name: string) {
+    this.importedTeamName = name
+  }
+
+  pokemonImported(pokemon: Pokemon | Pokemon[]) {
+    const result = this.teamsService.pokemonImported(pokemon, true, this.importedTeamName)
+    this.importedTeamName = undefined
+    this.pokemonSelected.emit(result.activePokemonId ?? "")
+    this.scrollToActiveTeam()
+    this.snackbar.open("Team imported")
+  }
+
+  scrollToActiveTeam(behavior: ScrollBehavior = "smooth") {
+    this.creationFlow.scrollToActiveTeam(behavior)
+  }
+
+  activateTeam(team: Team) {
+    if (this.allowSecondTeamSelection() && this.secondTeamId() !== null) {
+      this.secondTeamId.set(null)
+      this.secondTeamSelected.emit(null)
+    }
+
+    const activePokemonId = this.teamsService.activateTeam(team)
+    this.pokemonSelected.emit(activePokemonId ?? "")
+  }
+
+  activateSecondTeam(team: Team) {
+    const secondTeam = this.teamsService.activateSecondTeam(team, this.allowSecondTeamSelection(), id => this.secondTeamId.set(id))
+
+    if (secondTeam) {
+      this.secondTeamSelected.emit(secondTeam)
+    }
+  }
+
+  onTeamDragEnded(event: CdkDragEnd, sourceTeam: Team) {
+    const pointer = event.dropPoint
+    const element = document.elementFromPoint(pointer.x, pointer.y)
+    const teamBoxEl = element?.closest("[data-cy='team-box']")
+
+    if (!teamBoxEl) return
+
+    const targetTeamId = (teamBoxEl as HTMLElement).dataset["teamId"]
+
+    if (!targetTeamId) return
+
+    const targetTeam = this.store.teams().find(t => t.id === targetTeamId)
+
+    if (!targetTeam || targetTeam.id === sourceTeam.id) return
+
+    const activePokemonId = this.teamsService.activateTeam(targetTeam)
+    this.pokemonSelected.emit(activePokemonId ?? "")
+    this.activateSecondTeam(sourceTeam)
+  }
+
+  separateSecondTeam() {
+    this.secondTeamId.set(null)
+    this.secondTeamSelected.emit(null)
+  }
+
+  secondTeamFor(team: Team): Team | null {
+    if (!this.allowSecondTeamSelection()) return null
+
+    if (!team.active) return null
+
+    return this.secondTeamObject()
+  }
+
+  updateTeamName(event: Event) {
+    const teamName = (event.target as HTMLInputElement).value
+    this.teamsService.updateTeamName(teamName)
+  }
+
+  export() {
+    this.teamsService.export(this.store.team())
+  }
+
+  exportPdf() {
+    this.teamsService.exportPdf(this.store.team())
+  }
+
+  deleteTeam() {
+    const activePokemonId = this.teamsService.deleteTeam(true)
+    this.pokemonSelected.emit(activePokemonId ?? "")
+    this.scrollToActiveTeam()
+  }
+
+  addNewTeam() {
+    this.creationFlow.rememberTeamBeforeCreation(this.store.team().id)
+
+    const activePokemonId = this.teamsService.addNewTeam()
+    this.pokemonSelected.emit(activePokemonId ?? "")
+    this.useTeam.emit(activePokemonId ?? "")
+  }
+}

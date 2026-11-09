@@ -1,0 +1,146 @@
+import { calculate, calculateMulti, MultiResult, readsTargetAtk, readsTargetHp, Result, Move as MoveCalc, Pokemon as PokemonCalc, Field as FieldCalc, weakensOnlyFirstHit } from "@calc"
+import { fromExisting } from "@calc-bridge"
+import { DamageCalc } from "@multicalc/damage-calc/damage-calc"
+import { Field } from "@multicalc/model/field"
+import { Move } from "@multicalc/model/move"
+import { Pokemon } from "@multicalc/model/pokemon"
+import { RollLevelConfig } from "@multicalc/damage-calc/roll-level-config"
+
+type PreparedAttack = {
+  calcAttacker: PokemonCalc
+  moveCalc: MoveCalc
+  calcField: FieldCalc
+}
+
+type CachedSingle = PreparedAttack & {
+  damage: Result["damage"]
+  rawDesc: Result["rawDesc"]
+  damageAfterFirstHit: Result["damageAfterFirstHit"]
+  damagePerHit: Result["damagePerHit"]
+  damagePerHitAtFullHp: Result["damagePerHitAtFullHp"]
+  damageRowsAtFullHp: Result["damageRowsAtFullHp"]
+}
+
+type CachedDouble = {
+  prepOne: PreparedAttack
+  prepTwo: PreparedAttack
+  first: { damage: Result["damage"]; rawDesc: Result["rawDesc"] }
+  second: { damage: Result["damage"]; rawDesc: Result["rawDesc"] }
+  eot: MultiResult["eot"]
+  turns: MultiResult["turns"]
+  inputs: MultiResult["inputs"]
+}
+
+export class CachedDamageCalc extends DamageCalc {
+  private singleCache = new Map<string, CachedSingle>()
+  private doubleCache = new Map<string, CachedDouble>()
+  private dealsDamageCache = new Map<string, boolean>()
+  private pokemonIds = new WeakMap<Pokemon, number>()
+  private nextPokemonId = 1
+
+  clear(): void {
+    this.singleCache.clear()
+    this.doubleCache.clear()
+    this.dealsDamageCache.clear()
+  }
+
+  override calculateResult(attacker: Pokemon, target: Pokemon, move: Move, field: Field, rightIsDefender: boolean): Result {
+    const hp = readsTargetHp(move.name) ? target.hp : ""
+    const atk = readsTargetAtk(move.name) ? target.atk : ""
+    const key = `${this.idOf(attacker)}|${move.name}|${rightIsDefender}|${hp}|${atk}|${target.def}|${target.spd}`
+    const cached = this.singleCache.get(key)
+
+    if (cached) {
+      const reused = new Result(cached.calcAttacker, fromExisting(target, true), cached.moveCalc, cached.calcField, cached.damage, cached.rawDesc)
+
+      reused.damageAfterFirstHit = cached.damageAfterFirstHit
+      reused.damagePerHit = cached.damagePerHit
+      reused.damagePerHitAtFullHp = cached.damagePerHitAtFullHp
+      reused.damageRowsAtFullHp = cached.damageRowsAtFullHp
+
+      return reused
+    }
+
+    const prep = this.prepareCalculation(attacker, target, move, field, rightIsDefender)
+    const result = calculate(prep.calcAttacker, prep.calcTarget, prep.moveCalc, prep.calcField)
+
+    if (!result.damage) {
+      result.damage = this.ZERO_RESULT_DAMAGE
+    }
+
+    if (typeof result.damage === "number") {
+      result.damage = Array(RollLevelConfig.ROLLS_NUMBER).fill(result.damage)
+    }
+
+    this.singleCache.set(key, {
+      calcAttacker: prep.calcAttacker,
+      moveCalc: prep.moveCalc,
+      calcField: prep.calcField,
+      damage: result.damage,
+      rawDesc: result.rawDesc,
+      damageAfterFirstHit: result.damageAfterFirstHit,
+      damagePerHit: result.damagePerHit,
+      damagePerHitAtFullHp: result.damagePerHitAtFullHp,
+      damageRowsAtFullHp: result.damageRowsAtFullHp
+    })
+
+    return result
+  }
+
+  override calcDamageValueForTwoAttackers(attacker: Pokemon, secondAttacker: Pokemon, target: Pokemon, field: Field, rightIsDefender: boolean): MultiResult {
+    const hpDependent = readsTargetHp(attacker.move.name) || readsTargetHp(secondAttacker.move.name) || weakensOnlyFirstHit(target.ability.name)
+    const hp = hpDependent ? target.hp : ""
+    const atkDependent = readsTargetAtk(attacker.move.name) || readsTargetAtk(secondAttacker.move.name)
+    const atk = atkDependent ? target.atk : ""
+    const key = `${this.idOf(attacker)}|${this.idOf(secondAttacker)}|${rightIsDefender}|${hp}|${atk}|${target.def}|${target.spd}`
+    const cached = this.doubleCache.get(key)
+
+    if (cached) {
+      const calcTarget = fromExisting(target, true)
+      const firstResult = new Result(cached.prepOne.calcAttacker, calcTarget, cached.prepOne.moveCalc, cached.prepOne.calcField, cached.first.damage, cached.first.rawDesc)
+      const secondResult = new Result(cached.prepTwo.calcAttacker, calcTarget, cached.prepTwo.moveCalc, cached.prepTwo.calcField, cached.second.damage, cached.second.rawDesc)
+
+      return new MultiResult(calcTarget, [firstResult, secondResult], cached.eot, cached.turns, cached.inputs)
+    }
+
+    const { prepOne, prepTwo } = this.prepareOrderedPair(attacker, secondAttacker, target, field, rightIsDefender)
+
+    const multiResult = calculateMulti(prepOne.calcAttacker, prepTwo.calcAttacker, prepOne.moveCalc, prepTwo.moveCalc, prepOne.calcTarget, prepOne.calcField)
+
+    const [firstResult, secondResult] = multiResult.results
+    this.doubleCache.set(key, {
+      prepOne: { calcAttacker: prepOne.calcAttacker, moveCalc: prepOne.moveCalc, calcField: prepOne.calcField },
+      prepTwo: { calcAttacker: prepTwo.calcAttacker, moveCalc: prepTwo.moveCalc, calcField: prepTwo.calcField },
+      first: { damage: firstResult.damage, rawDesc: firstResult.rawDesc },
+      second: { damage: secondResult.damage, rawDesc: secondResult.rawDesc },
+      eot: multiResult.eot,
+      turns: multiResult.turns,
+      inputs: multiResult.inputs
+    })
+
+    return multiResult
+  }
+
+  protected override dealsDamage(attacker: Pokemon, target: Pokemon, prep: ReturnType<DamageCalc["prepareCalculation"]>, rightIsDefender: boolean): boolean {
+    const key = `${this.idOf(attacker)}|${rightIsDefender}|${readsTargetAtk(attacker.move.name) ? target.atk : ""}|${target.def}|${target.spd}`
+    const cached = this.dealsDamageCache.get(key)
+
+    if (cached !== undefined) return cached
+
+    const computed = super.dealsDamage(attacker, target, prep, rightIsDefender)
+    this.dealsDamageCache.set(key, computed)
+
+    return computed
+  }
+
+  private idOf(pokemon: Pokemon): number {
+    let id = this.pokemonIds.get(pokemon)
+
+    if (id === undefined) {
+      id = this.nextPokemonId++
+      this.pokemonIds.set(pokemon, id)
+    }
+
+    return id
+  }
+}

@@ -1,0 +1,214 @@
+import { poke } from "@cy-support/e2e"
+import { setUpDefaultTeamOnCurrentScreen } from "@cy-support/setup"
+import { Opponent } from "@page-object/opponent"
+import { Header } from "@page-object/header"
+import { PokemonBuild } from "@page-object/pokemon-build"
+import { Field } from "@page-object/field"
+
+const pokemonBuild = new PokemonBuild("your-team")
+const header = new Header()
+const opponents = new Opponent()
+const field = new Field()
+
+function setUpDefaultTeamAndOpponents() {
+  header.openManyVsTeam()
+  opponents.deleteAll()
+  opponents.importPokemon(poke["default-opponents"])
+  setUpDefaultTeamOnCurrentScreen()
+}
+
+describe("Combining two cards", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+  })
+
+  it("Should merge the dragged card into the target summing the two attacks", () => {
+    opponents.lengthIs(13)
+
+    opponents.combine("Urshifu Rapid Strike", "Dragonite")
+
+    opponents.lengthIs(12)
+    opponents.doesNotExists("Urshifu Rapid Strike")
+    opponents.get("Dragonite").attackerSpritesAre(["Urshifu-Rapid-Strike", "Dragonite"])
+    opponents.get("Dragonite").descriptionContains("AND")
+    opponents.get("Dragonite").damageIs(200.5, 240.3).causeOHKO()
+  })
+
+  it("Should split the combined card back into two", () => {
+    opponents.combine("Urshifu Rapid Strike", "Dragonite")
+
+    opponents.lengthIs(12)
+
+    opponents.separate("Urshifu Rapid Strike")
+
+    opponents.lengthIs(13)
+    opponents.get("Urshifu Rapid Strike").damageIs(58.5, 69.8).cause2HKO()
+    opponents.get("Dragonite").damageIs(142, 170.4).causeOHKO()
+  })
+
+  it("Should offer the combine handle only in Many vs Team", () => {
+    opponents.combineHandleIsVisible("Dragonite")
+
+    header.openTeamVsMany()
+
+    opponents.combineHandleIsHidden("Dragonite")
+  })
+})
+
+describe("Assurance in a combined card", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+  })
+
+  it("Should double the base power when its user is the slower attacker of the combination", () => {
+    opponents.selectAttacker("Incineroar")
+    pokemonBuild.changeAttackOneByFilter("Assurance", "Assurance")
+    pokemonBuild.selectAttackOne()
+
+    opponents.combine("Urshifu Rapid Strike", "Incineroar")
+
+    opponents.get("Incineroar").descriptionContains("120 BP")
+    opponents.get("Incineroar").damageIs(102.8, 122.7)
+  })
+
+  it("Should auto-check and disable the target damaged flag once the pair is combined", () => {
+    opponents.selectAttacker("Incineroar")
+    pokemonBuild.changeAttackOneByFilter("Assurance", "Assurance")
+    pokemonBuild.selectAttackOne()
+
+    pokemonBuild.targetDamagedIsUncheckedAndEnabled()
+
+    opponents.combine("Urshifu Rapid Strike", "Incineroar")
+
+    opponents.selectSecondAttacker("Incineroar")
+    pokemonBuild.targetDamagedIsCheckedAndDisabled()
+  })
+})
+
+describe("Analytic in a combined card", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+    opponents.importPokemon(poke["porygon2"])
+    opponents.selectAttacker("Porygon2")
+    pokemonBuild.targetAlreadyMoved()
+  })
+
+  it("Should boost Analytic when its user moves after the ally of the combination", () => {
+    opponents.combine("Urshifu Rapid Strike", "Porygon2")
+
+    opponents.get("Porygon2").descriptionContains("Analytic Porygon2")
+    opponents.get("Porygon2").damageIs(115.3, 136.9)
+  })
+
+  it("Should not boost Analytic when the ally of the combination still has to move", () => {
+    opponents.combine("Urshifu Rapid Strike", "Porygon2")
+
+    field.trickRoom()
+
+    opponents.get("Porygon2").descriptionDoesNotContain("Analytic")
+    opponents.get("Porygon2").damageIs(102.8, 122.1)
+  })
+
+  it("Should uncheck and disable the target already moved flag while the ally still has to move", () => {
+    opponents.combine("Urshifu Rapid Strike", "Porygon2")
+
+    opponents.selectSecondAttacker("Porygon2")
+    pokemonBuild.targetAlreadyMovedIsCheckedAndEnabled()
+
+    field.trickRoom()
+
+    pokemonBuild.targetAlreadyMovedIsUncheckedAndDisabled()
+  })
+})
+
+describe("Pledges in a combined card", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+    opponents.add("Mew")
+    pokemonBuild.changeAttackOneByFilter("Water Pledge", "Water Pledge")
+    pokemonBuild.selectAttackOne()
+    opponents.add("Ivysaur")
+    pokemonBuild.changeAttackOneByFilter("Grass Pledge", "Grass Pledge")
+    pokemonBuild.selectAttackOne()
+  })
+
+  it("Should combine the two Pledges into a single attack of the slower attacker", () => {
+    opponents.combine("Mew", "Ivysaur")
+
+    opponents.get("Ivysaur").descriptionContains("Ivysaur Grass Pledge (150 BP Grass)")
+    opponents.get("Ivysaur").damageIs(17.6, 21)
+  })
+
+  it("Should select and lock the ally Pledge of the slower attacker once the pair is combined", () => {
+    opponents.combine("Mew", "Ivysaur")
+
+    opponents.selectSecondAttacker("Ivysaur")
+    pokemonBuild.allyPledgeIsSelectedAndDisabled("Water")
+  })
+})
+
+describe("Trick Room in a combined card", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+  })
+
+  it("Should swap which attacker leads the card when Trick Room is toggled", () => {
+    opponents.combine("Chien-Pao", "Calyrex Ice")
+
+    opponents.get("Calyrex Ice").attackerSpritesAre(["Chien-Pao", "Calyrex-Ice"])
+
+    field.trickRoom()
+
+    opponents.get("Calyrex Ice").attackerSpritesAre(["Calyrex-Ice", "Chien-Pao"])
+
+    field.trickRoom()
+
+    opponents.get("Calyrex Ice").attackerSpritesAre(["Chien-Pao", "Calyrex-Ice"])
+  })
+
+  it("Should reorder another combined pair when Trick Room is active", () => {
+    opponents.combine("Urshifu Rapid Strike", "Dragonite")
+
+    opponents.get("Dragonite").attackerSpritesAre(["Urshifu-Rapid-Strike", "Dragonite"])
+
+    field.trickRoom()
+
+    opponents.get("Dragonite").attackerSpritesAre(["Dragonite", "Urshifu-Rapid-Strike"])
+  })
+})
+
+describe("Guard against a third card", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+  })
+
+  it("Should not combine a third card into an already combined target", () => {
+    opponents.combine("Urshifu Rapid Strike", "Dragonite")
+
+    opponents.combine("Rillaboom", "Dragonite")
+
+    opponents.lengthIs(12)
+    opponents.exists("Rillaboom")
+    opponents.get("Dragonite").attackerSpritesAre(["Urshifu-Rapid-Strike", "Dragonite"])
+    opponents.get("Dragonite").damageIs(200.5, 240.3).causeOHKO()
+    opponents.get("Rillaboom").damageIs(30.6, 36.9).haveChanceOfToCause3HKO(72.3)
+  })
+})
+
+describe("Edit a combined opponent", () => {
+  beforeEach(() => {
+    setUpDefaultTeamAndOpponents()
+  })
+
+  it("Should open each attacker of the combined card in the build", () => {
+    opponents.combine("Urshifu Rapid Strike", "Dragonite")
+
+    opponents.selectAttacker("Urshifu Rapid Strike")
+
+    pokemonBuild.nameIs("Urshifu-Rapid-Strike")
+
+    opponents.selectSecondAttacker("Dragonite")
+
+    pokemonBuild.nameIs("Dragonite")
+  })
+})

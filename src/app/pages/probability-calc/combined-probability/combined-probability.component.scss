@@ -1,0 +1,194 @@
+@use "variables.scss" as *;
+
+:host {
+  display: block;
+}
+
+:host ::ng-deep app-widget {
+  display: block;
+}
+
+:host ::ng-deep app-widget > .container.elevation {
+  display: flex;
+  flex-direction: column;
+}
+
+:host ::ng-deep app-widget .header {
+  flex-shrink: 0;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2xl);
+  padding: var(--space-lg) var(--space-lg) 0 var(--space-lg);
+  box-sizing: border-box;
+}
+
+.options-container {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.select-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 8em;
+}
+
+.select-wrapper ::ng-deep .input-column {
+  gap: var(--space-xs);
+}
+
+.inputs-container {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.probability-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 0 1 auto;
+  max-width: 7.5em;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.input-with-suffix {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-with-suffix ::ng-deep app-input {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 0;
+}
+
+.input-with-suffix ::ng-deep app-input .input-column {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 0;
+}
+
+.input-with-suffix ::ng-deep app-input .input-column > input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-right: var(--space-2xl);
+}
+
+.suffix {
+  position: absolute;
+  right: 6px;
+  top: calc(0.2em + 1em + 6px + 0.5em);
+  transform: translateY(-20%);
+  color: var(--text);
+  font-size: $font-size;
+  pointer-events: none;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.result-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  min-width: 7em;
+  flex-shrink: 0;
+}
+
+.result-label {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+}
+
+.result-value {
+  font-size: var(--font-size-3xl);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+@media (max-width: 768px) {
+  .container {
+    display: grid;
+    grid-template-areas:
+      "options result"
+      "inputs inputs";
+    grid-template-columns: 110px 1fr;
+    align-items: center;
+    gap: var(--space-lg) var(--space-lg);
+    padding: var(--space-lg) 0 var(--space-sm) 0;
+  }
+
+  .options-container {
+    grid-area: options;
+    width: 8em;
+  }
+
+  .select-wrapper {
+    width: 100%;
+  }
+
+  .inputs-container {
+    grid-area: inputs;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+    width: 100%;
+    margin-top: var(--space-lg);
+  }
+
+  .probability-input-wrapper {
+    max-width: none;
+  }
+
+  .suffix {
+    font-size: $font-size-mobile;
+    top: calc(0.2em + 1em + 6px + 0.5em);
+  }
+
+  .result-container {
+    grid-area: result;
+    justify-self: end;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    width: auto;
+    box-sizing: border-box;
+  }
+
+  .result-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+  }
+
+  .result-value {
+    font-size: var(--font-size-3xl);
+  }
+}

@@ -1,0 +1,55 @@
+@if (overlay.kind() === "pokemon") {
+  <div class="table-container">
+    <app-pokemon-table
+      [pokemonId]="pokemonId()"
+      [dataFilter]="overlay.currentFilter()"
+      [haveFocus]="true"
+      [isMobile]="true"
+      (pokemonSelected)="onPokemonSelected($event)"
+      (customSetSelected)="onCustomSetSelected($event)"
+      (customSetEditRequested)="onCustomSetEditRequested($event)"
+      (escapeWasPressed)="close()" />
+  </div>
+}
+
+@if (overlay.kind() === "moves") {
+  <div class="search-header">
+    <app-pokemon-search-input [value]="overlay.currentFilter()" ariaLabel="Search move" dataCy="move-search" [searching]="true" (valueChanged)="overlay.setFilter($event)" />
+    <app-close-table-button data-cy="close-moves-table" (click)="close()" />
+  </div>
+  <div class="table-container">
+    <app-moves-table [pokemonId]="pokemonId()" [dataFilter]="overlay.currentFilter()" [haveFocus]="true" [isMobile]="true" [moveIndex]="moveIndex()" (moveSelected)="onMoveSelected($event)" (escapeWasPressed)="close()" />
+  </div>
+}
+
+@if (overlay.kind() === "abilities") {
+  <div class="abilities-close-header">
+    @if (abilitiesToggle.hasNonNativeAbility(pokemonId()) || abilitiesToggle.showAllAbilities()) {
+      <input class="ability-search-input" [value]="overlay.currentFilter()" (input)="overlay.setFilter($any($event.target).value)" data-cy="ability-search" aria-label="Search ability" placeholder="Search ability" />
+    } @else {
+      <span></span>
+    }
+    <div class="abilities-actions">
+      <span [matTooltip]="abilitiesToggle.hasNonNativeAbility(pokemonId()) ? 'Not available while a non-native ability is selected' : ''" [matTooltipShowDelay]="300">
+        <mat-slide-toggle
+          class="all-abilities-toggle"
+          [checked]="abilitiesToggle.hasNonNativeAbility(pokemonId()) || abilitiesToggle.showAllAbilities()"
+          [disabled]="abilitiesToggle.hasNonNativeAbility(pokemonId())"
+          (change)="abilitiesToggle.toggleShowAllAbilities()"
+          data-cy="all-abilities-toggle">
+          All Abilities
+        </mat-slide-toggle>
+      </span>
+      <app-close-table-button (click)="close()" />
+    </div>
+  </div>
+  <div class="table-container">
+    <app-abilities-table [pokemonId]="pokemonId()" [dataFilter]="overlay.currentFilter()" [haveFocus]="true" [isMobile]="true" (abilitySelected)="onAbilitySelected($event)" (escapeWasPressed)="close()" />
+  </div>
+}
+
+@if (overlay.kind() === "items") {
+  <div class="table-container">
+    <app-items-table [pokemonId]="pokemonId()" [dataFilter]="overlay.currentFilter()" [haveFocus]="true" [isMobile]="true" (itemSelected)="onItemSelected($event)" (escapeWasPressed)="close()" />
+  </div>
+}

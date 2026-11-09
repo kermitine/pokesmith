@@ -1,0 +1,480 @@
+import { provideZonelessChangeDetection, signal } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { CalcStore } from "./calc-store"
+import { SpeedCalcOptionsStore } from "./speed-calc-options-store"
+import { Pokemon, Target, Team, TeamMember } from "@multicalc/model"
+import { SpeedCalc, SpeedCalcMode } from "@multicalc/speed-calc"
+import { patchState } from "@ngrx/signals"
+
+describe("Speed Calc Options Store", () => {
+  let store: SpeedCalcOptionsStore
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        SpeedCalcOptionsStore,
+        {
+          provide: CalcStore,
+          useValue: (() => {
+            const targets = [new Target(new Pokemon("Chi-Yu")), new Target(new Pokemon("Urshifu"))]
+
+            return {
+              teams: signal([
+                new Team("team-1", false, "My Team", [new TeamMember(new Pokemon("Incineroar"), true), new TeamMember(new Pokemon("Rillaboom"), false)]),
+                new Team("team-2", false, "Single Team", [new TeamMember(new Pokemon("Incineroar"), true)]),
+                new Team("team-3", false, "Empty Team", [])
+              ]),
+              targets: signal(targets)
+            }
+          })()
+        }
+      ]
+    })
+
+    store = TestBed.inject(SpeedCalcOptionsStore)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe("Computed", () => {
+    it("should return options", () => {
+      store.toggleIcyWind(true)
+      store.toggleParalyze(true)
+      store.toggleChoiceScarf(true)
+      store.updateTargetName("Pikachu")
+
+      const options = store.options()
+
+      expect(options.regulation).toBe("MC")
+      expect(options.targetName).toBe("Pikachu")
+      expect(options.speedModifier).toBe(-1)
+      expect(options.speedDropActive).toBe(true)
+      expect(options.paralyzedActive).toBe(true)
+      expect(options.choiceScarfActive).toBe(true)
+    })
+
+    it("should return Pokémon by Regulation", () => {
+      store.updateRegulation("MC")
+
+      const pokemonList = store.pokemonNamesByReg()
+
+      expect(pokemonList.includes("Kommo-o")).toBe(true)
+    })
+
+    it("should restrict Top Usage All to the available Pokémon", () => {
+      store.updateRegulation("MC")
+      store.updateTopUsage("All")
+
+      const pokemonList = store.pokemonNamesByReg()
+
+      expect(pokemonList.length).toBe(374)
+    })
+
+    it("should not list Pokémon outside the available list on Top Usage All", () => {
+      store.updateRegulation("MC")
+      store.updateTopUsage("All")
+
+      const pokemonList = store.pokemonNamesByReg()
+
+      expect(pokemonList.includes("Bulbasaur")).toBe(false)
+      expect(pokemonList.includes("Miraidon")).toBe(false)
+    })
+
+    it("should keep listing available Pokémon on Top Usage All", () => {
+      store.updateRegulation("MC")
+      store.updateTopUsage("All")
+
+      const pokemonList = store.pokemonNamesByReg()
+
+      expect(pokemonList.includes("Incineroar")).toBe(true)
+      expect(pokemonList.includes("Aegislash-Shield")).toBe(true)
+    })
+
+    it("should order Pokémon of Regulation", () => {
+      store.updateRegulation("MC")
+
+      const pokemonList = store.pokemonNamesByReg()
+
+      for (let index = 0; index < pokemonList.length; index++) {
+        const actual = pokemonList[index]
+        const next = pokemonList[index + 1]
+
+        if (next) {
+          expect(next >= actual).toBeTruthy()
+        }
+      }
+    })
+  })
+
+  describe("Methods", () => {
+    it("should change Speed Modifier to -1 when Icy Wind is enabled", () => {
+      store.toggleIcyWind(true)
+
+      expect(store.speedModifier()).toBe(-1)
+    })
+
+    it("should change Speed Modifier to 0 when Icy Wind is disabled", () => {
+      store.toggleIcyWind(true)
+      store.toggleIcyWind(false)
+
+      expect(store.speedModifier()).toBe(0)
+    })
+
+    it("should change Speed Drop Active to true when Icy Wind is enabled", () => {
+      store.toggleIcyWind(true)
+
+      expect(store.speedDropActive()).toBe(true)
+    })
+
+    it("should change Speed Drop Active to false when Icy Wind is disabled", () => {
+      store.toggleIcyWind(true)
+      store.toggleIcyWind(false)
+
+      expect(store.speedDropActive()).toBe(false)
+    })
+
+    it("should change Paralyzed Active to true when Paralyze is enabled", () => {
+      store.toggleParalyze(true)
+
+      expect(store.paralyzedActive()).toBe(true)
+    })
+
+    it("should change Paralyzed Active to false when Paralyze is disabled", () => {
+      store.toggleParalyze(true)
+      store.toggleParalyze(false)
+
+      expect(store.paralyzedActive()).toBe(false)
+    })
+
+    it("should change Choice Scarf Active to true when Choice Scarf is enabled", () => {
+      store.toggleChoiceScarf(true)
+
+      expect(store.choiceScarfActive()).toBe(true)
+    })
+
+    it("should change Choice Scarf Active to false when Choice Scarf is disabled", () => {
+      store.toggleChoiceScarf(true)
+      store.toggleChoiceScarf(false)
+
+      expect(store.choiceScarfActive()).toBe(false)
+    })
+
+    it("should use the Stats mode and disable the mode when Choice Scarf is enabled", () => {
+      store.updateMode(SpeedCalcMode.Meta)
+
+      store.toggleChoiceScarf(true)
+
+      expect(store.selectedMode()).toBe(SpeedCalcMode.Stats)
+      expect(store.options().mode).toBe(SpeedCalcMode.Stats)
+      expect(store.modeDisabled()).toBe(true)
+      expect(store.mode()).toBe(SpeedCalcMode.Meta)
+    })
+
+    it("should go back to the previous mode and enable the mode when Choice Scarf is disabled", () => {
+      store.updateMode(SpeedCalcMode.Meta)
+      store.toggleChoiceScarf(true)
+
+      store.toggleChoiceScarf(false)
+
+      expect(store.selectedMode()).toBe(SpeedCalcMode.Meta)
+      expect(store.options().mode).toBe(SpeedCalcMode.Meta)
+      expect(store.modeDisabled()).toBe(false)
+    })
+
+    it("should update Speed Modifier when it is changed", () => {
+      store.updateSpeedModifier(5)
+
+      expect(store.speedModifier()).toBe(5)
+    })
+
+    it("should update Regulation when it is changed", () => {
+      store.updateFilter("Opponents")
+
+      store.updateRegulation("MC")
+
+      expect(store.filterType()).toBe("regulation")
+      expect(store.regulation()).toBe("MC")
+    })
+
+    it("should fall back to the Stats mode when the new regulation has no statistics", () => {
+      store.updateMode(SpeedCalcMode.StatsAndMeta)
+
+      store.updateRegulation("MA" as never)
+
+      expect(store.regulation()).toBe("MA")
+      expect(store.mode()).toBe(SpeedCalcMode.Stats)
+    })
+
+    it("should restore the Stats and Meta mode when going back to a regulation with statistics", () => {
+      store.updateMode(SpeedCalcMode.Base)
+
+      store.updateRegulation("MC")
+
+      expect(store.mode()).toBe(SpeedCalcMode.StatsAndMeta)
+    })
+
+    it("should keep a statistics-free mode when the new regulation has no statistics", () => {
+      store.updateMode(SpeedCalcMode.Base)
+
+      store.updateRegulation("MA" as never)
+
+      expect(store.mode()).toBe(SpeedCalcMode.Base)
+    })
+
+    it("should fall back to the default label for a regulation without a known name", () => {
+      store.updateRegulation("MA" as never)
+
+      expect(store.selectedFilter()).toBe("Reg M-C")
+    })
+
+    it("should expose the list of available regulations", () => {
+      expect(store.regulationsList()).toEqual(["MC"])
+    })
+
+    it("should update Top Usage when it is changed", () => {
+      store.updateTopUsage("100")
+
+      expect(store.topUsage()).toBe("100")
+    })
+
+    it("should update Mode when it is changed", () => {
+      store.updateMode(SpeedCalcMode.Base)
+
+      expect(store.mode()).toBe("Base")
+    })
+
+    it("should clear Target Name when Regulation is updated", () => {
+      store.updateTargetName("Kyogre")
+      store.updateRegulation("MC")
+
+      expect(store.targetName()).toBe("")
+    })
+
+    it("should update Target Name when it is changed", () => {
+      store.updateTargetName("Kyogre")
+
+      expect(store.targetName()).toBe("Kyogre")
+    })
+
+    it("should clear Target Name when it is reset", () => {
+      store.updateTargetName("Kyogre")
+      store.clearTargetName()
+
+      expect(store.targetName()).toBe("")
+    })
+  })
+
+  describe("Filter", () => {
+    it("should list regulations, opponents and teams with at least one Pokémon as filter options", () => {
+      const options = store.filterOptions()
+
+      expect(options).toEqual([
+        { key: "Reg M-C", value: "Reg M-C" },
+        { key: "Opponents", value: "Opponents" },
+        { key: "My Team", value: "team-1" },
+        { key: "Single Team", value: "team-2" }
+      ])
+    })
+
+    it("should not list teams without any non-default Pokémon", () => {
+      const options = store.filterOptions()
+
+      expect(options.map(option => option.key)).not.toContain("Empty Team")
+    })
+
+    it("should set opponents filter when Opponents is selected", () => {
+      store.updateFilter("Opponents")
+
+      expect(store.filterType()).toBe("opponents")
+      expect(store.selectedFilter()).toBe("Opponents")
+    })
+
+    it("should set team filter when a team is selected", () => {
+      store.updateFilter("team-1")
+
+      expect(store.filterType()).toBe("team")
+      expect(store.teamId()).toBe("team-1")
+      expect(store.selectedFilter()).toBe("team-1")
+    })
+
+    it("should set the filter to the selected team when two teams share the same name", () => {
+      const calcStore = TestBed.inject(CalcStore) as unknown as { teams: ReturnType<typeof signal<Team[]>> }
+      calcStore.teams.set([new Team("twin-1", false, "Twin", [new TeamMember(new Pokemon("Incineroar"), true)]), new Team("twin-2", false, "Twin", [new TeamMember(new Pokemon("Rillaboom"), true)])])
+
+      store.updateFilter("twin-2")
+
+      expect(store.teamId()).toBe("twin-2")
+      expect(store.selectedFilter()).toBe("twin-2")
+      expect(store.pokemonNamesByReg()).toEqual(["Rillaboom"])
+    })
+
+    it("should set regulation filter when a regulation is selected", () => {
+      store.updateFilter("Opponents")
+
+      store.updateFilter("Reg M-C")
+
+      expect(store.filterType()).toBe("regulation")
+      expect(store.regulation()).toBe("MC")
+      expect(store.selectedFilter()).toBe("Reg M-C")
+    })
+
+    it("should restore the Stats and Meta mode when going back to the regulation from a team", () => {
+      store.updateFilter("team-1")
+
+      store.updateFilter("Reg M-C")
+
+      expect(store.mode()).toBe(SpeedCalcMode.StatsAndMeta)
+    })
+
+    it("should restore the Stats and Meta mode when going back to the regulation from opponents", () => {
+      store.updateFilter("Opponents")
+
+      store.updateFilter("Reg M-C")
+
+      expect(store.mode()).toBe(SpeedCalcMode.StatsAndMeta)
+    })
+
+    it("should show Top Usage only for regulation filter", () => {
+      store.updateFilter("Reg M-C")
+      expect(store.showTopUsage()).toBe(true)
+
+      store.updateFilter("Opponents")
+      expect(store.showTopUsage()).toBe(false)
+    })
+
+    it("should have My Team option active by default", () => {
+      expect(store.showMyTeam()).toBe(true)
+    })
+
+    it("should toggle My Team option", () => {
+      store.toggleShowMyTeam(false)
+      expect(store.showMyTeam()).toBe(false)
+
+      store.toggleShowMyTeam(true)
+      expect(store.showMyTeam()).toBe(true)
+    })
+
+    it("should clear Target Name when filter is changed", () => {
+      store.updateTargetName("Kyogre")
+      store.updateFilter("Opponents")
+
+      expect(store.targetName()).toBe("")
+    })
+
+    it("should list opponent Pokémon names when Opponents filter is selected", () => {
+      store.updateFilter("Opponents")
+
+      expect(store.pokemonNamesByReg()).toEqual(["Chi-Yu", "Urshifu"])
+    })
+
+    it("should list team Pokémon names when a team is selected", () => {
+      store.updateFilter("team-1")
+
+      expect(store.pokemonNamesByReg()).toEqual(["Incineroar", "Rillaboom"])
+    })
+
+    it("should not change the filter when an unknown filter name is provided", () => {
+      store.updateFilter("Opponents")
+
+      store.updateFilter("Not A Real Filter")
+
+      expect(store.filterType()).toBe("opponents")
+    })
+
+    it("should fall back to Opponents label when the selected team no longer exists", () => {
+      store.updateFilter("team-1")
+      store.updateFilter("Not A Real Filter")
+
+      expect(store.filterType()).toBe("team")
+      expect(store.selectedFilter()).toBe("team-1")
+    })
+
+    it("should exclude statistics-based modes for a non-regulation filter", () => {
+      store.updateFilter("Opponents")
+
+      expect(store.availableModes()).not.toContain(SpeedCalcMode.StatsAndMeta)
+      expect(store.availableModes()).not.toContain(SpeedCalcMode.Meta)
+    })
+
+    it("should include statistics-based modes for the regulation filter", () => {
+      store.updateFilter("Reg M-C")
+
+      expect(store.availableModes()).toContain(SpeedCalcMode.StatsAndMeta)
+      expect(store.availableModes()).toContain(SpeedCalcMode.Meta)
+    })
+
+    it("should fall back to Stats mode when switching to a filter that does not support statistics", () => {
+      store.updateFilter("Reg M-C")
+      store.updateMode(SpeedCalcMode.Meta)
+
+      store.updateFilter("Opponents")
+
+      expect(store.mode()).toBe(SpeedCalcMode.Stats)
+    })
+
+    it("should keep a mode that does not require statistics when switching filters", () => {
+      store.updateFilter("Reg M-C")
+      store.updateMode(SpeedCalcMode.Base)
+
+      store.updateFilter("Opponents")
+
+      expect(store.mode()).toBe(SpeedCalcMode.Base)
+    })
+
+    it("should fall back to the Opponents label when the team filter points at a team that no longer exists", () => {
+      store.updateFilter("team-1")
+      patchState(store, () => ({ teamId: "deleted-team" }))
+
+      expect(store.selectedFilter()).toBe("Opponents")
+    })
+
+    it("should return no Pokémon names when the team filter points at a team that no longer exists", () => {
+      store.updateFilter("team-1")
+      patchState(store, () => ({ teamId: "deleted-team" }))
+
+      expect(store.pokemonNamesByReg()).toEqual([])
+    })
+  })
+
+  describe("Initial mode", () => {
+    it("should start in Stats mode when the initial regulation has no statistics", () => {
+      vi.spyOn(SpeedCalc.prototype, "hasStatisticsForRegulation").mockReturnValue(false)
+
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection(), SpeedCalcOptionsStore, { provide: CalcStore, useValue: { teams: signal([]), targets: signal([]) } }]
+      })
+
+      expect(TestBed.inject(SpeedCalcOptionsStore).mode()).toBe(SpeedCalcMode.Stats)
+    })
+
+    it("should start in Stats and Meta mode when the initial regulation has statistics", () => {
+      vi.spyOn(SpeedCalc.prototype, "hasStatisticsForRegulation").mockReturnValue(true)
+
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection(), SpeedCalcOptionsStore, { provide: CalcStore, useValue: { teams: signal([]), targets: signal([]) } }]
+      })
+
+      expect(TestBed.inject(SpeedCalcOptionsStore).mode()).toBe(SpeedCalcMode.StatsAndMeta)
+    })
+  })
+
+  describe("Top Usage availability", () => {
+    it("should enable Top Usage for a regulation with usage data", () => {
+      store.updateRegulation("MC")
+
+      expect(store.topUsageDisabled()).toBe(false)
+      expect(store.topUsage()).toBe("60")
+    })
+
+    it("should disable Top Usage for a regulation without usage data", () => {
+      vi.spyOn(SpeedCalc.prototype, "hasUsageDataForRegulation").mockReturnValue(false)
+
+      expect(store.topUsageDisabled()).toBe(true)
+    })
+  })
+})

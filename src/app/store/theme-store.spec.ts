@@ -1,0 +1,100 @@
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { ThemeStore } from "./theme-store"
+
+describe("Theme Store", () => {
+  let store: ThemeStore
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection()]
+    })
+
+    store = TestBed.inject(ThemeStore)
+  })
+
+  describe("Methods", () => {
+    it("should change theme to Dark", () => {
+      store.updateTheme("light")
+
+      store.updateTheme("dark")
+
+      expect(store.theme()).toBe("dark")
+    })
+
+    it("should change color to purple", () => {
+      store.updateColor("green")
+
+      store.updateColor("purple")
+
+      expect(store.color()).toBe("purple")
+    })
+  })
+
+  describe("User Data", () => {
+    beforeEach(() => {
+      const store: Record<string, string | null> = {}
+
+      vi.spyOn(localStorage, "getItem").mockImplementation((key: string): string | null => {
+        return store[key] || null
+      })
+
+      vi.spyOn(localStorage, "setItem").mockImplementation((key: string, value: string): void => {
+        store[key] = value
+      })
+    })
+
+    it("should update local storage when state changes", () => {
+      store.updateTheme("dark")
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.themeData.theme).toBe("dark")
+    })
+
+    it("should update local storage when state changes mantaining existent data", () => {
+      store.updateColor("red")
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.themeData.color).toBe("red")
+    })
+
+    it("should replace a corrupted user data with a valid one when the state changes", () => {
+      localStorage.setItem("userData", "this is not json")
+
+      store.updateTheme("dark")
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.themeData.theme).toBe("dark")
+    })
+  })
+
+  describe("Environment without local storage", () => {
+    it("should not persist the theme when localStorage is not available", () => {
+      const originalLocalStorage = globalThis.localStorage
+
+      try {
+        // @ts-expect-error simulating an environment without localStorage (e.g. SSR)
+        delete globalThis.localStorage
+
+        TestBed.resetTestingModule()
+        TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] })
+
+        const isolatedStore = TestBed.inject(ThemeStore)
+        isolatedStore.updateTheme("dark")
+
+        TestBed.tick()
+
+        expect(isolatedStore.theme()).toBe("dark")
+        expect(globalThis.localStorage).toBeUndefined()
+      } finally {
+        globalThis.localStorage = originalLocalStorage
+      }
+    })
+  })
+})

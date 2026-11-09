@@ -1,0 +1,128 @@
+.container {
+  display: flex;
+  justify-content: right;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.container.reduced {
+  max-width: 100%;
+
+  .pokemon-type {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+}
+
+.pokemon-type {
+  display: flex;
+  justify-content: center;
+  border: 1px solid;
+  min-width: 5em;
+  padding: var(--space-xs);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: white;
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.6),
+    1px -1px 0 rgba(0, 0, 0, 0.6),
+    -1px 1px 0 rgba(0, 0, 0, 0.6),
+    1px 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.container.editable {
+  position: relative;
+
+  .pokemon-type {
+    cursor: pointer;
+    transition:
+      filter 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  .pokemon-type:hover {
+    filter: brightness(1.15);
+  }
+}
+
+.container.three-types .pokemon-type {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.container.editable .added-type-off {
+  background-color: transparent;
+  border: 1px dashed var(--text);
+  color: var(--text);
+  text-shadow: none;
+}
+
+.container.editable .added-type-fixed {
+  cursor: default;
+}
+
+.container.editable .empty-type {
+  background-color: transparent;
+  border: 1px dashed var(--text);
+  color: var(--text);
+  opacity: 0;
+  text-shadow: none;
+}
+
+.container.editable:hover .empty-type {
+  opacity: 0.4;
+}
+
+.container.editable .empty-type:hover {
+  opacity: 0.7;
+}
+
+.container.editable.overridden .pokemon-type {
+  border-style: dashed;
+  border-width: 2px;
+}
+
+.container.editable.tera-active .pokemon-type {
+  opacity: 0.45;
+}
+
+.restore-types {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  opacity: 0.55;
+  padding: 0 var(--space-xs);
+}
+
+.restore-types:hover {
+  opacity: 1;
+}
+
+.menu-type {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 6em;
+  padding: var(--space-xs) var(--space-sm);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: white;
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.6),
+    1px -1px 0 rgba(0, 0, 0, 0.6),
+    -1px 1px 0 rgba(0, 0, 0, 0.6),
+    1px 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.menu-type-none {
+  background-color: transparent;
+  border: 1px dashed var(--text);
+  color: var(--text);
+  text-shadow: none;
+}
+
+.unknown-type-option {
+  border-top: 1px solid var(--border-subtle);
+}

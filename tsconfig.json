@@ -1,0 +1,49 @@
+/* To learn more about this file see: https://angular.io/config/tsconfig. */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "paths": {
+      "@app/*": ["./src/app/*"],
+      "@shared/*": ["./src/app/shared/*"],
+      "@features/*": ["./src/app/features/*"],
+      "@pages/*": ["./src/app/pages/*"],
+      "@layout/*": ["./src/app/layout/*"],
+      "@data/*": ["./src/domain/data/*"],
+      "@calc-bridge": ["./src/domain/multicalc/calc-bridge/index.ts"],
+      "@calc-bridge/*": ["./src/domain/multicalc/calc-bridge/*"],
+      "@pokemon-repository": ["./src/domain/multicalc/pokemon-repository/index.ts"],
+      "@pokemon-repository/*": ["./src/domain/multicalc/pokemon-repository/*"],
+      "@configuration/*": ["./src/app/configuration/*"],
+      "@multicalc/*": ["./src/domain/multicalc/*"],
+      "@calc": ["./src/domain/calc/index.ts"],
+      "@calc/*": ["./src/domain/calc/*"],
+      "@store/*": ["./src/app/store/*"]
+    },
+    "outDir": "./dist/out-tsc",
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "declaration": false,
+    "experimentalDecorators": true,
+    "moduleResolution": "bundler",
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "useDefineForClassFields": false,
+    "lib": ["ES2022", "dom"],
+    "strictPropertyInitialization": false,
+    "types": ["vitest/globals"]
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  },
+  "exclude": ["cypress", "cypress.config.ts"]
+}

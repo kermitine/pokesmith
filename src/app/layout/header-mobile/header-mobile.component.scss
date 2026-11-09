@@ -1,0 +1,284 @@
+:host {
+  display: block;
+  height: 4em;
+}
+
+.header {
+  height: 4em;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 110;
+  background-color: var(--background);
+  overflow: hidden;
+  transition:
+    top 0.2s ease,
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px;
+  border-color: var(--background);
+  border-width: 1px;
+  border-style: solid;
+  padding-left: var(--space-2xl);
+  padding-right: 0;
+  margin-bottom: 0;
+  margin-left: -2.5em;
+}
+
+.header.hidden {
+  top: calc(-4em - 2px);
+}
+
+.left-header {
+  display: flex;
+  align-items: center;
+}
+
+.right-header {
+  display: flex;
+  align-items: center;
+  column-gap: var(--space-lg);
+  margin-right: var(--space-xl);
+}
+
+.slowking-icon {
+  height: 4em;
+  width: auto;
+}
+
+.icon {
+  height: 2.5em;
+  width: auto;
+}
+
+.title {
+  font-size: var(--font-size-title);
+  font-weight: 500;
+  margin: 0 0 0 var(--space-lg);
+}
+
+.menu-icon {
+  height: 1.5em;
+  font-size: var(--font-size-md);
+  vertical-align: middle;
+  background: none;
+  border: 0;
+}
+
+.menu-panel {
+  position: fixed;
+  top: 4em;
+  left: auto;
+  right: 0;
+  width: 15em;
+  bottom: 0;
+  background-color: var(--background);
+  z-index: 100;
+  overflow-y: auto;
+  border-left: 1px solid var(--widget-border);
+  border-bottom: 1px solid var(--widget-border);
+  animation: slideRight 0.2s ease;
+
+  &.no-footer {
+    bottom: 0;
+  }
+
+  &:not(.no-footer) {
+    bottom: 4em;
+  }
+}
+
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--scrim);
+  z-index: 95;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.menu-content {
+  padding: var(--space-lg) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-title {
+  display: block;
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-sm);
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--font-size-xs);
+}
+
+.menu-title:first-child {
+  margin-top: 0;
+}
+
+mat-divider {
+  margin: var(--space-md) 0;
+}
+
+.menu-item-button {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.menu-item-button:hover {
+  background-color: var(--highlight);
+  color: var(--highlight-contrast);
+}
+
+.active-menu-option,
+.menu-item-button.pressed,
+.menu-item-button:active {
+  background-color: var(--highlight) !important;
+  color: var(--highlight-contrast) !important;
+  font-weight: 500;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-xs);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--highlight);
+  color: var(--highlight-contrast);
+}
+
+.pokemon-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5em;
+  padding: 0;
+}
+
+.pokemon-image {
+  height: 1.8em;
+  width: auto;
+}
+
+app-mode-selector {
+  display: block;
+  margin-bottom: var(--space-sm);
+
+  ::ng-deep .mode-selector {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  ::ng-deep .mode-option {
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-xs);
+    text-align: left;
+  }
+
+  ::ng-deep .mode-option:not(:last-child) {
+    border-right: none;
+  }
+}
+
+.share-button {
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--primary);
+  color: var(--primary-contrast);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  margin-top: var(--space-sm);
+  transition: opacity 0.15s ease;
+}
+
+.share-button:hover {
+  opacity: 0.85;
+}
+
+.social-links {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  margin-top: var(--space-xl);
+
+  img {
+    width: 30px;
+    height: 30px;
+    display: block;
+  }
+}
+
+.kofi-link {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-xl);
+
+  img {
+    height: 2.2em;
+    width: auto;
+    border: 0;
+  }
+}
+
+.title-link {
+  color: inherit;
+  text-decoration: none;
+}

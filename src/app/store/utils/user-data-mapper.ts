@@ -1,0 +1,165 @@
+import { CalcState, PokemonState, TargetState, TeamMemberState, TeamState } from "@store/calc-store"
+import { CustomSet } from "@store/custom-set"
+import { Regulation } from "@multicalc/types"
+import { uuid } from "@multicalc/utils"
+import { readGameData } from "./user-data-storage"
+
+export function buildSharedUserData<T extends object>(gameData: T, useSpsMode: boolean, customSets: CustomSet[]) {
+  return { ...gameData, fields: readGameData()?.fields ?? {}, useSpsMode, customSets }
+}
+
+export function buildSharedFields(userData: any): Record<string, any> {
+  if (userData?.fields) return userData.fields
+  if (userData?.field) return { simple: userData.field }
+
+  return {}
+}
+
+export function buildUserData(
+  leftPokemon: PokemonState,
+  rightPokemon: PokemonState,
+  teams: TeamState[],
+  targets: TargetState[],
+  targetMetaRegulation: Regulation | undefined,
+  simpleCalcLeftRollLevel: string,
+  simpleCalcRightRollLevel: string,
+  multiCalcRollLevel: string,
+  manyVsTeamRollLevel: string
+) {
+  return {
+    leftPokemon: buildPokemonToUserData(leftPokemon),
+    rightPokemon: buildPokemonToUserData(rightPokemon),
+    teams: teams.map(team => {
+      return {
+        active: team.active,
+        name: team.name,
+        pasteUrl: team.pasteUrl,
+        teamMembers: team.teamMembers.map(t => {
+          const pokemon = buildPokemonToUserData(t.pokemon)
+
+          return {
+            pokemon: pokemon,
+            active: t.active
+          }
+        })
+      }
+    }),
+    targets: targets.map(t => {
+      return {
+        pokemon: buildPokemonToUserData(t.pokemon),
+        secondPokemon: t.secondPokemon && buildPokemonToUserData(t.secondPokemon)
+      }
+    }),
+    targetMetaRegulation: targetMetaRegulation,
+    simpleCalcLeftRollLevel: simpleCalcLeftRollLevel,
+    simpleCalcRightRollLevel: simpleCalcRightRollLevel,
+    multiCalcRollLevel: multiCalcRollLevel,
+    manyVsTeamRollLevel: manyVsTeamRollLevel
+  }
+}
+
+export function buildState(userData: any): Partial<CalcState> {
+  return {
+    updateLocalStorage: true,
+    leftPokemonState: buildPokemonState(userData.leftPokemon),
+    rightPokemonState: buildPokemonState(userData.rightPokemon),
+    secondAttackerId: "",
+    teamsState: buildTeamState(userData.teams),
+    targetsState: buildTargetsState(userData.targets),
+    targetMetaRegulation: userData.targetMetaRegulation as Regulation,
+    simpleCalcLeftRollLevel: userData.simpleCalcLeftRollLevel ?? "high",
+    simpleCalcRightRollLevel: userData.simpleCalcRightRollLevel ?? "high",
+    multiCalcRollLevel: userData.multiCalcRollLevel ?? "high",
+    manyVsTeamRollLevel: userData.manyVsTeamRollLevel ?? "high",
+    useSpsMode: userData.useSpsMode ?? true,
+    customSetsState: userData.customSets ?? []
+  }
+}
+
+function buildPokemonToUserData(pokemon: PokemonState) {
+  return {
+    name: pokemon.name,
+    nature: pokemon.nature,
+    item: pokemon.item,
+    ability: pokemon.ability,
+    abilityOn: pokemon.abilityOn,
+    staminaOff: pokemon.staminaOff,
+    commanderActive: pokemon.commanderActive,
+    teraType: pokemon.teraType,
+    teraTypeActive: pokemon.teraTypeActive,
+    overrideTypes: pokemon.overrideTypes,
+    baseFormAbility: pokemon.baseFormAbility,
+    typeAddingMove: pokemon.typeAddingMove,
+    addedTypeOn: pokemon.addedTypeOn,
+    evs: pokemon.evs,
+    status: pokemon.status,
+    toxicCounter: pokemon.toxicCounter,
+    boosts: pokemon.boosts,
+    bonusBoosts: pokemon.bonusBoosts,
+    ivs: pokemon.ivs,
+    moveSet: [pokemon.moveSet[0].name, pokemon.moveSet[1].name, pokemon.moveSet[2].name, pokemon.moveSet[3].name]
+  }
+}
+
+function buildPokemonState(pokemon: any): PokemonState {
+  const hasLegacyAbilityShape = pokemon.ability !== null && typeof pokemon.ability === "object"
+  const ability = hasLegacyAbilityShape ? pokemon.ability.name : pokemon.ability
+  const abilityOn = hasLegacyAbilityShape ? pokemon.ability.on : pokemon.abilityOn
+
+  return {
+    id: uuid(),
+    name: pokemon.name,
+    nature: pokemon.nature,
+    item: pokemon.item,
+    status: pokemon.status,
+    toxicCounter: pokemon.toxicCounter ?? 1,
+    ability: ability,
+    abilityOn: abilityOn,
+    staminaOff: pokemon.staminaOff,
+    commanderActive: pokemon.commanderActive,
+    teraType: pokemon.teraType,
+    teraTypeActive: pokemon.teraTypeActive,
+    overrideTypes: pokemon.overrideTypes,
+    activeMove: 0,
+    moveSet: [{ name: pokemon.moveSet[0] }, { name: pokemon.moveSet[1] }, { name: pokemon.moveSet[2] }, { name: pokemon.moveSet[3] }],
+    boosts: pokemon.boosts,
+    bonusBoosts: pokemon.bonusBoosts,
+    evs: pokemon.evs,
+    ivs: pokemon.ivs,
+    hpPercentage: pokemon.hpPercentage,
+    automaticAbilityOn: false,
+    baseFormAbility: pokemon.baseFormAbility,
+    typeAddingMove: pokemon.typeAddingMove,
+    addedTypeOn: pokemon.addedTypeOn
+  }
+}
+
+function buildTeamState(teams: any): TeamState[] {
+  return teams.map((team: any, index: number) => {
+    return {
+      id: uuid(),
+      active: index == 0,
+      name: team.name,
+      teamMembers: buildTeamMemberState(team.teamMembers),
+      pasteUrl: team.pasteUrl
+    }
+  })
+}
+
+function buildTeamMemberState(teamMembers: any): TeamMemberState[] {
+  return teamMembers.map((member: any, index: number) => {
+    return {
+      active: index == 0,
+      pokemon: buildPokemonState(member.pokemon)
+    }
+  })
+}
+
+function buildTargetsState(targets: any): TargetState[] {
+  return targets.map((target: any) => {
+    return {
+      pokemon: buildPokemonState(target.pokemon),
+      secondPokemon: target.secondPokemon && buildPokemonState(target.secondPokemon)
+    }
+  })
+}

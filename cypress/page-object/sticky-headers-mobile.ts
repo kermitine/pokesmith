@@ -1,0 +1,99 @@
+import { ScrollableContent } from "@page-object/scrollable-content"
+
+export class StickyHeadersMobile {
+  private readonly content = new ScrollableContent()
+
+  scrollDown(offset: number): this {
+    for (const step of [Math.round(offset / 2), offset]) {
+      this.scrollStepTo(step)
+    }
+
+    return this
+  }
+
+  private scrollStepTo(offset: number): this {
+    this.content.scrollTo(offset)
+
+    cy.get('[data-cy="scrollable-content"]').trigger("scroll")
+
+    return this
+  }
+
+  scrollToBottom(): this {
+    return this.scrollDown(10000)
+  }
+
+  scrollToTop(): this {
+    this.content.currentScroll().then(current => {
+      for (const ratio of [0.75, 0.5, 0.25, 0]) {
+        this.scrollStepTo(Math.round(current * ratio))
+      }
+    })
+
+    return this
+  }
+
+  teamTabsAreStuckToTop() {
+    cy.get('[data-cy="scrollable-content"]').then($container => {
+      const containerTop = $container[0].getBoundingClientRect().top
+
+      cy.get(".team-tabs").should($tabs => {
+        const headerBottom = Cypress.$(".header")[0].getBoundingClientRect().bottom
+        const visibleTop = Math.max(containerTop, headerBottom)
+
+        expect($tabs[0].getBoundingClientRect().top).to.be.closeTo(visibleTop, 2)
+      })
+    })
+  }
+
+  movesAreStuckBelowTeamTabs() {
+    cy.get("app-pokemon-moves-mobile.sticky").should($moves => {
+      const tabsBottom = Cypress.$(".team-tabs")[0].getBoundingClientRect().bottom
+      const movesTop = $moves[0].getBoundingClientRect().top
+      const gap = movesTop - tabsBottom
+
+      expect(gap).to.be.at.least(-4)
+      expect(gap).to.be.at.most(20)
+    })
+  }
+
+  stuckSpsAre(stats: string[]) {
+    cy.get('[data-cy="stuck-sps"] app-sp-slider').should($sliders => {
+      expect($sliders.toArray().map(slider => slider.getAttribute("stat"))).to.deep.eq(stats)
+    })
+  }
+
+  stuckSpsAreHidden() {
+    cy.get('[data-cy="stuck-sps"]').should("not.exist")
+  }
+
+  inputStuckSp(stat: string, value: number): this {
+    cy.get(`[data-cy="stuck-sps"] app-sp-slider[stat="${stat}"] [data-cy="sp-value"]`).clear().type(value.toString(), { force: true }).blur()
+
+    return this
+  }
+
+  movesEditButtonIsVisible() {
+    cy.get("app-pokemon-moves-mobile .edit-button").should("be.visible")
+  }
+
+  movesEditButtonIsHidden() {
+    cy.get("app-pokemon-moves-mobile .edit-button").should("not.be.visible")
+  }
+
+  headerIsHidden() {
+    cy.get(".header").should("have.class", "hidden")
+  }
+
+  headerIsVisible() {
+    cy.get(".header").should("not.have.class", "hidden")
+  }
+
+  contentUsesFullHeight(pageSelector: string) {
+    cy.get(pageSelector).should("have.class", "header-hidden")
+  }
+
+  contentReservesHeaderSpace(pageSelector: string) {
+    cy.get(pageSelector).should("not.have.class", "header-hidden")
+  }
+}

@@ -1,0 +1,1321 @@
+import { computed, effect, inject, Injectable, signal } from "@angular/core"
+import { getMoveset, MOVESETS } from "@data/moveset-data"
+import { CustomSet } from "./custom-set"
+import { initialCalcState } from "./utils/initial-calc-state"
+import { pokemonToState, stateToPokemon, stateToTargets, stateToTeam, stateToTeams, targetToState, teamToState } from "./utils/state-mapper"
+import { AddedTypeOffer, multiCalcAddedTypeOffers, sameAddedTypeOffers, simpleCalcAddedTypeOffers } from "./utils/added-types"
+import { buildUserData } from "./utils/user-data-mapper"
+import { readGameData, writeCustomSets, writeGameData, writeTopLevel } from "./utils/user-data-storage"
+import { spToEv, uuid } from "@multicalc/utils"
+import { MovePosition, Pokemon, seedBoostedStat, Status, Target, Team } from "@multicalc/model"
+import { Regulation, Stats, Terrain } from "@multicalc/types"
+import { patchState, signalStore, withHooks, withState } from "@ngrx/signals"
+import { MenuStore } from "./menu-store"
+import { pokemonByRegulation } from "@pokemon-repository"
+
+export type CombinedAttacker = { pokemonId: string; name: string }
+
+export const MY_LIST_SOURCE = "my-list"
+export const META_SOURCE = "meta"
+
+const META_QUANTITY = 60
+
+export type TargetLayout = { pokemonId: string; secondPokemonId?: string }
+
+export type MoveState = {
+  name: string
+  alliesFainted?: string
+  hits?: string
+  hitsTaken?: string
+  lastMoveFailed?: boolean
+  roundUsedBefore?: boolean
+  targetDamaged?: boolean
+  targetAlreadyMoved?: boolean
+  allyPledge?: string
+  damagedByTarget?: boolean
+  timesUsed?: string
+}
+
+export type PokemonState = {
+  id: string
+  name: string
+  nature: string
+  item: string
+  status: string
+  toxicCounter: number
+  ability: string
+  abilityOn: boolean
+  staminaOff?: boolean
+  commanderActive: boolean
+  teraType: string
+  teraTypeActive: boolean
+  activeMove: number
+  moveSet: MoveState[]
+  boosts: Partial<Stats>
+  bonusBoosts: Partial<Stats>
+  evs: Partial<Stats>
+  ivs: Partial<Stats>
+  hpPercentage: number
+  automaticAbilityOn: boolean
+  seedBoostedStat?: string
+  higherStat?: string
+  overrideTypes?: string[]
+  baseFormAbility?: string
+  typeAddingMove?: string
+  addedTypeOn?: boolean
+}
+
+export type TeamMemberState = {
+  active: boolean
+  pokemon: PokemonState
+}
+
+export type TeamState = {
+  id: string
+  active: boolean
+  name: string
+  teamMembers: TeamMemberState[]
+  pasteUrl?: string
+}
+
+export type TargetState = {
+  pokemon: PokemonState
+  secondPokemon?: PokemonState
+}
+
+export type CalcState = {
+  updateLocalStorage: boolean
+  leftPokemonState: PokemonState
+  rightPokemonState: PokemonState
+  secondAttackerId: string
+  teamsState: TeamState[]
+  targetsState: TargetState[]
+  targetMetaRegulation: Regulation | undefined
+  simpleCalcLeftRollLevel: string
+  simpleCalcRightRollLevel: string
+  multiCalcRollLevel: string
+  manyVsTeamRollLevel: string
+  useSpsMode: boolean
+  customSetsState: CustomSet[]
+  activeSetId: string | null
+  activeSetPokemonId: string | null
+  activeSetDirty: boolean
+  isEditingCustomSet: boolean
+}
+
+const MAX_BOOST = 6
+const MIN_BOOST = -6
+const PASTE_FIELDS: (keyof PokemonState)[] = ["name", "item", "ability", "nature", "teraType", "evs", "ivs", "baseFormAbility"]
+
+@Injectable({ providedIn: "root" })
+export class CalcStore extends signalStore(
+  { protectedState: false },
+  withState(initialCalcState),
+  withHooks(store => ({
+    onInit() {
+      effect(() => {
+        if (store.updateLocalStorage()) {
+          const gameData = buildUserData(
+            store.leftPokemonState(),
+            store.rightPokemonState(),
+            store.teamsState(),
+            store.targetsState(),
+            store.targetMetaRegulation(),
+            store.simpleCalcLeftRollLevel(),
+            store.simpleCalcRightRollLevel(),
+            store.multiCalcRollLevel(),
+            store.manyVsTeamRollLevel()
+          )
+          writeGameData(gameData)
+        }
+      })
+
+      effect(() => {
+        if (store.updateLocalStorage()) {
+          writeTopLevel({ useSpsMode: store.useSpsMode() })
+        }
+      })
+
+      effect(() => {
+        if (store.updateLocalStorage()) {
+          writeCustomSets(store.customSetsState())
+        }
+      })
+    }
+  }))
+) {
+  private menuStore = inject(MenuStore)
+  private teamIsAttacker = computed(() => this.menuStore.oneVsManyActivated())
+
+  readonly opponentSource = signal<string>(MY_LIST_SOURCE)
+  readonly metaTargetsState = signal<TargetState[]>([])
+  readonly teamLayoutsState = signal<ReadonlyMap<string, TargetLayout[]>>(new Map())
+  readonly transientTeamsState = signal<TeamState[]>([])
+  readonly defaultSpsTeamIds = signal<ReadonlySet<string>>(new Set())
+
+  constructor() {
+    super()
+
+    this.restoreOpponentSource()
+
+    effect(() => {
+      if (this.updateLocalStorage()) {
+        writeGameData({ opponentSource: this.persistedOpponentSource() })
+      }
+    })
+  }
+
+  private restoreOpponentSource() {
+    const saved = readGameData()?.opponentSource
+
+    if (saved === META_SOURCE) {
+      this.selectOpponentSource(META_SOURCE)
+    } else if (typeof saved === "number" && this.teamsState()[saved]) {
+      this.selectOpponentSource(this.teamsState()[saved].id)
+    }
+  }
+
+  private persistedOpponentSource(): string | number {
+    const source = this.activeOpponentSource()
+    const teamIndex = this.teamsState().findIndex(team => team.id === source)
+
+    if (teamIndex >= 0) return teamIndex
+
+    return source === META_SOURCE ? META_SOURCE : MY_LIST_SOURCE
+  }
+
+  private readonly simpleCalcAddedTypeOffers = computed(() => simpleCalcAddedTypeOffers(this.leftPokemonState(), this.rightPokemonState()), { equal: sameAddedTypeOffers })
+
+  private readonly multiCalcOpponentStates = computed(() => {
+    const source = this.opponentSource()
+
+    if (source === META_SOURCE) return this.metaTargetsState().flatMap(targetPokemonStates)
+
+    const sourceTeam = [...this.teamsState(), ...this.transientTeamsState()].find(team => team.id === source && team.teamMembers.length > 0)
+
+    if (sourceTeam) return sourceTeam.teamMembers.map(member => member.pokemon)
+
+    return this.targetsState().flatMap(targetPokemonStates)
+  })
+
+  private readonly multiCalcAddedTypeOffers = computed(
+    () =>
+      multiCalcAddedTypeOffers({
+        team: (this.teamsState().find(t => t.active)?.teamMembers ?? []).map(member => member.pokemon),
+        opponents: this.multiCalcOpponentStates()
+      }),
+    { equal: sameAddedTypeOffers }
+  )
+
+  readonly leftPokemon = computed(() => stateToPokemon(this.leftPokemonState(), true, this.simpleCalcAddedTypeOffers().get(this.leftPokemonState().id)))
+  readonly rightPokemon = computed(() => stateToPokemon(this.rightPokemonState(), false, this.simpleCalcAddedTypeOffers().get(this.rightPokemonState().id)))
+  readonly team = computed(() =>
+    stateToTeam(
+      this.teamsState().find(t => t.active)!,
+      this.teamIsAttacker(),
+      this.multiCalcAddedTypeOffers()
+    )
+  )
+  readonly teams = computed(() => stateToTeams(this.teamsState(), this.teamIsAttacker(), this.multiCalcAddedTypeOffers()))
+  readonly activeTeamPasteUrl = computed(() => this.teamsState().find(t => t.active)!.pasteUrl)
+  readonly transientTeams = computed(() => stateToTeams(this.transientTeamsState(), this.teamIsAttacker(), this.multiCalcAddedTypeOffers()))
+  readonly opponentTeamOptions = computed(() => [...this.teams(), ...this.transientTeams()].filter(t => !t.isEmpty()))
+  readonly targets = computed(() => stateToTargets(this.targetsState(), !this.teamIsAttacker(), this.multiCalcAddedTypeOffers()))
+  readonly metaTargets = computed(() => stateToTargets(this.metaTargetsState(), !this.teamIsAttacker(), this.multiCalcAddedTypeOffers()))
+  readonly sourceTeam = computed(() => this.opponentTeamOptions().find(t => t.id === this.opponentSource()))
+  readonly activeOpponentSource = computed(() => {
+    const source = this.opponentSource()
+
+    if (source === META_SOURCE || this.sourceTeam()) return source
+
+    return MY_LIST_SOURCE
+  })
+  readonly isMyListSource = computed(() => this.activeOpponentSource() === MY_LIST_SOURCE)
+  readonly sourceHasDefaultSps = computed(() => this.defaultSpsTeamIds().has(this.activeOpponentSource()))
+
+  readonly displayedTargets = computed(() => {
+    const source = this.activeOpponentSource()
+
+    if (source === MY_LIST_SOURCE) return this.targets()
+    if (source === META_SOURCE) return this.metaTargets()
+
+    return this.sourceTeamTargets(this.sourceTeam()!)
+  })
+
+  private sourceTeamTargets(team: Team): Target[] {
+    const members = team.teamMembers.map(member => member.pokemon)
+    const byId = new Map(members.map(pokemon => [pokemon.id, pokemon]))
+    const layout = this.teamLayoutsState().get(team.id) ?? []
+    const laidOut = layout
+      .map(entry => [entry.pokemonId, entry.secondPokemonId].flatMap(id => (id && byId.has(id) ? [byId.get(id)!] : [])))
+      .filter(pokemons => pokemons.length > 0)
+      .map(([first, second]) => new Target(first, second))
+    const placedIds = new Set(laidOut.flatMap(target => target.pokemons().map(pokemon => pokemon.id)))
+    const remaining = members.filter(pokemon => !placedIds.has(pokemon.id)).map(pokemon => new Target(pokemon))
+
+    return [...laidOut, ...remaining]
+  }
+
+  readonly attackerId = computed(() => {
+    const activeMember = this.team().teamMembers.find(t => t.active && t.pokemon.id != this.secondAttackerId())
+    return activeMember ? activeMember.pokemon.id : ""
+  })
+
+  readonly combinedAttackers = computed<CombinedAttacker[]>(() => {
+    const secondAttackerId = this.secondAttackerId()
+
+    if (!secondAttackerId) return []
+
+    const attacker = this.findNullablePokemonById(this.attackerId())
+    const secondAttacker = this.findNullablePokemonById(secondAttackerId)
+
+    if (attacker == undefined || secondAttacker == undefined) return []
+
+    return [
+      { pokemonId: attacker.id, name: attacker.name },
+      { pokemonId: secondAttacker.id, name: secondAttacker.name }
+    ]
+  })
+
+  belongsToCombinedPair(pokemonId: string): boolean {
+    const secondAttackerId = this.secondAttackerId()
+
+    if (!secondAttackerId) return false
+
+    return pokemonId === secondAttackerId || pokemonId === this.attackerId()
+  }
+
+  private getTeamMemberAt(index: number): Pokemon | null {
+    const teamsState = this.teamsState()
+    const activeTeam = teamsState.find(t => t.active)
+    const memberState = activeTeam?.teamMembers[index]
+    return memberState ? stateToPokemon(memberState.pokemon, this.teamIsAttacker(), this.multiCalcAddedTypeOffers().get(memberState.pokemon.id)) : null
+  }
+
+  readonly teamMember0 = computed(() => this.getTeamMemberAt(0))
+  readonly teamMember1 = computed(() => this.getTeamMemberAt(1))
+  readonly teamMember2 = computed(() => this.getTeamMemberAt(2))
+  readonly teamMember3 = computed(() => this.getTeamMemberAt(3))
+  readonly teamMember4 = computed(() => this.getTeamMemberAt(4))
+  readonly teamMember5 = computed(() => this.getTeamMemberAt(5))
+
+  readonly customSetsByPokemon = computed(() => {
+    const map = new Map<string, CustomSet[]>()
+
+    for (const set of this.customSetsState()) {
+      const existing = map.get(set.basePokemonName) ?? []
+      map.set(set.basePokemonName, [...existing, set])
+    }
+
+    return map
+  })
+
+  addCustomSet(pokemonId: string, setName: string) {
+    const pokemonState = this.findPokemonStateById(pokemonId)
+    if (!pokemonState) return
+
+    const newSet: CustomSet = {
+      id: uuid(),
+      setName,
+      basePokemonName: pokemonState.name,
+      createdAt: Date.now(),
+      state: { ...pokemonState }
+    }
+
+    patchState(this, state => ({ customSetsState: [...state.customSetsState, newSet], activeSetId: newSet.id, activeSetPokemonId: pokemonId, isEditingCustomSet: true }))
+  }
+
+  removeCustomSet(setId: string) {
+    patchState(this, state => ({
+      customSetsState: state.customSetsState.filter(s => s.id !== setId),
+      activeSetId: state.activeSetId === setId ? null : state.activeSetId
+    }))
+  }
+
+  selectCustomSet(pokemonId: string, setId: string) {
+    const set = this.customSetsState().find(s => s.id === setId)
+    if (!set) return
+
+    this.updatePokemonById(pokemonId, () => ({ ...set.state, id: pokemonId }))
+    patchState(this, () => ({ activeSetId: null, activeSetPokemonId: null, activeSetDirty: false, isEditingCustomSet: false }))
+  }
+
+  enterCustomSetEditMode(pokemonId: string, setId: string) {
+    const set = this.customSetsState().find(s => s.id === setId)
+    if (!set) return
+
+    this.updatePokemonById(pokemonId, () => ({ ...set.state, id: pokemonId }))
+    patchState(this, () => ({ activeSetId: setId, activeSetPokemonId: pokemonId, activeSetDirty: false, isEditingCustomSet: true }))
+  }
+
+  exitCustomSetEditMode() {
+    const setId = this.activeSetId()
+    const pokemonId = this.activeSetPokemonId()
+
+    if (setId && pokemonId) {
+      const pokemonState = this.findPokemonStateById(pokemonId)
+
+      if (pokemonState) {
+        patchState(this, state => ({
+          customSetsState: state.customSetsState.map(s => (s.id === setId ? { ...s, state: { ...pokemonState } } : s)),
+          activeSetDirty: false
+        }))
+      }
+    }
+
+    patchState(this, () => ({ activeSetId: null, activeSetPokemonId: null, activeSetDirty: false, isEditingCustomSet: false }))
+  }
+
+  clearActiveSet() {
+    patchState(this, () => ({ activeSetId: null, activeSetPokemonId: null, activeSetDirty: false, isEditingCustomSet: false }))
+  }
+
+  updateActiveSet(setName: string) {
+    const setId = this.activeSetId()
+    const pokemonId = this.activeSetPokemonId()
+    if (!setId || !pokemonId) return
+
+    const pokemonState = this.findPokemonStateById(pokemonId)
+    if (!pokemonState) return
+
+    patchState(this, state => ({
+      customSetsState: state.customSetsState.map(s => (s.id === setId ? { ...s, setName, state: { ...pokemonState } } : s)),
+      activeSetDirty: false
+    }))
+  }
+
+  readonly activeSetHasChanges = computed(() => this.activeSetDirty())
+
+  updateActiveSetName(setName: string) {
+    const setId = this.activeSetId()
+    if (!setId) return
+
+    patchState(this, state => ({
+      customSetsState: state.customSetsState.map(s => (s.id === setId ? { ...s, setName } : s))
+    }))
+  }
+
+  duplicateCustomSet(setId: string) {
+    const original = this.customSetsState().find(s => s.id === setId)
+    if (!original) return
+
+    const copy: CustomSet = {
+      ...original,
+      id: uuid(),
+      setName: `${original.setName} (copy)`,
+      createdAt: Date.now()
+    }
+
+    patchState(this, state => ({ customSetsState: [...state.customSetsState, copy] }))
+  }
+
+  readonly duplicateItemPokemonIds = computed(() => {
+    const withoutItem = "(none)"
+    const eligible = this.team().teamMembers.filter(member => member.pokemon.item !== withoutItem)
+    const itemToIds = new Map<string, string[]>()
+
+    for (const member of eligible) {
+      const ids = itemToIds.get(member.pokemon.item) ?? []
+      ids.push(member.pokemon.id)
+      itemToIds.set(member.pokemon.item, ids)
+    }
+
+    const duplicates = new Set<string>()
+
+    for (const ids of itemToIds.values()) {
+      if (ids.length >= 2) {
+        ids.forEach(id => duplicates.add(id))
+      }
+    }
+
+    return duplicates
+  })
+
+  updateStateLockingLocalStorage(state: CalcState) {
+    patchState(this, () => ({ ...state, updateLocalStorage: false }))
+  }
+
+  name(pokemonId: string, name: string) {
+    this.updatePokemonById(pokemonId, () => ({ name, overrideTypes: undefined }))
+  }
+
+  status(pokemonId: string, status: string) {
+    this.updatePokemonById(pokemonId, pokemon => (status === Status.BADLY_POISON.description ? { status, toxicCounter: Math.max(pokemon.toxicCounter, 1) } : { status, toxicCounter: 1 }))
+  }
+
+  toxicCounter(pokemonId: string, toxicCounter: number) {
+    this.updatePokemonById(pokemonId, () => ({ toxicCounter }))
+  }
+
+  item(pokemonId: string, item: string) {
+    this.updatePokemonById(pokemonId, () => ({ item }))
+  }
+
+  nature(pokemonId: string, nature: string) {
+    this.updatePokemonById(pokemonId, () => ({ nature }))
+  }
+
+  ability(pokemonId: string, ability: string) {
+    this.updatePokemonById(pokemonId, () => ({ ability }))
+    this.higherStat(pokemonId, undefined)
+  }
+
+  abilityOn(pokemonId: string, abilityOn: boolean) {
+    this.updatePokemonById(pokemonId, () => ({ abilityOn }))
+  }
+
+  staminaOff(pokemonId: string, staminaOff: boolean) {
+    this.updatePokemonById(pokemonId, () => ({ staminaOff }))
+  }
+
+  baseFormAbility(pokemonId: string, baseFormAbility: string | undefined) {
+    this.updatePokemonById(pokemonId, () => ({ baseFormAbility }))
+  }
+
+  toggleProtosynthesis(enabled: boolean) {
+    this.enableAllByAbility("Protosynthesis", enabled)
+  }
+
+  toggleQuarkDrive(enabled: boolean) {
+    this.enableAllByAbility("Quark Drive", enabled)
+  }
+
+  toggleSpsMode() {
+    patchState(this, state => ({ useSpsMode: !state.useSpsMode }))
+  }
+
+  readonly seedItems = computed(() =>
+    this.allPokemon()
+      .map(pokemon => `${pokemon.id}:${pokemon.item}`)
+      .join("|")
+  )
+
+  syncTerrainSeeds(terrain: Terrain) {
+    this.allPokemon().forEach(pokemon => this.syncTerrainSeed(pokemon, terrain))
+  }
+
+  private syncTerrainSeed(pokemon: PokemonState, terrain: Terrain) {
+    const stat = seedBoostedStat(pokemon.item, terrain)
+    const applied = pokemon.seedBoostedStat as keyof Stats | undefined
+
+    if (applied === stat) return
+
+    if (applied) {
+      this.releaseSeedBoost(pokemon.id, applied)
+    }
+
+    if (stat) {
+      this.applySeedBoost(pokemon.id, stat)
+    }
+  }
+
+  private applySeedBoost(pokemonId: string, stat: keyof Stats) {
+    const boosts = this.findPokemonById(pokemonId).boosts
+
+    if (boosts[stat]! >= MAX_BOOST) return
+
+    this.boosts(pokemonId, { ...boosts, [stat]: boosts[stat]! + 1 })
+    this.updatePokemonById(pokemonId, () => ({ seedBoostedStat: stat }))
+  }
+
+  private releaseSeedBoost(pokemonId: string, stat: keyof Stats) {
+    const boosts = this.findPokemonById(pokemonId).boosts
+
+    if (boosts[stat]! > MIN_BOOST) {
+      this.boosts(pokemonId, { ...boosts, [stat]: boosts[stat]! - 1 })
+    }
+
+    this.updatePokemonById(pokemonId, () => ({ seedBoostedStat: undefined }))
+  }
+
+  private enableAllByAbility(abilityName: string, enabled: boolean) {
+    const hasAbility = this.allPokemon()
+      .filter(pokemon => pokemon.ability === abilityName)
+      .map(pokemon => pokemon.id)
+
+    hasAbility.forEach(id => {
+      this.updatePokemonById(id, () => ({ automaticAbilityOn: enabled }))
+    })
+  }
+
+  private allPokemon(): PokemonState[] {
+    const fromTeams = this.teamsState()
+      .flatMap(team => team.teamMembers)
+      .map(member => member.pokemon)
+
+    const fromTransientTeams = this.transientTeamsState()
+      .flatMap(team => team.teamMembers)
+      .map(member => member.pokemon)
+
+    const fromTarget = this.targetsState().map(target => target.pokemon)
+    const fromMeta = this.metaTargetsState().map(target => target.pokemon)
+
+    let allPokemon = [this.leftPokemonState(), this.rightPokemonState()]
+    allPokemon = allPokemon.concat(fromTeams)
+    allPokemon = allPokemon.concat(fromTransientTeams)
+    allPokemon = allPokemon.concat(fromTarget)
+    allPokemon = allPokemon.concat(fromMeta)
+
+    return allPokemon
+  }
+
+  commander(pokemonId: string, commanderActive: boolean) {
+    this.updatePokemonById(pokemonId, () => ({ commanderActive }))
+  }
+
+  toggleCommanderActive(pokemonId: string) {
+    const pokemon = this.findPokemonById(pokemonId)
+
+    if (pokemon.name != "Dondozo") return
+
+    const commanderActive = !pokemon.commanderActive
+    const boosts = commanderActive ? { atk: 2, def: 2, spa: 2, spd: 2, spe: 2 } : { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }
+    this.updatePokemonById(pokemonId, () => ({ commanderActive, boosts }))
+  }
+
+  teraType(pokemonId: string, teraType: string) {
+    this.updatePokemonById(pokemonId, () => ({ teraType }))
+  }
+
+  overrideTypes(pokemonId: string, overrideTypes?: string[]) {
+    this.updatePokemonById(pokemonId, () => ({ overrideTypes }))
+  }
+
+  typeAddingMove(pokemonId: string, typeAddingMove: string | undefined) {
+    if (typeAddingMove) {
+      this.clearOtherTypeAddingMoves(pokemonId)
+    }
+
+    this.updatePokemonById(pokemonId, () => ({ typeAddingMove }))
+  }
+
+  private clearOtherTypeAddingMoves(pokemonId: string) {
+    const simpleCalcStates = [this.leftPokemonState(), this.rightPokemonState()]
+    const sameScreenStates = simpleCalcStates.some(state => state.id === pokemonId) ? simpleCalcStates : this.multiCalcPokemonStates()
+
+    for (const state of sameScreenStates) {
+      if (state.id !== pokemonId && state.typeAddingMove) {
+        this.updatePokemonById(state.id, () => ({ typeAddingMove: undefined }))
+      }
+    }
+  }
+
+  private multiCalcPokemonStates(): PokemonState[] {
+    const teamStates = [...this.teamsState(), ...this.transientTeamsState()].flatMap(team => team.teamMembers.map(member => member.pokemon))
+
+    return [...teamStates, ...this.targetStates().flatMap(targetPokemonStates)]
+  }
+
+  addedTypeOn(pokemonId: string, addedTypeOn: boolean) {
+    this.updatePokemonById(pokemonId, () => ({ addedTypeOn }))
+  }
+
+  teraTypeActive(pokemonId: string, teraTypeActive: boolean) {
+    this.updatePokemonById(pokemonId, () => ({ teraTypeActive }))
+  }
+
+  hpPercentage(pokemonId: string, hpPercentage: number) {
+    this.updatePokemonById(pokemonId, () => ({ hpPercentage }))
+  }
+
+  higherStat(pokemonId: string, higherStat?: string) {
+    this.updatePokemonById(pokemonId, () => ({ higherStat }))
+  }
+
+  evs(pokemonId: string, evs: Partial<Stats>) {
+    this.updatePokemonById(pokemonId, () => ({ evs }))
+  }
+
+  ivs(pokemonId: string, ivs: Partial<Stats>) {
+    this.updatePokemonById(pokemonId, () => ({ ivs }))
+  }
+
+  boosts(pokemonId: string, boosts: Partial<Stats>) {
+    this.updatePokemonById(pokemonId, () => ({ boosts }))
+  }
+
+  bonusBoosts(pokemonId: string, bonusBoosts: Partial<Stats>) {
+    this.updatePokemonById(pokemonId, () => ({ bonusBoosts }))
+  }
+
+  bonusBoost(pokemonId: string, stat: keyof Stats, value: number) {
+    const pokemon = this.findPokemonById(pokemonId)
+    let actual = pokemon.boosts[stat]!
+    const bonusBoosts: Partial<Stats> = { [stat]: value }
+    const hasBonusBoost = pokemon.bonusBoosts[stat] != 0
+
+    if (value > 0 && actual <= 5) {
+      actual++
+      this.updatePokemonById(pokemonId, () => ({ bonusBoosts }))
+    }
+
+    if (value < 0 && actual >= -5 && hasBonusBoost) {
+      actual--
+      this.updatePokemonById(pokemonId, () => ({ bonusBoosts }))
+    }
+
+    this.boosts(pokemonId, { [stat]: actual })
+  }
+
+  moveOne(pokemonId: string, moveOne: string) {
+    this.updateMove(pokemonId, moveOne, 0)
+    this.activateMove(pokemonId, 0)
+  }
+
+  moveTwo(pokemonId: string, moveTwo: string) {
+    this.updateMove(pokemonId, moveTwo, 1)
+    this.activateMove(pokemonId, 1)
+  }
+
+  moveThree(pokemonId: string, moveThree: string) {
+    this.updateMove(pokemonId, moveThree, 2)
+    this.activateMove(pokemonId, 2)
+  }
+
+  moveFour(pokemonId: string, moveFour: string) {
+    this.updateMove(pokemonId, moveFour, 3)
+    this.activateMove(pokemonId, 3)
+  }
+
+  activateMove(pokemonId: string, index: number) {
+    this.updatePokemonById(pokemonId, () => ({ activeMove: index }))
+  }
+
+  activateMoveByPosition(pokemonId: string, position: number) {
+    const adjustedPosition = Math.min(position - 1, 3)
+    this.updatePokemonById(pokemonId, () => ({ activeMove: adjustedPosition }))
+  }
+
+  alliesFainted(pokemonId: string, alliesFainted: string, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], alliesFainted: alliesFainted })
+      return { moveSet: moveSet }
+    })
+  }
+
+  hits(pokemonId: string, hits: string, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], hits: hits })
+      return { moveSet: moveSet }
+    })
+  }
+
+  hitsTaken(pokemonId: string, hitsTaken: string, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], hitsTaken: hitsTaken })
+      return { moveSet: moveSet }
+    })
+  }
+
+  lastMoveFailed(pokemonId: string, lastMoveFailed: boolean, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], lastMoveFailed: lastMoveFailed })
+      return { moveSet: moveSet }
+    })
+  }
+
+  roundUsedBefore(pokemonId: string, roundUsedBefore: boolean, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], roundUsedBefore: roundUsedBefore })
+      return { moveSet: moveSet }
+    })
+  }
+
+  targetDamaged(pokemonId: string, targetDamaged: boolean, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], targetDamaged: targetDamaged })
+      return { moveSet: moveSet }
+    })
+  }
+
+  targetAlreadyMoved(pokemonId: string, targetAlreadyMoved: boolean, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], targetAlreadyMoved: targetAlreadyMoved })
+      return { moveSet: moveSet }
+    })
+  }
+
+  allyPledge(pokemonId: string, allyPledge: string, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], allyPledge: allyPledge })
+      return { moveSet: moveSet }
+    })
+  }
+
+  damagedByTarget(pokemonId: string, damagedByTarget: boolean, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], damagedByTarget: damagedByTarget })
+      return { moveSet: moveSet }
+    })
+  }
+
+  timesUsed(pokemonId: string, timesUsed: string, position: MovePosition) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      const arrayPosition = position - 1
+      moveSet.splice(arrayPosition, 1, { ...moveSet[arrayPosition], timesUsed: timesUsed })
+      return { moveSet: moveSet }
+    })
+  }
+
+  updateTeamMembersActive(active1: boolean, active2: boolean, active3: boolean, active4: boolean, active5: boolean, active6: boolean) {
+    const activeTeamIndex = this.activeTeamIndex()
+    const activeStates = [active1, active2, active3, active4, active5, active6]
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      const updatedTeamMembers = updatedTeams[activeTeamIndex].teamMembers.map((member, index) => ({
+        ...member,
+        active: activeStates[index]
+      }))
+
+      updatedTeams[activeTeamIndex] = { ...updatedTeams[activeTeamIndex], teamMembers: updatedTeamMembers }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  activateTeamMember(activatedIndex: number) {
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      const currentTeam = updatedTeams[activeTeamIndex]
+
+      if (currentTeam.teamMembers.length === 0) return { teamsState: updatedTeams }
+
+      if (activatedIndex < 0 || activatedIndex >= currentTeam.teamMembers.length) {
+        activatedIndex = 0
+      }
+
+      const updatedTeamMembers = currentTeam.teamMembers.map((member, index) => ({
+        ...member,
+        active: index === activatedIndex
+      }))
+
+      updatedTeams[activeTeamIndex] = { ...currentTeam, teamMembers: updatedTeamMembers }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  activateTeamMemberByPokemonId(pokemonId: string) {
+    const activeTeam = this.teamsState().find(t => t.active)!
+    const index = activeTeam.teamMembers.findIndex(m => m.pokemon.id === pokemonId)
+
+    if (index !== -1) {
+      this.activateTeamMember(index)
+    }
+  }
+
+  reorderTeamMembers(previousIndex: number, currentIndex: number) {
+    if (previousIndex === currentIndex) return
+
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      const currentTeam = updatedTeams[activeTeamIndex]
+      const members = currentTeam.teamMembers
+
+      if (previousIndex < 0 || previousIndex >= members.length) return { teamsState: updatedTeams }
+      if (currentIndex < 0 || currentIndex >= members.length) return { teamsState: updatedTeams }
+
+      const updatedTeamMembers = [...members]
+      const [moved] = updatedTeamMembers.splice(previousIndex, 1)
+      updatedTeamMembers.splice(currentIndex, 0, moved)
+
+      updatedTeams[activeTeamIndex] = { ...currentTeam, teamMembers: updatedTeamMembers, pasteUrl: undefined }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  addTeam(newTeam: Team) {
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      updatedTeams.push(this.teamToStateKeepingAbilityFlags(newTeam))
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  replaceTeam(newTeam: Team, teamId: string) {
+    const teamIndex = this.teamIndexWithId(teamId)
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      updatedTeams[teamIndex] = this.teamToStateKeepingAbilityFlags(newTeam)
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  replaceActiveTeam(newTeam: Team) {
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      updatedTeams[activeTeamIndex] = this.teamToStateKeepingAbilityFlags(newTeam)
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  private teamToStateKeepingAbilityFlags(team: Team): TeamState {
+    const teamState = teamToState(team)
+
+    return { ...teamState, teamMembers: teamState.teamMembers.map(member => ({ ...member, pokemon: this.keepAbilityFlags(member.pokemon) })) }
+  }
+
+  private keepAbilityFlags(pokemon: PokemonState): PokemonState {
+    const previous = this.findPokemonStateById(pokemon.id)
+
+    if (!previous || previous.ability !== pokemon.ability) return pokemon
+
+    return { ...pokemon, abilityOn: previous.abilityOn, automaticAbilityOn: previous.automaticAbilityOn, staminaOff: previous.staminaOff }
+  }
+
+  updateActiveTeamName(teamName: string) {
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+
+      const updatedTeam = { ...state.teamsState[activeTeamIndex], name: teamName, pasteUrl: undefined }
+      updatedTeams[activeTeamIndex] = updatedTeam
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  addTeamMember(pokemon: Pokemon) {
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      const currentTeam = updatedTeams[activeTeamIndex]
+      const updatedTeamMembers = [...currentTeam.teamMembers, { active: false, pokemon: pokemonToState(pokemon) }]
+
+      updatedTeams[activeTeamIndex] = { ...currentTeam, teamMembers: updatedTeamMembers, pasteUrl: undefined }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  addPokemonToTeam(pokemonName: string): string {
+    const pokemon = new Pokemon(pokemonName)
+    const shouldActivate = this.team().activePokemon() == undefined
+
+    this.addTeamMember(pokemon)
+    this.loadPokemonInfo(pokemon.id, pokemonName)
+
+    if (shouldActivate) {
+      this.activateTeamMemberByPokemonId(pokemon.id)
+    }
+
+    return pokemon.id
+  }
+
+  addPokemonToTargets(pokemonName: string): string {
+    const pokemon = new Pokemon(pokemonName)
+    const target = new Target(pokemon)
+
+    patchState(this, state => ({ targetsState: [...state.targetsState, targetToState(target)] }))
+    this.loadPokemonInfo(pokemon.id, pokemonName)
+
+    return pokemon.id
+  }
+
+  removeTeamMember(pokemonId: string) {
+    const activeTeamIndex = this.activeTeamIndex()
+
+    patchState(this, state => {
+      const updatedTeams = [...state.teamsState]
+      const currentTeam = updatedTeams[activeTeamIndex]
+      const updatedTeamMembers = currentTeam.teamMembers.filter(member => member.pokemon.id !== pokemonId)
+
+      updatedTeams[activeTeamIndex] = { ...currentTeam, teamMembers: updatedTeamMembers, pasteUrl: undefined }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  updateTeams(teams: Team[]) {
+    const pasteUrls = new Map(this.teamsState().map(t => [t.id, t.pasteUrl]))
+    const teamsState = teams.map(team => ({ ...this.teamToStateKeepingAbilityFlags(team), pasteUrl: pasteUrls.get(team.id) }))
+    patchState(this, () => ({ teamsState: teamsState }))
+  }
+
+  activateTeam(teamId: string) {
+    patchState(this, state => {
+      const updatedTeams = state.teamsState.map(t => ({ ...t, active: t.id == teamId }))
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  linkPasteToTeam(teamId: string, pasteUrl: string) {
+    patchState(this, state => ({ teamsState: state.teamsState.map(t => (t.id === teamId ? { ...t, pasteUrl } : t)) }))
+  }
+
+  updateSecondAttacker(pokemonId: string) {
+    patchState(this, () => ({ secondAttackerId: pokemonId }))
+  }
+
+  updateSimpleCalcLeftRollLevel(simpleCalcLeftRollLevel: string) {
+    patchState(this, () => ({ simpleCalcLeftRollLevel }))
+  }
+
+  updateSimpleCalcRightRollLevel(simpleCalcRightRollLevel: string) {
+    patchState(this, () => ({ simpleCalcRightRollLevel }))
+  }
+
+  updateMultiCalcRollLevel(multiCalcRollLevel: string) {
+    patchState(this, () => ({ multiCalcRollLevel }))
+  }
+
+  updateManyVsTeamRollLevel(manyVsTeamRollLevel: string) {
+    patchState(this, () => ({ manyVsTeamRollLevel }))
+  }
+
+  removeAllTargets() {
+    patchState(this, () => ({ targetsState: [] }))
+  }
+
+  updateTargets(targets: Target[]) {
+    const targetsState = targets.map(target => this.targetToStateKeepingAbilityFlags(target))
+    patchState(this, () => ({ targetsState: targetsState }))
+  }
+
+  private targetToStateKeepingAbilityFlags(target: Target): TargetState {
+    const targetState = targetToState(target)
+
+    return { pokemon: this.keepAbilityFlags(targetState.pokemon), secondPokemon: targetState.secondPokemon && this.keepAbilityFlags(targetState.secondPokemon) }
+  }
+
+  selectOpponentSource(source: string) {
+    if (source === META_SOURCE && this.metaTargetsState().length === 0) {
+      const metaPokemon = pokemonByRegulation("MC", META_QUANTITY, MOVESETS, false)
+      this.metaTargetsState.set(metaPokemon.map(pokemon => this.targetToStateKeepingAbilityFlags(new Target(pokemon))))
+    }
+
+    this.opponentSource.set(source)
+  }
+
+  updateDisplayedTargets(targets: Target[]) {
+    const source = this.activeOpponentSource()
+
+    if (source === MY_LIST_SOURCE) {
+      this.updateTargets(targets)
+    } else if (source === META_SOURCE) {
+      this.metaTargetsState.set(targets.map(target => this.targetToStateKeepingAbilityFlags(target)))
+    } else {
+      const layout = targets.map(target => ({ pokemonId: target.pokemon.id, secondPokemonId: target.secondPokemon?.id }))
+      this.teamLayoutsState.update(layouts => new Map(layouts).set(source, layout))
+    }
+  }
+
+  isDisplayedOpponent(pokemonId: string): boolean {
+    return this.displayedTargets().some(target => target.pokemon.id === pokemonId || target.secondPokemon?.id === pokemonId)
+  }
+
+  addTransientTeam(team: Team, defaultSpsLoaded: boolean) {
+    this.transientTeamsState.update(teams => [...teams, this.teamToStateKeepingAbilityFlags(team)])
+
+    if (defaultSpsLoaded) {
+      this.defaultSpsTeamIds.update(ids => new Set([...ids, team.id]))
+    }
+  }
+
+  changeLeftPokemon(pokemon: Pokemon) {
+    patchState(this, () => ({ leftPokemonState: pokemonToState(pokemon) }))
+  }
+
+  changeRightPokemon(pokemon: Pokemon) {
+    patchState(this, () => ({ rightPokemonState: pokemonToState(pokemon) }))
+  }
+
+  changePokemon(pokemonId: string, pokemon: Pokemon) {
+    this.updatePokemonById(pokemonId, () => {
+      const state = pokemonToState(pokemon)
+      return { ...state, id: pokemonId }
+    })
+  }
+
+  findPokemonById(pokemonId: string): Pokemon {
+    return this.findNullablePokemonById(pokemonId)!
+  }
+
+  findNullablePokemonById(pokemonId: string): Pokemon | undefined {
+    if (this.leftPokemonState().id == pokemonId) return this.leftPokemon()
+
+    if (this.rightPokemonState().id == pokemonId) return this.rightPokemon()
+
+    const offer = this.multiCalcAddedTypeOffers().get(pokemonId)
+
+    const pokemonFromTeam = this.teamsState()
+      .find(team => team.teamMembers.some(member => member.pokemon.id === pokemonId))
+      ?.teamMembers.find(member => member.pokemon.id === pokemonId)?.pokemon
+
+    if (pokemonFromTeam) return stateToPokemon(pokemonFromTeam, this.teamIsAttacker(), offer)
+
+    const pokemonFromTransientTeam = this.transientTeamPokemonState(pokemonId)
+
+    if (pokemonFromTransientTeam) return stateToPokemon(pokemonFromTransientTeam, this.teamIsAttacker(), offer)
+
+    const pokemonFromTargets = this.targetPokemonState(pokemonId)
+
+    return pokemonFromTargets ? stateToPokemon(pokemonFromTargets, !this.teamIsAttacker(), offer) : undefined
+  }
+
+  addedTypeOffer(pokemonId: string): AddedTypeOffer | undefined {
+    return this.simpleCalcAddedTypeOffers().get(pokemonId) ?? this.multiCalcAddedTypeOffers().get(pokemonId)
+  }
+
+  private targetPokemonState(pokemonId: string): PokemonState | undefined {
+    const target = this.targetStates().find(target => target.pokemon.id === pokemonId || target.secondPokemon?.id === pokemonId)
+
+    if (!target) return undefined
+
+    return target.pokemon.id === pokemonId ? target.pokemon : target.secondPokemon
+  }
+
+  private targetStates(): TargetState[] {
+    return [...this.targetsState(), ...this.metaTargetsState()]
+  }
+
+  private transientTeamPokemonState(pokemonId: string): PokemonState | undefined {
+    return this.transientTeamsState()
+      .flatMap(t => t.teamMembers)
+      .find(m => m.pokemon.id === pokemonId)?.pokemon
+  }
+
+  findCombinedAllyById(pokemonId: string): Pokemon | undefined {
+    const attackerAlly = this.findCombinedAttackerAllyById(pokemonId)
+
+    if (attackerAlly) return attackerAlly
+
+    const pair = this.displayedTargets().find(target => target.secondPokemon && (target.pokemon.id === pokemonId || target.secondPokemon.id === pokemonId))
+
+    if (!pair) return undefined
+
+    return pair.pokemon.id === pokemonId ? pair.secondPokemon : pair.pokemon
+  }
+
+  private findCombinedAttackerAllyById(pokemonId: string): Pokemon | undefined {
+    if (!this.belongsToCombinedPair(pokemonId)) return undefined
+
+    const secondAttackerId = this.secondAttackerId()
+    const allyId = pokemonId === secondAttackerId ? this.attackerId() : secondAttackerId
+
+    return this.findNullablePokemonById(allyId)
+  }
+
+  buildUserData() {
+    return buildUserData(
+      this.leftPokemonState(),
+      this.rightPokemonState(),
+      this.teamsState(),
+      this.targetsState(),
+      this.targetMetaRegulation(),
+      this.simpleCalcLeftRollLevel(),
+      this.simpleCalcRightRollLevel(),
+      this.multiCalcRollLevel(),
+      this.manyVsTeamRollLevel()
+    )
+  }
+
+  updateMove(pokemonId: string, move: string, index: number) {
+    this.updatePokemonById(pokemonId, state => {
+      const moveSet = [...state.moveSet]
+      moveSet.splice(index, 1, { name: move })
+      return { moveSet: moveSet }
+    })
+  }
+
+  loadPokemonInfo(pokemonId: string, pokemonName: string) {
+    if (this.activeSetPokemonId() === pokemonId) {
+      this.clearActiveSet()
+    }
+
+    const poke = getMoveset(pokemonName)
+
+    this.overrideTypes(pokemonId, undefined)
+
+    if (poke) {
+      this.name(pokemonId, pokemonName)
+      this.nature(pokemonId, poke?.nature)
+      this.item(pokemonId, poke.items[0])
+      this.ability(pokemonId, poke.ability)
+      this.teraType(pokemonId, poke.teraType)
+      this.teraTypeActive(pokemonId, false)
+      const evs = { hp: spToEv(poke.sps.hp), atk: spToEv(poke.sps.atk), def: spToEv(poke.sps.def), spa: spToEv(poke.sps.spa), spd: spToEv(poke.sps.spd), spe: spToEv(poke.sps.spe) }
+      this.evs(pokemonId, evs)
+      this.moveOne(pokemonId, poke.moves[0])
+      this.moveTwo(pokemonId, poke.moves[1])
+      this.moveThree(pokemonId, poke.moves[2])
+      this.moveFour(pokemonId, poke.moves[3])
+      this.activateMoveByPosition(pokemonId, 1)
+    }
+
+    this.higherStat(pokemonId, undefined)
+    this.commander(pokemonId, false)
+    this.hpPercentage(pokemonId, 100)
+    this.adjustBoosts(pokemonId, pokemonName)
+  }
+
+  private adjustBoosts(pokemonId: string, pokemonName: string) {
+    this.updatePokemonById(pokemonId, () => ({ seedBoostedStat: undefined }))
+
+    if (pokemonName.startsWith("Zacian")) {
+      this.boosts(pokemonId, { atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+      return
+    }
+
+    if (pokemonName.startsWith("Zamazenta")) {
+      this.boosts(pokemonId, { atk: 0, def: 1, spa: 0, spd: 0, spe: 0 })
+      return
+    }
+
+    this.boosts(pokemonId, { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+  }
+
+  private activeTeamIndex(): number {
+    return this.teamsState().findIndex(team => team.active)
+  }
+
+  private teamIndexWithId(teamId: string): number {
+    return this.teamsState().findIndex(team => team.id == teamId)
+  }
+
+  private teamIndexWithPokemon(pokemonId: string): number {
+    return this.teamsState().findIndex(team => team.teamMembers.some(member => member.pokemon.id == pokemonId))
+  }
+
+  private teamMemberIndexWithPokemon(pokemonId: string, index: number): number {
+    const activeTeam = this.teamsState()[index]
+    return activeTeam.teamMembers.findIndex(member => member.pokemon.id == pokemonId)
+  }
+
+  findPokemonStateById(pokemonId: string): PokemonState | undefined {
+    if (this.leftPokemonState().id === pokemonId) return this.leftPokemonState()
+    if (this.rightPokemonState().id === pokemonId) return this.rightPokemonState()
+
+    const fromTeam = this.teamsState()
+      .flatMap(t => t.teamMembers)
+      .find(m => m.pokemon.id === pokemonId)
+
+    if (fromTeam) return fromTeam.pokemon
+
+    const fromTransientTeam = this.transientTeamPokemonState(pokemonId)
+
+    if (fromTransientTeam) return fromTransientTeam
+
+    return this.targetPokemonState(pokemonId)
+  }
+
+  private updatePokemonById(pokemonId: string, updateFn: (pokemon: PokemonState) => Partial<PokemonState>) {
+    if (this.activeSetPokemonId() === pokemonId && this.activeSetId()) {
+      patchState(this, () => ({ activeSetDirty: true }))
+    }
+
+    const activeTeamIndex = this.teamIndexWithPokemon(pokemonId)
+
+    if (this.leftPokemonState().id == pokemonId) {
+      this.updateLeftPokemon(updateFn)
+    } else if (this.rightPokemonState().id == pokemonId) {
+      this.updateRightPokemon(updateFn)
+    } else if (activeTeamIndex != -1) {
+      this.updateTeamMember(pokemonId, activeTeamIndex, updateFn)
+    } else if (this.transientTeamPokemonState(pokemonId)) {
+      this.updateTransientTeamMember(pokemonId, updateFn)
+    } else if (this.metaTargetsState().some(target => target.pokemon.id === pokemonId || target.secondPokemon?.id === pokemonId)) {
+      this.metaTargetsState.update(targets => updatedTargetStates(targets, pokemonId, updateFn))
+    } else {
+      patchState(this, state => ({ targetsState: updatedTargetStates(state.targetsState, pokemonId, updateFn) }))
+    }
+  }
+
+  private updateLeftPokemon(updateFn: (pokemon: PokemonState) => Partial<PokemonState>) {
+    patchState(this, state => {
+      const updatedPokemon = { ...state.leftPokemonState, ...updateFn(state.leftPokemonState) }
+      return { leftPokemonState: updatedPokemon }
+    })
+  }
+
+  private updateRightPokemon(updateFn: (pokemon: PokemonState) => Partial<PokemonState>) {
+    patchState(this, state => {
+      const updatedPokemon = { ...state.rightPokemonState, ...updateFn(state.rightPokemonState) }
+      return { rightPokemonState: updatedPokemon }
+    })
+  }
+
+  private updateTeamMember(pokemonId: string, activeTeamIndex: number, updateFn: (pokemon: PokemonState) => Partial<PokemonState>) {
+    patchState(this, state => {
+      const activeTeamMemberIndex = this.teamMemberIndexWithPokemon(pokemonId, activeTeamIndex)
+      const updatedTeams = [...state.teamsState]
+
+      const updatedTeamMembers = [...updatedTeams[activeTeamIndex].teamMembers]
+      const currentPokemon = updatedTeamMembers[activeTeamMemberIndex].pokemon
+      const changes = updateFn(currentPokemon)
+      const updatedPokemon = { ...currentPokemon, ...changes }
+      const currentTeam = updatedTeams[activeTeamIndex]
+
+      updatedTeamMembers[activeTeamMemberIndex] = { ...updatedTeamMembers[activeTeamMemberIndex], pokemon: updatedPokemon }
+      updatedTeams[activeTeamIndex] = { ...currentTeam, teamMembers: updatedTeamMembers, pasteUrl: changesPaste(currentPokemon, changes) ? undefined : currentTeam.pasteUrl }
+
+      return { teamsState: updatedTeams }
+    })
+  }
+
+  private updateTransientTeamMember(pokemonId: string, updateFn: (pokemon: PokemonState) => Partial<PokemonState>) {
+    this.transientTeamsState.update(teams =>
+      teams.map(team => ({
+        ...team,
+        teamMembers: team.teamMembers.map(member => (member.pokemon.id === pokemonId ? { ...member, pokemon: { ...member.pokemon, ...updateFn(member.pokemon) } } : member))
+      }))
+    )
+  }
+}
+
+function updatedTargetStates(targets: TargetState[], pokemonId: string, updateFn: (pokemon: PokemonState) => Partial<PokemonState>): TargetState[] {
+  const index = targets.findIndex(target => target.pokemon.id == pokemonId || target.secondPokemon?.id == pokemonId)
+  const updatedTargets = [...targets]
+  const target = updatedTargets[index]
+
+  const key = target.pokemon.id === pokemonId ? "pokemon" : "secondPokemon"
+  const currentPokemon = target[key]!
+
+  const updatedPokemon = { ...currentPokemon, ...updateFn(currentPokemon) }
+  updatedTargets[index] = { ...target, [key]: updatedPokemon }
+
+  return updatedTargets
+}
+
+function targetPokemonStates(target: TargetState): PokemonState[] {
+  return target.secondPokemon ? [target.pokemon, target.secondPokemon] : [target.pokemon]
+}
+
+function changesPaste(pokemon: PokemonState, changes: Partial<PokemonState>): boolean {
+  if (PASTE_FIELDS.some(field => field in changes)) return true
+
+  return changes.moveSet !== undefined && changes.moveSet.some((move, index) => move.name !== pokemon.moveSet[index].name)
+}

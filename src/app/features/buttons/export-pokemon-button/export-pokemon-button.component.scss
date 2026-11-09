@@ -1,0 +1,17 @@
+.export-pokemon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: fit-content;
+}
+
+.export-pokemon:hover > * {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

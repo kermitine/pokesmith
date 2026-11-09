@@ -1,0 +1,39 @@
+<app-team
+  #teamComponent
+  class="team"
+  [pokemonId]="pokemonOnEditId()"
+  [isAttacker]="menuStore.oneVsManyActivated()"
+  [addTargetMode]="addingTarget()"
+  [optimizedEvs]="optimizedEvs()"
+  [optimizedNature]="optimizedNature()"
+  [optimizationStatus]="optimizationStatus()"
+  [optimizationKoChance]="optimizationKoChance()"
+  [optimizationImpossible]="optimizationImpossible()"
+  [optimizationCoverage]="optimizationCoverage()"
+  [optimizationCosts]="optimizationCosts()"
+  [combinedAttackers]="combinedAttackers()"
+  (teamMemberSelected)="updatePokemonOnEditId($event)"
+  (targetAddedByName)="onTargetAddedByName($event)"
+  (targetAddedByCustomSet)="onTargetAddedByCustomSet($event)"
+  [optimizerSuccessChance]="optimizerSuccessChance()"
+  (optimizerSuccessChanceChange)="changeOptimizerSuccessChance($event)"
+  (optimizeRequested)="handleOptimizeRequest($event)"
+  (offensiveOptimizeRequested)="handleOffensiveOptimizeRequest($event)"
+  (optimizationApplied)="handleOptimizationApplied()"
+  (optimizationDiscarded)="handleOptimizationDiscarded()" />
+
+<app-teams-desktop (pokemonSelected)="updatePokemonOnEditId($event)" />
+<app-field />
+
+<app-target-pokemon
+  class="target-pokemon"
+  [damageResults]="damageResults()"
+  [isAttacker]="menuStore.manyVsOneActivated()"
+  [addingTarget]="addingTarget()"
+  [rollLocked]="rollLocked()"
+  (targetActivated)="targetActivated($event)"
+  (addTargetRequested)="startAddingTarget()"
+  (targetRemoved)="onTargetRemoved()"
+  (targetsImported)="targetsImported()"
+  (bestMoveForTargetsToggled)="bestMoveForTargetsToggled()"
+  (opponentSourceSelected)="bestMoveForTargetsToggled()" />

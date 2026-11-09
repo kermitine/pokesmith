@@ -1,0 +1,9 @@
+:host {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-lg);
+}
+
+.input-select {
+  width: 100%;
+}

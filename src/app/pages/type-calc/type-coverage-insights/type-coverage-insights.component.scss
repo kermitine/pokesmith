@@ -1,0 +1,321 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+:host ::ng-deep app-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+:host ::ng-deep app-widget .container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+:host ::ng-deep app-widget .header {
+  flex-shrink: 0;
+  min-height: 2em;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  :host,
+  :host ::ng-deep app-widget,
+  :host ::ng-deep app-widget .container {
+    height: auto;
+    min-height: auto;
+  }
+}
+
+.mobile-widgets-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.insights-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3xl);
+  padding: var(--space-sm) 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  align-content: start;
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+}
+
+.insights-container::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 0.0625em;
+  background-color: var(--text);
+  opacity: 0.3;
+  transform: translateX(-50%);
+  pointer-events: none;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+.insight-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.section-title {
+  color: var(--text);
+  margin: 0;
+}
+
+.offensive-content {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: repeat(4, auto);
+  gap: var(--space-md);
+  align-items: center;
+
+  @media (max-width: 768px) {
+    gap: var(--space-sm);
+  }
+}
+
+.defensive-content {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: repeat(4, auto);
+  gap: var(--space-md);
+  align-items: center;
+
+  @media (max-width: 768px) {
+    gap: var(--space-sm);
+  }
+}
+
+.pokemon-row-1 {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.pokemon-row-2 {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+.pokemon-row-3 {
+  grid-row: 3;
+  grid-column: 1;
+}
+
+.pokemon-row-4 {
+  grid-row: 4;
+  grid-column: 1;
+}
+
+.summary-resistance,
+.summary-super-effective {
+  grid-row: 1 / 3;
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.summary-weakness,
+.summary-not-very-effective {
+  grid-row: 3 / 5;
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.defensive-separator-line {
+  grid-column: 1 / 3;
+  grid-row: 3;
+  height: 1px;
+  background-color: var(--widget-border);
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+@media (max-width: 768px) {
+  .pokemon-row-3 {
+    grid-row: 4;
+  }
+  .pokemon-row-4 {
+    grid-row: 5;
+  }
+  .summary-weakness,
+  .summary-not-very-effective {
+    grid-row: 4 / 6;
+  }
+}
+
+.most-super-effective-type,
+.most-not-very-effective-type,
+.most-resistance-type,
+.most-weakness-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 10em;
+  max-width: 13.75em;
+  align-self: center;
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  background-color: var(--highlight);
+
+  @media (max-width: 768px) {
+    min-width: 8.5em;
+    padding: var(--space-md);
+  }
+}
+
+:host ::ng-deep .most-super-effective-type app-type-combo-box .container,
+:host ::ng-deep .most-not-very-effective-type app-type-combo-box .container,
+:host ::ng-deep .most-resistance-type app-type-combo-box .container,
+:host ::ng-deep .most-weakness-type app-type-combo-box .container {
+  width: 100%;
+  justify-content: center;
+}
+
+:host ::ng-deep .most-super-effective-type app-type-combo-box .pokemon-type,
+:host ::ng-deep .most-not-very-effective-type app-type-combo-box .pokemon-type,
+:host ::ng-deep .most-resistance-type app-type-combo-box .pokemon-type,
+:host ::ng-deep .most-weakness-type app-type-combo-box .pokemon-type {
+  width: auto;
+  min-width: 4.375em;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.super-effective-label,
+.not-very-effective-label,
+.resistance-label,
+.weakness-label {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pokemon-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.pokemon-insight-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  transition: all 0.2s ease;
+  border: 0.125em solid transparent;
+  flex-shrink: 0;
+}
+
+.pokemon-insight-card:hover {
+  background-color: var(--surface-hover);
+}
+
+.explanation-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 1;
+}
+
+.explanation {
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.explanation-immune {
+  color: var(--text);
+}
+
+.pokemon-insight-card.super-effective {
+  border-color: color-mix(in srgb, var(--heat-good) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-good) 15%, transparent);
+}
+
+.pokemon-insight-card.not-very-effective {
+  border-color: color-mix(in srgb, var(--heat-warn) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-warn) 15%, transparent);
+}
+
+.pokemon-insight-card.not-very-effective-3plus {
+  border-color: color-mix(in srgb, var(--heat-bad) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-bad) 15%, transparent);
+}
+
+.pokemon-insight-card.resist {
+  border-color: color-mix(in srgb, var(--heat-good) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-good) 15%, transparent);
+}
+
+.pokemon-insight-card.weak {
+  border-color: color-mix(in srgb, var(--heat-bad) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-bad) 15%, transparent);
+}
+
+.pokemon-insight-card.weak-all-covered {
+  border-color: color-mix(in srgb, var(--heat-warn) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-warn) 15%, transparent);
+}
+
+.pokemon-insight-card.immune {
+  border-color: color-mix(in srgb, var(--heat-good) 60%, transparent);
+  background-color: color-mix(in srgb, var(--heat-good) 15%, transparent);
+}
+
+.pokemon-icon {
+  width: 4em;
+  height: auto;
+  display: block;
+
+  @media (max-width: 768px) {
+    width: 3.5em;
+  }
+}
+
+.empty-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-2xl) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xl);
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.question-icon {
+  width: 4em;
+  height: auto;
+}

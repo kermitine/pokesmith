@@ -1,0 +1,1053 @@
+import { NoopScrollStrategy } from "@angular/cdk/overlay"
+import { spsToEvs } from "@multicalc/utils"
+import { afterNextRender, Component, computed, effect, ElementRef, inject, Injector, OnDestroy, signal, ViewChild } from "@angular/core"
+import { CdkDragDrop, CdkDragMove, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop"
+import { ScrollingModule } from "@angular/cdk/scrolling"
+import { MatButton } from "@angular/material/button"
+import { MatDialog } from "@angular/material/dialog"
+import { MatSlideToggle } from "@angular/material/slide-toggle"
+import { InputAutocompleteComponent } from "@shared/input-autocomplete/input-autocomplete.component"
+import { InputSelectComponent } from "@shared/input-select/input-select.component"
+import { STAT_MODIFIERS } from "@shared/input-select/stat-modifiers"
+import { WidgetComponent } from "@shared/widget/widget.component"
+import { CalcStore, META_SOURCE, MY_LIST_SOURCE } from "@store/calc-store"
+import { CustomSet } from "@store/custom-set"
+import { pokemonToState } from "@store/utils/state-mapper"
+import { setsMatch } from "@store/utils/sets-match"
+import { FieldStore } from "@store/field-store"
+import { FIELD_CONTEXT } from "@store/tokens/field-context.token"
+import { MenuStore } from "@store/menu-store"
+import { RollConfigComponent } from "@features/roll-config/roll-config.component"
+import { AutomaticFieldService } from "@store/automatic-field/automatic-field-service"
+import { DamageResult, MultiCalcMode, RollLevelConfig } from "@multicalc/damage-calc"
+import { KoThreshold, OffensiveSpProposal, OptimizationStatus, SurvivalThreshold, TargetCoverage } from "@multicalc/sp-optimizer"
+import { OptimizationCost } from "@features/pokemon-build/sp-optimizer/sp-optimizer"
+import { Stats } from "@multicalc/types"
+import { TeamExportModalComponent } from "@features/modals/export-modal/export-modal.component"
+import { ExportPokeService } from "@store/user-data/export-poke.service"
+import { PokemonBuildMobileComponent } from "@features/pokemon-build/pokemon-build-mobile/pokemon-build-mobile.component"
+import { acceptsRisk, GUARANTEED_SUCCESS, parseSuccessChance } from "@features/pokemon-build/utils/success-chance"
+import { PokemonSpriteComponent } from "@features/pokemon-sprite/pokemon-sprite.component"
+import { ImportPokemonButtonComponent } from "@features/buttons/import-pokemon-button/import-pokemon-button.component"
+import { SaveSetButtonComponent } from "@features/buttons/save-set-button/save-set-button.component"
+import { PokemonCardComponent } from "@pages/multi-calc/pokemon-card/pokemon-card.component"
+import { FieldComponent } from "@features/field/field.component"
+import { Pokemon, Target } from "@multicalc/model"
+import { SELECT_POKEMON_LABEL } from "@store/utils/select-pokemon-label"
+import { BackNavigationService } from "@app/services/back-navigation.service"
+import { HeaderVisibilityService } from "@app/services/header-visibility.service"
+import { AddPokemonCardComponent } from "@pages/multi-calc/add-pokemon-card/add-pokemon-card.component"
+import { KoColumnsComponent } from "@pages/multi-calc/ko-columns/ko-columns.component"
+import { MULTI_CALC_VIEW_OPTIONS } from "@pages/multi-calc/ko-columns/multi-calc-view-options"
+import { SegmentedControlComponent } from "@shared/segmented-control/segmented-control.component"
+import { MultiCalcService } from "@pages/multi-calc/multi-calc.service"
+import { TeamTabsMobileComponent } from "@features/team/team-tabs-mobile/team-tabs-mobile.component"
+import { TeamsMobileComponent } from "@features/team/teams-mobile/teams-mobile.component"
+import { MobileCreationFlowService } from "@features/team/creation-flow/mobile-creation-flow.service"
+import { ExportPokemonButtonComponent } from "@features/buttons/export-pokemon-button/export-pokemon-button.component"
+import { MobileTableOverlayComponent } from "@features/pokemon-build/tables/mobile-table-overlay/mobile-table-overlay.component"
+import { MobileTableOverlayService } from "@features/pokemon-build/tables/mobile-table-overlay/mobile-table-overlay.service"
+import { MobileBuildEditingService } from "@features/pokemon-build/mobile-build-editing/mobile-build-editing.service"
+import { SpriteService } from "@app/services/sprite.service"
+import { DamageResultOrderService } from "@app/services/damage-result-order.service"
+import { CalcTab } from "@shared/mobile-calc-shell/calc-tab"
+import { MobileCalcShellComponent } from "@shared/mobile-calc-shell/mobile-calc-shell.component"
+import { PokemonSearchInputComponent } from "@shared/pokemon-search-input/pokemon-search-input.component"
+import { CloseTableButtonComponent } from "@shared/close-table-button/close-table-button.component"
+
+const SCROLL_DIRECTION_THRESHOLD = 8
+const SCROLL_TOP_ZONE = 50
+const SCROLL_REACTION_SUPPRESSION_MS = 400
+
+type MultiCalcTab = "results" | "teams" | "field"
+
+@Component({
+  selector: "app-multi-calc-mobile",
+  templateUrl: "./multi-calc-mobile.component.html",
+  styleUrls: ["./multi-calc-mobile.component.scss"],
+  host: { "[class.header-hidden]": "headerVisibility.hidden()" },
+  imports: [
+    MobileCalcShellComponent,
+    PokemonSearchInputComponent,
+    CloseTableButtonComponent,
+    CdkDropList,
+    CdkDropListGroup,
+    PokemonBuildMobileComponent,
+    PokemonSpriteComponent,
+    TeamsMobileComponent,
+    PokemonCardComponent,
+    FieldComponent,
+    AddPokemonCardComponent,
+    KoColumnsComponent,
+    SegmentedControlComponent,
+    TeamTabsMobileComponent,
+    MatButton,
+    ImportPokemonButtonComponent,
+    SaveSetButtonComponent,
+    ExportPokemonButtonComponent,
+    MobileTableOverlayComponent,
+    InputAutocompleteComponent,
+    InputSelectComponent,
+    MatSlideToggle,
+    RollConfigComponent,
+    WidgetComponent,
+    ScrollingModule
+  ],
+  providers: [FieldStore, AutomaticFieldService, DamageResultOrderService, MobileTableOverlayService, MobileBuildEditingService, MobileCreationFlowService, { provide: FIELD_CONTEXT, useValue: "multi" }]
+})
+export class MultiCalcMobileComponent implements OnDestroy {
+  @ViewChild("scrollContainer") scrollContainer?: ElementRef<HTMLDivElement>
+  @ViewChild("pokemonInput") pokemonInput?: PokemonSearchInputComponent
+  @ViewChild("itemInput") itemInput?: PokemonSearchInputComponent
+  store = inject(CalcStore)
+  menuStore = inject(MenuStore)
+  fieldStore = inject(FieldStore)
+  overlay = inject(MobileTableOverlayService)
+  readonly buildEditing = inject(MobileBuildEditingService)
+  creationFlow = inject(MobileCreationFlowService)
+  spriteService = inject(SpriteService)
+
+  private damageOrder = inject(DamageResultOrderService)
+  private automaticFieldService = inject(AutomaticFieldService)
+  private multiCalcService = inject(MultiCalcService)
+  private exportPokeService = inject(ExportPokeService)
+  private dialog = inject(MatDialog)
+  private backNavigation = inject(BackNavigationService)
+  headerVisibility = inject(HeaderVisibilityService)
+  private injector = inject(Injector)
+
+  constructor() {
+    this.buildEditing.track({
+      editingId: () => this.effectiveEditingId(),
+      moveIndex: () => this.editingMoveIndex(),
+      pokemonInput: () => this.pokemonInput,
+      itemInput: () => this.itemInput,
+      pokemonSelected: name => this.onPokemonSelected(name)
+    })
+
+    this.damageOrder.initialize(this.countTargetsWithSpecificCalc())
+
+    this.backNavigation.register({
+      tab: () => this.activeBottomTab.set(this.homeTab),
+      overlay: () => this.overlay.closeWithoutHistory(),
+      creation: step => this.cancelCreation(step.originTab),
+      exhausted: () => this.activeBottomTab.set(this.homeTab)
+    })
+    this.creationFlow.trackEditingId(this.effectiveEditingId)
+
+    effect(() => {
+      const level = this.menuStore.manyVsOneActivated() ? this.store.manyVsTeamRollLevel() : this.store.multiCalcRollLevel()
+      this.rollLevelConfig.set(RollLevelConfig.fromConfigString(level))
+    })
+
+    effect(() => {
+      this.menuStore.oneVsManyActivated()
+      this.menuStore.manyVsOneActivated()
+
+      this.activeBottomTab.set("results")
+
+      if (this.scrollContainer) {
+        this.scrollContainer.nativeElement.scrollTo({ top: 0, behavior: "instant" })
+      }
+    })
+
+    effect(() => {
+      const attacker = this.activeAttacker()
+      const secondAttacker = this.secondAttacker()
+
+      if (!attacker) return
+
+      const { firstChanged, secondChanged } = this.automaticFieldService.handlePokemonChange(attacker, secondAttacker)
+
+      if (firstChanged || secondChanged) {
+        if (this.bestMoveForTargetsEnabled()) {
+          this.activateBestMoveForAllTargets(this.store.displayedTargets(), attacker)
+        }
+      }
+    })
+
+    if (this.bestMoveForTargetsEnabled()) {
+      this.activateBestMoveForAllTargets(this.store.displayedTargets(), this.activeAttacker())
+    }
+  }
+
+  toggleManyVsOneBestMove() {
+    this.menuStore.toggleManyVsOneBestMove()
+    this.bestMoveForTargetsToggled()
+  }
+
+  private bestMoveForTargetsToggled() {
+    if (this.bestMoveForTargetsEnabled()) {
+      this.activateBestMoveForAllTargets(this.store.displayedTargets(), this.activeAttacker())
+    }
+  }
+
+  private activateBestMoveForAllTargets(targets: Target[], attacker: Pokemon | null) {
+    if (!attacker) return
+
+    const assignments = this.multiCalcService.withOpponents(targets, this.fieldStore.field()).bestMoveIndexForTargets(attacker)
+
+    assignments.forEach(({ targetId, moveIndex }) => {
+      this.store.activateMove(targetId, moveIndex)
+    })
+  }
+
+  activeBottomTab = signal<MultiCalcTab>("results")
+
+  readonly tabs: CalcTab<MultiCalcTab>[] = [
+    { id: "results", label: "Results", icon: "fact_check" },
+    { id: "teams", label: "Teams", icon: "pokeball", svgIcon: true },
+    { id: "field", label: "Modifiers", icon: "exposure" }
+  ]
+
+  readonly homeTab = this.tabs[0].id
+
+  onTabSelected(tab: string) {
+    this.switchTab(tab as MultiCalcTab)
+  }
+
+  showBottomNav = signal(true)
+  movesStuck = signal(false)
+  spsScrolledPast = signal(false)
+  private lastScrollTop = 0
+  private suppressScrollReactionUntil = 0
+  pokemonOnEditId = signal<string | null>(null)
+  addingPokemon = this.creationFlow.adding
+  addingTarget = signal<boolean>(false)
+
+  expandedDefenderIds = signal<Set<string>>(new Set())
+
+  effectiveEditingId = computed(() => this.pokemonOnEditId() || this.activePokemonId())
+
+  editingPokemon = computed(() => {
+    const id = this.effectiveEditingId()
+    return id ? this.store.findNullablePokemonById(id) : undefined
+  })
+
+  editingPokemonName = computed(() => {
+    if (this.isAddMode()) return SELECT_POKEMON_LABEL
+
+    return this.editingPokemon()?.name ?? ""
+  })
+
+  isAddMode = computed(() => {
+    return this.addingTarget() || this.addingPokemon() || this.editingPokemon() == undefined
+  })
+
+  overlayPokemonId = computed(() => (this.addingTarget() ? "" : this.creationFlow.overlayPokemonId()))
+
+  hidingContentForAdd = this.creationFlow.hidingContent
+  editingPokemonItem = computed(() => this.editingPokemon()?.item ?? "")
+  editingMoveIndex = computed(() => Math.max(0, this.editingPokemon()?.activeMoveIndex ?? 0))
+
+  rollLevelConfig = signal(RollLevelConfig.fromConfigString(this.store.multiCalcRollLevel()))
+
+  optimizerSuccessChance = signal(GUARANTEED_SUCCESS)
+
+  rollLocked = computed(() => acceptsRisk(this.optimizerSuccessChance()))
+
+  readonly viewOptions = MULTI_CALC_VIEW_OPTIONS
+
+  optimizationStatus = signal<OptimizationStatus | "idle">("idle")
+  optimizationImpossible = signal<boolean>(false)
+  optimizationKoChance = signal<number | null>(null)
+  optimizationCoverage = signal<TargetCoverage | null>(null)
+  optimizedEvs = signal<Stats | null>(null)
+  optimizedNature = signal<string | null>(null)
+  private originalEvs = signal<Stats>({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+  private originalNature = signal<string>("")
+  private partnerOriginalSpread = signal<{ pokemonId: string; sps: Stats; nature: string } | null>(null)
+  private partnerOptimizedSps = signal<Stats | null>(null)
+
+  optimizationCosts = computed<OptimizationCost[]>(() => {
+    const optimized = this.optimizedEvs()
+
+    if (optimized === null) return []
+
+    const attacker = this.store.findNullablePokemonById(this.effectiveEditingId()!)
+
+    if (attacker == undefined) return []
+
+    const costs: OptimizationCost[] = [{ pokemonId: attacker.id, name: attacker.name, sps: optimized, originalSps: this.originalEvs() }]
+
+    const partnerOriginal = this.partnerOriginalSpread()
+    const partnerOptimized = this.partnerOptimizedSps()
+
+    if (partnerOriginal === null || partnerOptimized === null) return costs
+
+    const partner = this.store.findNullablePokemonById(partnerOriginal.pokemonId)
+
+    if (partner == undefined) return costs
+
+    return [...costs, { pokemonId: partner.id, name: partner.name, sps: partnerOptimized, originalSps: partnerOriginal.sps }]
+  })
+
+  activeAttacker = computed(() => {
+    const id = this.activePokemonId()
+    return id ? this.store.findPokemonById(id) : null
+  })
+
+  secondAttacker = computed(() => {
+    const id = this.store.secondAttackerId()
+    return id ? this.store.findPokemonById(id) : undefined
+  })
+
+  combinedAttackers = this.store.combinedAttackers
+
+  multiCalcMode = computed<MultiCalcMode>(() => ({
+    oneVsManyActivated: this.menuStore.oneVsManyActivated(),
+    manyVsOneActivated: this.menuStore.manyVsOneActivated(),
+    oneVsManyBestMoveActivated: this.menuStore.oneVsManyBestMoveActivated()
+  }))
+  targetsWithSpecificCalc = computed(() => this.countTargetsWithSpecificCalc())
+
+  private countTargetsWithSpecificCalc(): number {
+    const targets = this.store.displayedTargets()
+    const withTera = targets.filter(t => t.pokemon.teraTypeActive).length
+    const withCommander = targets.filter(t => t.pokemon.commanderActive).length
+    return withTera + withCommander
+  }
+
+  private multiCalc = computed(() => this.multiCalcService.withOpponents(this.store.displayedTargets(), this.fieldStore.field()))
+
+  private bestMoveForTargetsEnabled = computed(() => this.menuStore.manyVsOneActivated() && this.menuStore.manyVsOneBestMoveActivated())
+
+  damageResults = computed(() => {
+    const attacker = this.activeAttacker()
+
+    if (!attacker) return []
+
+    const results = this.calculateResults(attacker)
+
+    return this.menuStore.orderByDamage() ? this.damageOrder.order(results, this.targetsWithSpecificCalc(), this.multiCalcMode()) : results
+  })
+
+  private calculateResults(attacker: Pokemon) {
+    if (this.menuStore.manyVsOneActivated()) {
+      return this.multiCalc().damageDefending(attacker, this.store.useSpsMode())
+    }
+
+    return this.multiCalc().damageAttacking(attacker, { bestMove: this.menuStore.oneVsManyBestMoveActivated(), useSpsMode: this.store.useSpsMode() }, this.secondAttacker())
+  }
+
+  cardsFilter = signal("")
+  setFilter = signal("")
+
+  private isAttacker = computed(() => this.menuStore.manyVsOneActivated())
+
+  readonly statModifiers = STAT_MODIFIERS
+
+  physicalBoost = signal("0")
+  specialBoost = signal("0")
+
+  readonly physicalBoostStat = computed<keyof Stats>(() => (this.isAttacker() ? "atk" : "def"))
+  readonly specialBoostStat = computed<keyof Stats>(() => (this.isAttacker() ? "spa" : "spd"))
+
+  readonly physicalBoostLabel = computed(() => (this.isAttacker() ? "Atk" : "Def"))
+  readonly specialBoostLabel = computed(() => (this.isAttacker() ? "SpA" : "SpD"))
+
+  applyBoostToOpponents(stat: keyof Stats, value: string) {
+    const boost = parseInt(value)
+
+    this.store
+      .displayedTargets()
+      .flatMap(target => target.pokemons())
+      .forEach(pokemon => this.store.boosts(pokemon.id, { ...pokemon.boosts, [stat]: boost }))
+  }
+
+  private cardPokemons(result: DamageResult): Pokemon[] {
+    if (this.isAttacker()) {
+      return result.secondAttacker ? [result.attacker, result.secondAttacker] : [result.attacker]
+    }
+
+    return [result.defender]
+  }
+
+  readonly setNameByPokemonId = computed(() => {
+    const customSets = this.store.customSetsByPokemon()
+    const map = new Map<string, string>()
+
+    for (const result of this.damageResults()) {
+      for (const pokemon of this.cardPokemons(result)) {
+        const sets = customSets.get(pokemon.name) ?? []
+        const state = pokemonToState(pokemon)
+        const matched = sets.find(s => setsMatch(s.state, state))
+
+        if (matched) {
+          map.set(pokemon.id, `${pokemon.name} - ${matched.setName}`)
+        }
+      }
+    }
+
+    return map
+  })
+
+  readonly availableSetNames = computed(() => [...new Set(this.setNameByPokemonId().values())].sort())
+
+  readonly opponentSourceOptions = computed(() => [{ key: "My List", value: MY_LIST_SOURCE }, { key: "Meta", value: META_SOURCE }, ...this.store.opponentTeamOptions().map(t => ({ key: t.name, value: t.id }))])
+
+  selectOpponentSource(source: string) {
+    this.activateTeamMember()
+    this.store.selectOpponentSource(source)
+    this.bestMoveForTargetsToggled()
+  }
+
+  readonly targetPokemonNames = computed(() => {
+    const names = this.damageResults().flatMap(result => (this.isAttacker() ? [result.attacker.name, result.secondAttacker?.name] : [result.defender.name]))
+
+    return [...new Set(names.filter((name): name is string => !!name))].sort()
+  })
+
+  filteredDamageResults = computed(() => {
+    const filter = this.cardsFilter().toLocaleLowerCase()
+    const setFilter = this.setFilter()
+
+    let results = this.damageResults()
+
+    if (filter) {
+      if (this.isAttacker()) {
+        results = results.filter(result => result.attacker.name.toLocaleLowerCase().includes(filter) || result.secondAttacker?.name.toLocaleLowerCase().includes(filter))
+      } else {
+        results = results.filter(result => result.defender.name.toLocaleLowerCase().includes(filter))
+      }
+    }
+
+    if (setFilter) {
+      const normalizedSetFilter = setFilter.toLocaleLowerCase()
+      const setNameById = this.setNameByPokemonId()
+      results = results.filter(result =>
+        this.cardPokemons(result).some(pokemon => {
+          const setName = setNameById.get(pokemon.id)
+
+          return setName != undefined && setName.toLocaleLowerCase().includes(normalizedSetFilter)
+        })
+      )
+    }
+
+    return results
+  })
+
+  readonly anyFilterActive = computed(() => this.cardsFilter() !== "" || this.setFilter() !== "")
+
+  readonly canAddTarget = computed(() => this.store.isMyListSource() && !this.anyFilterActive())
+
+  updateCardsFilter(event: string) {
+    this.cardsFilter.set(event)
+  }
+
+  clearCardsFilter() {
+    this.cardsFilter.set("")
+  }
+
+  updateSetFilter(event: string) {
+    this.setFilter.set(event)
+  }
+
+  clearSetFilter() {
+    this.setFilter.set("")
+  }
+
+  teamMembers = computed(() => this.store.team().teamMembers)
+
+  hasNoTeamPokemon = this.creationFlow.hasNoTeamPokemon
+
+  teamMemberOnEdit = computed(() => {
+    const editId = this.effectiveEditingId()
+
+    if (!editId) return false
+
+    return this.teamMembers().some(m => m.pokemon.id === editId) || this.store.secondAttackerId() === editId
+  })
+
+  isEditingTarget = computed(() => {
+    const editId = this.effectiveEditingId()
+
+    if (!editId) return false
+
+    return this.store.isDisplayedOpponent(editId) && !this.teamMemberOnEdit()
+  })
+
+  canImportPokemon = computed(() => this.isEditingTarget() || !this.store.team().isFull())
+
+  activePokemonId = computed(() => {
+    const members = this.store.team().teamMembers
+    if (members.length === 0) return null
+
+    const secondAttackerId = this.store.secondAttackerId()
+    const activeMember = members.find(m => m.active && m.pokemon.id !== secondAttackerId)
+
+    return activeMember ? activeMember.pokemon.id : members[0].pokemon.id
+  })
+
+  shouldShowBuild = computed(() => {
+    if (this.addingTarget() || this.addingPokemon()) return false
+
+    const editId = this.effectiveEditingId()
+    if (!editId) return false
+
+    return this.store.findNullablePokemonById(editId) !== undefined
+  })
+
+  shouldShowPokemonSelect = computed(() => {
+    return (this.addingTarget() || this.addingPokemon()) && this.teamMemberOnEdit()
+  })
+
+  selectPokemonActive = computed(() => {
+    return this.addingTarget()
+  })
+
+  removeAll() {
+    this.activateTeamMember()
+    this.store.removeAllTargets()
+  }
+
+  onTargetsImported(pokemon: Pokemon | Pokemon[]) {
+    const pokemonList = Array.isArray(pokemon) ? pokemon : [pokemon]
+
+    const allTargets = pokemonList.reduce((targets, p) => this.multiCalcService.addMember(targets, p), this.store.targets())
+
+    this.store.updateTargets(allTargets)
+
+    if (this.bestMoveForTargetsEnabled()) {
+      this.activateBestMoveForAllTargets(allTargets, this.activeAttacker())
+    }
+  }
+
+  exportPokemon() {
+    const pokemon = this.store.displayedTargets().flatMap(t => t.pokemons())
+    const shouldUseSps = this.store.useSpsMode()
+    this.exportPokeService.export("Opponent Pokémon", pokemon, shouldUseSps)
+  }
+
+  exportCalcs() {
+    const content = this.damageResults()
+      .map(r => r.description)
+      .join("\n\n")
+
+    this.dialog.open(TeamExportModalComponent, {
+      data: { title: "Calc Results", content },
+      width: "40em",
+      position: { top: "2em" },
+      autoFocus: false,
+      scrollStrategy: new NoopScrollStrategy()
+    })
+  }
+
+  onTargetRemoved() {
+    this.activateTeamMember()
+  }
+
+  private activateTeamMember() {
+    const team = this.store.team()
+    const activeId = team.activePokemon()?.id ?? team.teamMembers[0]?.pokemon.id ?? null
+
+    this.pokemonOnEditId.set(activeId)
+  }
+
+  handleOptimizeRequest(event: { updateNature: boolean; keepOffensiveSps: boolean; survivalThreshold: number }) {
+    const defender = this.store.findPokemonById(this.effectiveEditingId()!)
+    const targets = this.store.displayedTargets()
+    const field = this.fieldStore.field()
+
+    if (targets.length === 0) return
+
+    this.originalEvs.set({ ...defender.sps })
+    this.originalNature.set(defender.nature)
+    this.partnerOriginalSpread.set(null)
+    this.partnerOptimizedSps.set(null)
+
+    const rollIndex = this.rollLevelConfig().toRollIndex()
+    const result = this.multiCalcService.optimizeDefensiveSps(defender, targets, field, event.updateNature, event.keepOffensiveSps, event.survivalThreshold as SurvivalThreshold, rollIndex, parseSuccessChance(this.optimizerSuccessChance()))
+
+    this.optimizedNature.set(result.nature)
+    this.optimizationCoverage.set(result.coverage)
+    this.optimizationImpossible.set(result.status === "impossible")
+    this.optimizationStatus.set(result.status === "impossible" ? "idle" : result.status)
+    this.optimizationKoChance.set(result.status === "best-effort" ? result.koChance : null)
+
+    if (result.status === "success" || result.status === "best-effort") {
+      this.store.evs(defender.id, spsToEvs(result.sps))
+      this.optimizedEvs.set(result.sps)
+
+      if (result.nature) {
+        this.store.nature(defender.id, result.nature)
+      }
+    } else {
+      this.optimizedEvs.set(null)
+    }
+  }
+
+  handleOffensiveOptimizeRequest(event: { koThreshold: KoThreshold; keepOtherSps: boolean; updateNature: boolean; partnerKeepOtherSps: boolean; partnerUpdateNature: boolean }) {
+    const attacker = this.store.findPokemonById(this.effectiveEditingId()!)
+    const targets = this.store.displayedTargets()
+
+    if (targets.length === 0) return
+
+    this.originalEvs.set({ ...attacker.sps })
+    this.originalNature.set(attacker.nature)
+
+    const rollIndex = this.rollLevelConfig().toRollIndex()
+    const secondAttacker = this.store.findNullablePokemonById(this.store.secondAttackerId())
+    const result = this.multiCalcService.optimizeOffensiveSps(
+      attacker,
+      targets,
+      this.fieldStore.field(),
+      event.koThreshold,
+      rollIndex,
+      event.keepOtherSps,
+      event.updateNature,
+      secondAttacker ? { pokemon: secondAttacker, keepOtherSps: event.partnerKeepOtherSps, updateNature: event.partnerUpdateNature } : undefined,
+      parseSuccessChance(this.optimizerSuccessChance())
+    )
+
+    this.optimizationKoChance.set(result.status === "best-effort" ? result.koChance : null)
+    this.optimizationCoverage.set(result.coverage)
+    this.optimizationImpossible.set(result.status === "impossible")
+    this.optimizationStatus.set(result.status === "impossible" ? "idle" : result.status)
+
+    const proposal = result.proposals.find(candidate => candidate.pokemonId === attacker.id)
+
+    if ((result.status === "success" || result.status === "best-effort") && proposal) {
+      const sps = proposal.sps
+      this.store.evs(attacker.id, spsToEvs(sps))
+      this.optimizedEvs.set(sps)
+      this.optimizedNature.set(proposal.nature)
+
+      if (proposal.nature) {
+        this.store.nature(attacker.id, proposal.nature)
+      }
+
+      this.applyPartnerProposal(result.proposals, attacker.id)
+    } else {
+      this.optimizedEvs.set(null)
+      this.optimizedNature.set(null)
+    }
+  }
+
+  private applyPartnerProposal(proposals: OffensiveSpProposal[], attackerId: string) {
+    const partnerProposal = proposals.find(candidate => candidate.pokemonId !== attackerId)
+
+    if (!partnerProposal) return
+
+    const partner = this.store.findNullablePokemonById(partnerProposal.pokemonId)
+
+    if (partner == undefined) return
+
+    this.partnerOriginalSpread.set({ pokemonId: partner.id, sps: { ...partner.sps }, nature: partner.nature })
+    this.partnerOptimizedSps.set(partnerProposal.sps)
+
+    this.store.evs(partner.id, spsToEvs(partnerProposal.sps))
+
+    if (partnerProposal.nature) {
+      this.store.nature(partner.id, partnerProposal.nature)
+    }
+  }
+
+  handleOptimizationApplied() {
+    this.optimizedEvs.set(null)
+    this.optimizedNature.set(null)
+    this.optimizationStatus.set("idle")
+    this.optimizationImpossible.set(false)
+    this.optimizationCoverage.set(null)
+    this.partnerOriginalSpread.set(null)
+    this.partnerOptimizedSps.set(null)
+  }
+
+  handleOptimizationDiscarded() {
+    if (this.optimizationStatus() !== "idle") {
+      this.store.evs(this.effectiveEditingId()!, spsToEvs(this.originalEvs()))
+      this.store.nature(this.effectiveEditingId()!, this.originalNature())
+      this.restorePartnerSpread()
+    }
+
+    this.optimizedEvs.set(null)
+    this.optimizedNature.set(null)
+    this.optimizationStatus.set("idle")
+    this.optimizationImpossible.set(false)
+    this.optimizationCoverage.set(null)
+    this.partnerOriginalSpread.set(null)
+    this.partnerOptimizedSps.set(null)
+  }
+
+  private restorePartnerSpread() {
+    const partner = this.partnerOriginalSpread()
+
+    if (partner == null) return
+
+    this.store.evs(partner.pokemonId, spsToEvs(partner.sps))
+    this.store.nature(partner.pokemonId, partner.nature)
+  }
+
+  onPokemonSelected(name: string) {
+    if (this.addingTarget()) {
+      const newId = this.store.addPokemonToTargets(name)
+      this.addingTarget.set(false)
+      this.overlay.close()
+      this.pokemonInput?.blur()
+      this.scrollToOpponentCard(newId)
+
+      return
+    }
+
+    if (this.creationFlow.isCreating()) {
+      this.pokemonOnEditId.set(this.creationFlow.commit(name))
+      this.overlay.close()
+      this.pokemonInput?.blur()
+
+      return
+    }
+
+    const id = this.effectiveEditingId()
+    if (!id) return
+    this.store.loadPokemonInfo(id, name)
+    this.overlay.close()
+    this.pokemonInput?.blur()
+  }
+
+  onClosePokemonTable() {
+    if (this.creationFlow.startedFromAnotherTab()) {
+      this.pokemonInput?.blur()
+      this.backNavigation.pop()
+      this.cancelCreation(this.creationFlow.currentOrigin())
+
+      return
+    }
+
+    this.overlay.close()
+
+    if (this.addingTarget() || this.creationFlow.isCreating()) {
+      this.addingTarget.set(false)
+      this.creationFlow.cancel()
+      this.activateTeamMember()
+    }
+
+    this.pokemonInput?.setValue(this.editingPokemonName())
+
+    this.pokemonInput?.blur()
+  }
+
+  onHeaderImport(pokemon: Pokemon | Pokemon[]) {
+    const singlePokemon = Array.isArray(pokemon) ? pokemon[0] : pokemon
+
+    if (!singlePokemon) return
+
+    const id = this.effectiveEditingId()
+    if (!id) return
+
+    if (this.isEditingTarget()) {
+      const targets = this.store.displayedTargets().map(t => {
+        if (t.pokemon.id === id) return new Target(singlePokemon, t.secondPokemon)
+        if (t.secondPokemon?.id === id) return new Target(t.pokemon, singlePokemon)
+        return t
+      })
+      this.store.updateDisplayedTargets(targets)
+    } else {
+      this.store.replaceActiveTeam(this.store.team().addMember(singlePokemon))
+      this.addingPokemon.set(false)
+      this.pokemonOnEditId.set(singlePokemon.id)
+    }
+  }
+
+  onCustomSetSelected(set: CustomSet) {
+    if (this.addingTarget()) {
+      const newId = this.store.addPokemonToTargets(set.basePokemonName)
+      this.addingTarget.set(false)
+      this.store.selectCustomSet(newId, set.id)
+      this.scrollToOpponentCard(newId)
+
+      return
+    }
+
+    if (!this.creationFlow.isCreating()) return
+
+    this.pokemonOnEditId.set(this.creationFlow.commitCustomSet(set))
+  }
+
+  onCustomSetEditRequested(set: CustomSet) {
+    const id = this.effectiveEditingId()
+    if (!id) return
+
+    this.store.enterCustomSetEditMode(id, set.id)
+    this.overlay.close()
+  }
+
+  addPokemonToTargets() {
+    this.addingTarget.set(true)
+    this.overlay.open("pokemon")
+  }
+
+  private scrollToOpponentCard(pokemonId: string) {
+    afterNextRender(
+      () => {
+        const container = this.scrollContainer?.nativeElement
+
+        if (!container) return
+
+        const card = container.querySelector<HTMLElement>(`[data-pokemon-id="${pokemonId}"]`)
+
+        if (!card) return
+
+        const cardBounds = card.getBoundingClientRect()
+        const containerBounds = container.getBoundingClientRect()
+        const offset = cardBounds.top - containerBounds.top + container.scrollTop
+        const targetTop = offset - (container.clientHeight - cardBounds.height) / 2
+
+        container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" })
+      },
+      { injector: this.injector }
+    )
+  }
+
+  drop(event: CdkDragDrop<string, any>) {
+    const { previousContainer, container, distance } = event
+    const movedDistance = Math.abs(distance.x) + Math.abs(distance.y)
+
+    if (movedDistance < 80) return
+
+    if (previousContainer.data != container.data) {
+      const target = this.findTarget(container.data)
+
+      if (target.secondPokemon) return
+
+      const activeIndex = this.findTargetIndex(previousContainer.data)
+      const targets = this.store.displayedTargets()
+      const active = targets[activeIndex]
+
+      target.secondPokemon = active.pokemon
+
+      const newTargets = [...targets.slice(0, activeIndex), ...targets.slice(activeIndex + 1)]
+      this.store.updateDisplayedTargets(newTargets)
+    }
+  }
+
+  separateAttackers(pokemonId: string) {
+    const newTargets = this.multiCalcService.separateAttackers(this.store.displayedTargets(), pokemonId)
+    this.store.updateDisplayedTargets(newTargets)
+  }
+
+  private findTarget(pokemonId: string): Target {
+    return this.store.displayedTargets().find(t => t.pokemon.id == pokemonId || t.secondPokemon?.id == pokemonId)!
+  }
+
+  private findTargetIndex(pokemonId: string): number {
+    return this.store.displayedTargets().findIndex(t => t.pokemon.id == pokemonId || t.secondPokemon?.id == pokemonId)
+  }
+
+  activateOpponent(pokemonId: string) {
+    const targets = this.store.displayedTargets()
+    const index = targets.findIndex(t => t.pokemon.id === pokemonId || t.secondPokemon?.id === pokemonId)
+
+    if (index !== -1) {
+      const targetToMove = targets[index]
+      const newTargets = [targetToMove, ...targets.filter((_, i) => i !== index)]
+      this.store.updateDisplayedTargets(newTargets)
+    }
+
+    this.pokemonOnEditId.set(pokemonId)
+
+    setTimeout(() => {
+      if (this.scrollContainer) {
+        this.scrollContainer.nativeElement.scrollTo({ top: 0, behavior: "smooth" })
+      }
+    }, 150)
+  }
+
+  ngOnDestroy() {
+    this.backNavigation.unregister()
+    this.headerVisibility.reset()
+  }
+
+  switchTab(newTab: MultiCalcTab) {
+    const currentTab = this.activeBottomTab()
+    if (currentTab === newTab) return
+
+    this.activeBottomTab.set(newTab)
+    this.showBottomNav.set(true)
+
+    if (newTab === "teams") {
+      this.creationFlow.enterTeamsTab()
+    }
+
+    if (newTab === this.homeTab) {
+      this.backNavigation.pop()
+    } else if (currentTab === this.homeTab) {
+      this.backNavigation.push({ kind: "tab", tab: newTab })
+    }
+  }
+
+  private cancelCreation(originTab: string | null) {
+    this.overlay.closeWithoutHistory()
+    this.creationFlow.cancel()
+    this.activeBottomTab.set((originTab ?? this.homeTab) as MultiCalcTab)
+  }
+
+  onTeamSelected(pokemonId: string) {
+    this.pokemonOnEditId.set(pokemonId)
+
+    if (pokemonId) {
+      this.switchTab("results")
+
+      return
+    }
+
+    this.creationFlow.start(this.activeBottomTab())
+    this.activeBottomTab.set("results")
+    this.showBottomNav.set(true)
+    setTimeout(() => this.overlay.openWithoutHistory("pokemon"))
+  }
+
+  handleExpansionToggle(defenderId: string, isExpanded: boolean) {
+    this.expandedDefenderIds.update(ids => {
+      const next = new Set(ids)
+      if (isExpanded) {
+        next.add(defenderId)
+      } else {
+        next.delete(defenderId)
+      }
+      return next
+    })
+  }
+
+  getExpansionKey(result: DamageResult): string {
+    return this.menuStore.oneVsManyActivated() ? result.defender.id : result.attacker.id
+  }
+
+  changeOptimizerSuccessChance(successChance: string) {
+    this.optimizerSuccessChance.set(successChance)
+
+    if (!this.rollLocked()) return
+
+    this.rollLevelConfig.set(RollLevelConfig.high())
+    this.store.updateManyVsTeamRollLevel(RollLevelConfig.high().toConfigString())
+    this.store.updateMultiCalcRollLevel(RollLevelConfig.high().toConfigString())
+  }
+
+  handleRollLevelChange(rollLevel: RollLevelConfig) {
+    this.rollLevelConfig.set(rollLevel)
+
+    if (this.menuStore.manyVsOneActivated()) {
+      this.store.updateManyVsTeamRollLevel(rollLevel.toConfigString())
+    } else {
+      this.store.updateMultiCalcRollLevel(rollLevel.toConfigString())
+    }
+  }
+
+  focusPokemonComboBox() {
+    this.overlay.open("pokemon")
+  }
+
+  onEditingPokemonChanged(pokemonId: string | null) {
+    this.pokemonOnEditId.set(pokemonId)
+    this.suppressScrollReactionUntil = Date.now() + SCROLL_REACTION_SUPPRESSION_MS
+  }
+
+  onScroll(event: Event) {
+    const target = event.target as HTMLElement
+    const currentScroll = target.scrollTop
+
+    this.updateMovesStuck()
+
+    const delta = currentScroll - this.lastScrollTop
+
+    this.lastScrollTop = currentScroll
+
+    if (currentScroll <= SCROLL_TOP_ZONE) {
+      this.showBottomNav.set(true)
+      this.headerVisibility.show()
+
+      return
+    }
+
+    if (Date.now() < this.suppressScrollReactionUntil) return
+
+    if (Math.abs(delta) < SCROLL_DIRECTION_THRESHOLD) return
+
+    if (delta > 0) {
+      this.showBottomNav.set(false)
+      this.headerVisibility.hide()
+    } else if (delta < 0) {
+      this.showBottomNav.set(true)
+      this.headerVisibility.show()
+    }
+  }
+
+  private updateMovesStuck() {
+    const moves = this.scrollContainer?.nativeElement.querySelector("app-pokemon-moves-mobile.sticky")
+
+    if (!moves) {
+      this.movesStuck.set(false)
+      this.spsScrolledPast.set(false)
+
+      return
+    }
+
+    const container = this.scrollContainer!.nativeElement
+    const stickyTop = parseFloat(getComputedStyle(moves).top) || 0
+    const containerPadding = parseFloat(getComputedStyle(container).paddingTop) || 0
+    const sps = container.querySelector("app-pokemon-build-mobile .sps")
+
+    this.movesStuck.set(moves.getBoundingClientRect().top <= container.getBoundingClientRect().top + containerPadding + stickyTop + 1)
+    this.spsScrolledPast.set(!!sps && sps.getBoundingClientRect().bottom <= moves.getBoundingClientRect().bottom)
+  }
+
+  handleDragStarted() {
+    this.cancelScroll()
+  }
+
+  handleDragMoved(event: CdkDragMove) {
+    const scrollContainer = this.scrollContainer?.nativeElement
+
+    if (!scrollContainer) return
+
+    const pointerY = event.pointerPosition.y
+    const containerRect = scrollContainer.getBoundingClientRect()
+    const threshold = 120
+
+    const distFromTop = pointerY - containerRect.top
+    const distFromBottom = containerRect.bottom - pointerY
+
+    if (distFromTop < threshold) {
+      const intensity = (threshold - distFromTop) / threshold
+      this.scrollVelocity = -Math.pow(intensity, 1.5) * 20
+      this.requestScroll()
+    } else if (distFromBottom < threshold) {
+      const intensity = (threshold - distFromBottom) / threshold
+      this.scrollVelocity = Math.pow(intensity, 1.5) * 20
+      this.requestScroll()
+    } else {
+      this.cancelScroll()
+    }
+  }
+
+  handleDragEnded() {
+    this.cancelScroll()
+  }
+
+  private scrollFrame: number | null = null
+  private scrollVelocity = 0
+
+  private requestScroll() {
+    if (this.scrollFrame !== null) return
+
+    const step = () => {
+      const container = this.scrollContainer?.nativeElement
+
+      if (container && this.scrollVelocity !== 0) {
+        container.scrollBy({ top: this.scrollVelocity, behavior: "auto" })
+        this.scrollFrame = requestAnimationFrame(step)
+      } else {
+        this.scrollFrame = null
+      }
+    }
+
+    this.scrollFrame = requestAnimationFrame(step)
+  }
+
+  private cancelScroll() {
+    if (this.scrollFrame !== null) {
+      cancelAnimationFrame(this.scrollFrame)
+      this.scrollFrame = null
+    }
+    this.scrollVelocity = 0
+  }
+}

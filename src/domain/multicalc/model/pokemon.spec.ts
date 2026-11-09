@@ -1,0 +1,920 @@
+import { Status } from "@multicalc/model/status"
+import { Ability } from "./ability"
+import { Move } from "./move"
+import { MoveSet } from "./moveset"
+import { Pokemon } from "./pokemon"
+
+describe("Pokemon", () => {
+  describe("Creation", () => {
+    it("should initialize with default values when no options are provided", () => {
+      const pokemon = new Pokemon("Togepi")
+
+      expect(pokemon.id.length > 0).toBe(true)
+      expect(pokemon.moveSet.moves.length).toBe(4)
+      expect(pokemon.moveSet.moves[0].name).toBe("Struggle")
+      expect(pokemon.nature).toBe("Hardy")
+      expect(pokemon.item).toBe("(none)")
+      expect(pokemon.ability.name).toBe("Hustle")
+      expect(pokemon.ability.on).toBe(false)
+      expect(pokemon.teraType).toBe("Fairy")
+      expect(pokemon.hpPercentage).toBe(100)
+      expect(pokemon.commanderActive).toBe(false)
+    })
+
+    it("should initialize with provided options", () => {
+      const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+      const ability = new Ability("Levitate", true)
+      const options = {
+        id: "test-id",
+        moveSet: moveSet,
+        ability: ability,
+        teraType: "Electric",
+        hpPercentage: 50,
+        commanderActive: true
+      }
+      const pokemon = new Pokemon("Pikachu", options)
+
+      expect(pokemon.id).toBe("test-id")
+      expect(pokemon.moveSet).toBe(moveSet)
+      expect(pokemon.ability.name).toBe("Levitate")
+      expect(pokemon.teraType).toBe("Electric")
+      expect(pokemon.hpPercentage).toBe(50)
+      expect(pokemon.commanderActive).toBe(true)
+    })
+  })
+
+  describe("Name", () => {
+    it("should resolve the base Aegislash name to the shield forme", () => {
+      const pokemon = new Pokemon("Aegislash")
+
+      expect(pokemon.name).toBe("Aegislash-Shield")
+      expect(pokemon.hp).toBe(135)
+      expect(pokemon.def).toBe(160)
+      expect(pokemon.atk).toBe(70)
+    })
+
+    it("should keep the shield forme of Aegislash untouched", () => {
+      const pokemon = new Pokemon("Aegislash-Shield")
+
+      expect(pokemon.name).toBe("Aegislash-Shield")
+    })
+
+    it("should keep the blade forme of Aegislash untouched", () => {
+      const pokemon = new Pokemon("Aegislash-Blade")
+
+      expect(pokemon.name).toBe("Aegislash-Blade")
+      expect(pokemon.atk).toBe(160)
+      expect(pokemon.def).toBe(70)
+    })
+
+    it("should display the base name for both Aegislash formes", () => {
+      const shield = new Pokemon("Aegislash")
+      const blade = new Pokemon("Aegislash-Blade")
+
+      expect(shield.displayNameWithoutSuffix).toBe("Aegislash")
+      expect(blade.displayNameWithoutSuffix).toBe("Aegislash")
+    })
+
+    it("should keep the base name of a Pokémon whose base forme is valid", () => {
+      const pokemon = new Pokemon("Ogerpon")
+
+      expect(pokemon.name).toBe("Ogerpon")
+    })
+
+    it("should initialize with higher stat configured as atk", () => {
+      const pokemon = new Pokemon("Tyranitar")
+
+      expect(pokemon.higherStat).toBe("atk")
+    })
+
+    it("should initialize with higher stat configured as def", () => {
+      const pokemon = new Pokemon("Regirock")
+
+      expect(pokemon.higherStat).toBe("def")
+    })
+
+    it("should initialize with higher stat configured as spa", () => {
+      const pokemon = new Pokemon("Mewtwo")
+
+      expect(pokemon.higherStat).toBe("spa")
+    })
+
+    it("should initialize with higher stat configured as spd", () => {
+      const pokemon = new Pokemon("Blissey")
+
+      expect(pokemon.higherStat).toBe("spd")
+    })
+
+    it("should initialize with higher stat configured as spe", () => {
+      const pokemon = new Pokemon("Pikachu")
+
+      expect(pokemon.higherStat).toBe("spe")
+    })
+
+    it("should allow overriding the higher stat with higherStat", () => {
+      const pokemon = new Pokemon("Flutter Mane", { higherStat: "spe" })
+
+      expect(pokemon.higherStat).toBe("spe")
+    })
+
+    it("should keep the real name for a Togepi", () => {
+      const pokemon = new Pokemon("Togepi")
+
+      expect(pokemon.name).toBe("Togepi")
+    })
+
+    it("should return the correct name when Pokémon is not default", () => {
+      const pokemon = new Pokemon("Pikachu")
+
+      expect(pokemon.name).toBe("Pikachu")
+    })
+
+    it("should return the correct displayName when Pokémon is not default", () => {
+      const pokemon = new Pokemon("Pikachu")
+
+      expect(pokemon.displayName).toBe("Pikachu")
+    })
+
+    it("should return the correct displayName when Pokémon name have hiphen", () => {
+      const pokemon = new Pokemon("Porygon-Z")
+
+      expect(pokemon.displayName).toBe("Porygon-Z")
+    })
+
+    it("should return the correct displayName when Pokémon name have hiphen in Calc lib", () => {
+      const pokemon = new Pokemon("Ogerpon-Cornerstone")
+
+      expect(pokemon.displayName).toBe("Ogerpon Cornerstone")
+    })
+
+    it("should return the correct displayNameWithoutSuffix when Pokémon is not default", () => {
+      const pokemon = new Pokemon("Pikachu")
+
+      expect(pokemon.displayNameWithoutSuffix).toBe("Pikachu")
+    })
+
+    it("should return the correct displayName when Pokémon name have hiphen", () => {
+      const pokemon = new Pokemon("Porygon-Z")
+
+      expect(pokemon.displayNameWithoutSuffix).toBe("Porygon-Z")
+    })
+
+    it("should return the correct displayNameWithoutSuffix when Pokémon name have hiphen in Calc lib", () => {
+      const pokemon = new Pokemon("Ogerpon-Cornerstone")
+
+      expect(pokemon.displayNameWithoutSuffix).toBe("Ogerpon")
+    })
+  })
+
+  describe("Unreleased", () => {
+    it("should be unreleased when the Pokémon was not released in the main games", () => {
+      const pokemon = new Pokemon("Darkrai-Mega")
+
+      expect(pokemon.unreleased).toBe(true)
+    })
+
+    it("should not be unreleased when the Pokémon was released in the main games", () => {
+      const pokemon = new Pokemon("Darkrai")
+
+      expect(pokemon.unreleased).toBe(false)
+    })
+  })
+
+  describe("Attributes", () => {
+    it("should return the first type of a dual-type Pokemon", () => {
+      const pokemon = new Pokemon("Charizard")
+
+      expect(pokemon.type1).toBe("Fire")
+      expect(pokemon.type2).toBe("Flying")
+    })
+
+    it("should return the correct type for a single-type Pokemon", () => {
+      const pokemon = new Pokemon("Pikachu")
+
+      expect(pokemon.type1).toBe("Electric")
+    })
+
+    it("should not report a type override when the types come from the species", () => {
+      const pokemon = new Pokemon("Charizard")
+
+      expect(pokemon.hasTypeOverride).toBe(false)
+    })
+
+    it("should report a type override when the types are overridden", () => {
+      const pokemon = new Pokemon("Charizard", { overrideTypes: ["Water"] })
+
+      expect(pokemon.hasTypeOverride).toBe(true)
+      expect(pokemon.type1).toBe("Water")
+      expect(pokemon.type2).toBeUndefined()
+    })
+
+    it("should override both types of a Pokemon", () => {
+      const pokemon = new Pokemon("Pikachu", { overrideTypes: ["Ghost", "Steel"] })
+
+      expect(pokemon.hasTypeOverride).toBe(true)
+      expect(pokemon.type1).toBe("Ghost")
+      expect(pokemon.type2).toBe("Steel")
+    })
+
+    it("should have no added type by default", () => {
+      const pokemon = new Pokemon("Garchomp")
+
+      expect(pokemon.addedType).toBeUndefined()
+      expect(pokemon.typeAddingMove).toBeUndefined()
+      expect(pokemon.addedTypeOn).toBe(false)
+    })
+
+    it("should keep the added type next to its own types", () => {
+      const pokemon = new Pokemon("Garchomp", { addedType: "Ghost" })
+
+      expect(pokemon.type1).toBe("Dragon")
+      expect(pokemon.type2).toBe("Ground")
+      expect(pokemon.addedType).toBe("Ghost")
+    })
+
+    it("should drop the added type when the Pokemon is terastalized", () => {
+      const pokemon = new Pokemon("Garchomp", { addedType: "Ghost", teraType: "Steel", teraTypeActive: true })
+
+      expect(pokemon.addedType).toBeUndefined()
+    })
+
+    it("should accept an added type the Pokemon does not have", () => {
+      expect(new Pokemon("Garchomp").acceptsAddedType("Grass")).toBe(true)
+    })
+
+    it("should not accept an added type the Pokemon already has", () => {
+      expect(new Pokemon("Gourgeist").acceptsAddedType("Ghost")).toBe(false)
+    })
+
+    it("should not accept an added type while terastalized", () => {
+      expect(new Pokemon("Garchomp", { teraType: "Steel", teraTypeActive: true }).acceptsAddedType("Ghost")).toBe(false)
+    })
+
+    it("should list the moves that add a type to the target", () => {
+      const moveSet = new MoveSet(new Move("Shadow Ball"), new Move("Trick-or-Treat"), new Move("Protect"), new Move("Forest's Curse"))
+
+      const pokemon = new Pokemon("Trevenant", { moveSet })
+
+      expect(pokemon.typeAddingMoves).toEqual(["Trick-or-Treat", "Forest's Curse"])
+    })
+
+    it("should list no type adding moves when the Pokemon has none", () => {
+      expect(new Pokemon("Garchomp").typeAddingMoves).toEqual([])
+    })
+
+    it("should keep the type adding move used and the added type turned on", () => {
+      const pokemon = new Pokemon("Gourgeist", { typeAddingMove: "Trick-or-Treat", addedTypeOn: true })
+
+      expect(pokemon.typeAddingMove).toBe("Trick-or-Treat")
+      expect(pokemon.addedTypeOn).toBe(true)
+    })
+
+    it("should return the level of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard")
+
+      expect(pokemon.level).toBe(50)
+    })
+
+    it("should return the nature of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { nature: "Modest" })
+
+      expect(pokemon.nature).toBe("Modest")
+    })
+
+    it("should return the held item of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { item: "Leftovers" })
+
+      expect(pokemon.item).toBe("Leftovers")
+    })
+
+    it("should return the EVs of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { sps: { hp: 32, atk: 0, def: 0, spa: 32, spd: 0, spe: 1 } })
+
+      expect(pokemon.sps).toEqual({ hp: 32, atk: 0, def: 0, spa: 32, spd: 0, spe: 1 })
+    })
+
+    it("should return the sum of all EVs", () => {
+      const pokemon = new Pokemon("Charizard", { sps: { hp: 32, atk: 32, def: 0, spa: 0, spd: 0, spe: 1 } })
+
+      expect(pokemon.totalSps).toBe(65)
+    })
+
+    it("should return the three ev jumps of Pokémon when nature is beneficial in atk", () => {
+      const pokemon = new Pokemon("Chien-Pao", { nature: "Adamant" })
+
+      expect(pokemon.jumps).toEqual([10, 20, 30])
+    })
+
+    it("should return the three ev jumps of Pokémon when nature is beneficial in def", () => {
+      const pokemon = new Pokemon("Flutter Mane", { nature: "Bold" })
+
+      expect(pokemon.jumps).toEqual([5, 15, 25])
+    })
+
+    it("should return the three ev jumps of Pokémon when nature is beneficial in spa", () => {
+      const pokemon = new Pokemon("Charizard", { nature: "Modest" })
+
+      expect(pokemon.jumps).toEqual([1, 11, 21, 31])
+    })
+
+    it("should return the three ev jumps of Pokémon when nature is beneficial in spd", () => {
+      const pokemon = new Pokemon("Goodra-Hisui", { nature: "Calm" })
+
+      expect(pokemon.jumps).toEqual([10, 20, 30])
+    })
+
+    it("should return the three ev jumps of Pokémon when nature is beneficial in spe", () => {
+      const pokemon = new Pokemon("Sneasler", { nature: "Jolly" })
+
+      expect(pokemon.jumps).toEqual([10, 20, 30])
+    })
+
+    it("should return the three ev jumps as zero when nature is neutral", () => {
+      const pokemon = new Pokemon("Charizard", { nature: "Docile" })
+
+      expect(pokemon.jumps).toEqual([0, 0, 0, 0])
+    })
+
+    it("should return the three ev jumps of Modest Raging Bolt", () => {
+      const pokemon = new Pokemon("Raging Bolt", { nature: "Modest" })
+
+      expect(pokemon.jumps).toEqual([3, 13, 23])
+    })
+
+    it("should return the IVs of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 } })
+
+      expect(pokemon.ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+    })
+
+    it("should return the stat boosts of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { boosts: { atk: 1, def: -1, spa: 0, spd: 0, spe: 2 } })
+
+      expect(pokemon.boosts).toEqual({ atk: 1, def: -1, spa: 0, spd: 0, spe: 2 })
+    })
+
+    it("should return the correct status of the Pokemon", () => {
+      const pokemon = new Pokemon("Charizard", { status: Status.PARALYSIS })
+
+      expect(pokemon.status).toEqual(Status.PARALYSIS)
+    })
+
+    it("should return Tera Type Active as true if Tera Type is active", () => {
+      const pokemon = new Pokemon("Charizard", { teraType: "Fire", teraTypeActive: true })
+
+      expect(pokemon.teraTypeActive).toBe(true)
+    })
+
+    it("should return Tera Type Active as true if Pokémon is Terapagados Stellar", () => {
+      const pokemon = new Pokemon("Terapagos-Stellar")
+
+      expect(pokemon.teraTypeActive).toBe(true)
+    })
+
+    describe("Move", () => {
+      it("should return the active move", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.move).toEqual(moveSet.activeMove)
+      })
+
+      it("should return the name of the active move", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.activeMoveName).toBe("Thunderbolt")
+      })
+
+      it("should return the name of move1", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.move1Name).toBe("Thunderbolt")
+      })
+
+      it("should return the name of move2", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.move2Name).toBe("Quick Attack")
+      })
+
+      it("should return the name of move3", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.move3Name).toBe("Iron Tail")
+      })
+
+      it("should return the name of move4", () => {
+        const moveSet = new MoveSet(new Move("Thunderbolt"), new Move("Quick Attack"), new Move("Iron Tail"), new Move("Electro Ball"))
+        const pokemon = new Pokemon("Pikachu", { moveSet: moveSet })
+
+        expect(pokemon.move4Name).toBe("Electro Ball")
+      })
+    })
+
+    describe("Abilities", () => {
+      it("should return available abilities", () => {
+        const pokemon = new Pokemon("Dondozo")
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(3)
+        expect(abilities[0].name).toEqual("Unaware")
+        expect(abilities[1].name).toEqual("Oblivious")
+        expect(abilities[2].name).toEqual("Water Veil")
+      })
+
+      it("should return Ogerpon Teal ability", () => {
+        const pokemon = new Pokemon("Ogerpon")
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Defiant")
+      })
+
+      it("should return Ogerpon Teal ability when use Tera", () => {
+        const pokemon = new Pokemon("Ogerpon", { teraTypeActive: true })
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Embody Aspect (Teal)")
+      })
+
+      it("should return Ogerpon Cornerstone ability", () => {
+        const pokemon = new Pokemon("Ogerpon-Cornerstone")
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Sturdy")
+      })
+
+      it("should return Ogerpon Cornerstone Teal ability when use Tera", () => {
+        const pokemon = new Pokemon("Ogerpon-Cornerstone", { teraTypeActive: true })
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Embody Aspect (Cornerstone)")
+      })
+
+      it("should return Ogerpon Hearthflame ability", () => {
+        const pokemon = new Pokemon("Ogerpon-Hearthflame")
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Mold Breaker")
+      })
+
+      it("should return Ogerpon Hearthflame Teal ability when use Tera", () => {
+        const pokemon = new Pokemon("Ogerpon-Hearthflame", { teraTypeActive: true })
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Embody Aspect (Hearthflame)")
+      })
+
+      it("should return Ogerpon Wellspring ability", () => {
+        const pokemon = new Pokemon("Ogerpon-Wellspring")
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Water Absorb")
+      })
+
+      it("should return Ogerpon Wellspring Teal ability when use Tera", () => {
+        const pokemon = new Pokemon("Ogerpon-Wellspring", { teraTypeActive: true })
+
+        const abilities = pokemon.availableAbilities
+
+        expect(abilities.length).toEqual(1)
+        expect(abilities[0].name).toEqual("Embody Aspect (Wellspring)")
+      })
+
+      it("should return true when do not have Ability Shield and is a Ability affected by Neutralizing Gas", () => {
+        const pokemon = new Pokemon("Chien-Pao")
+
+        expect(pokemon.isAffectedByNeutralizingGas).toBe(true)
+      })
+
+      it("should return false when have Ability Shield", () => {
+        const pokemon = new Pokemon("Chien-Pao", { item: "Ability Shield" })
+
+        expect(pokemon.isAffectedByNeutralizingGas).toBe(false)
+      })
+
+      it("should return false when do not have Ability Shield and is a Ability not affected by Neutralizing Gas", () => {
+        const pokemon = new Pokemon("Terapagos")
+
+        expect(pokemon.isAffectedByNeutralizingGas).toBe(false)
+      })
+
+      it("should have Stamina active by default", () => {
+        const pokemon = new Pokemon("Archaludon", { ability: new Ability("Stamina") })
+
+        expect(pokemon.staminaOff).toBe(false)
+        expect(pokemon.abilityActive).toBe(true)
+        expect(pokemon.abilityOn).toBe(false)
+      })
+
+      it("should have Stamina inactive when it is turned off", () => {
+        const pokemon = new Pokemon("Archaludon", { ability: new Ability("Stamina"), staminaOff: true })
+
+        expect(pokemon.abilityActive).toBe(false)
+      })
+
+      it("should follow the ability flag for abilities other than Stamina", () => {
+        const intimidateOn = new Pokemon("Incineroar", { ability: new Ability("Intimidate", true), staminaOff: true })
+        const intimidateOff = new Pokemon("Incineroar", { ability: new Ability("Intimidate", false) })
+
+        expect(intimidateOn.abilityActive).toBe(true)
+        expect(intimidateOff.abilityActive).toBe(false)
+      })
+    })
+
+    describe("Stats", () => {
+      it("should return the hp", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.hp).toEqual(110)
+      })
+
+      it("should return the actualHp", () => {
+        const pokemon = new Pokemon("Pikachu", { hpPercentage: 50 })
+
+        expect(pokemon.actualHp).toEqual(55)
+      })
+
+      it("should return the modifiedHp scaled by the hp percentage", () => {
+        const pokemon = new Pokemon("Pikachu", { hpPercentage: 50 })
+
+        expect(pokemon.modifiedHp).toEqual(55)
+      })
+
+      it("should return the baseHp", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseHp).toEqual(35)
+      })
+
+      it("should return the baseAtk", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseAtk).toEqual(55)
+      })
+
+      it("should return the atk", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.atk).toEqual(75)
+      })
+
+      it("should return the baseDef", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseDef).toEqual(40)
+      })
+
+      it("should return the def", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.def).toEqual(60)
+      })
+
+      it("should return the baseSpa", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseSpa).toEqual(50)
+      })
+
+      it("should return the spa", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.spa).toEqual(70)
+      })
+
+      it("should return the baseSpd", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseSpd).toEqual(50)
+      })
+
+      it("should return the spd", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.spd).toEqual(70)
+      })
+
+      it("should return the baseSpe", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.baseSpe).toEqual(90)
+      })
+
+      it("should return the spe", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.spe).toEqual(110)
+      })
+
+      it("should return the BST", () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.bst).toEqual(320)
+      })
+    })
+
+    describe("Another methods", () => {
+      it("should return a terastalized copy of the Pokémon", () => {
+        const pokemon = new Pokemon("Pikachu", { teraType: "Electric" })
+
+        const terastalized = pokemon.terastalized()
+
+        expect(terastalized.teraTypeActive).toBe(true)
+        expect(pokemon.teraTypeActive).toBe(false)
+      })
+
+      it("should return true when Pokémon has Protosynthesis ability", () => {
+        const pokemon = new Pokemon("Flutter Mane")
+
+        expect(pokemon.isParadoxAbility).toBe(true)
+      })
+
+      it("should return true when Pokémon has Quark Drive ability", () => {
+        const pokemon = new Pokemon("Iron Hands")
+
+        expect(pokemon.isParadoxAbility).toBe(true)
+      })
+
+      it("should return false when Pokémon does not have Paradox ability", () => {
+        const pokemon = new Pokemon("Tyranitar")
+
+        expect(pokemon.isParadoxAbility).toBe(false)
+      })
+
+      it('should return true for isOgerpon when name starts with "Ogerpon"', () => {
+        const pokemon = new Pokemon("Ogerpon-Wellspring")
+
+        expect(pokemon.isOgerpon).toBe(true)
+      })
+
+      it('should return false for isOgerpon when name does not start with "Ogerpon"', () => {
+        const pokemon = new Pokemon("Pikachu")
+
+        expect(pokemon.isOgerpon).toBe(false)
+      })
+
+      it("should return true for isPrimal and hasFixedItem for a Primal form", () => {
+        const pokemon = new Pokemon("Kyogre-Primal")
+
+        expect(pokemon.isPrimal).toBe(true)
+        expect(pokemon.hasFixedItem).toBe(true)
+      })
+
+      it("should return false for isPrimal and hasFixedItem for the base form of a Primal", () => {
+        const pokemon = new Pokemon("Groudon", { item: "Red Orb" })
+
+        expect(pokemon.isPrimal).toBe(false)
+        expect(pokemon.hasFixedItem).toBe(false)
+      })
+
+      it("should return true for hasFixedItem for a masked Ogerpon form", () => {
+        const pokemon = new Pokemon("Ogerpon-Hearthflame")
+
+        expect(pokemon.hasFixedItem).toBe(true)
+      })
+
+      it("should return false for hasFixedItem for the teal Ogerpon", () => {
+        const pokemon = new Pokemon("Ogerpon")
+
+        expect(pokemon.hasFixedItem).toBe(false)
+      })
+
+      it("should return the strong weather of the ability", () => {
+        expect(new Pokemon("Groudon-Primal").strongWeather).toEqual("Harsh Sunshine")
+        expect(new Pokemon("Rayquaza-Mega").strongWeather).toEqual("Strong Winds")
+        expect(new Pokemon("Kyogre").strongWeather).toBeUndefined()
+      })
+
+      it('should return true for isTerapagosForm when name starts with "Terapagos"', () => {
+        const pokemon = new Pokemon("Terapagos-Terastal")
+
+        expect(pokemon.isTerapagosForm).toBe(true)
+      })
+
+      it('should return false for isTerapagosForm when name does not start with "Terapagos"', () => {
+        const pokemon = new Pokemon("Snorlax")
+
+        expect(pokemon.isTerapagosForm).toBe(false)
+      })
+    })
+  })
+
+  describe("Clone", () => {
+    it("should clone the Pokemon object with default values", () => {
+      const pokemon = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", hpPercentage: 100 })
+
+      const clonedPokemon = pokemon.clone()
+
+      expect(clonedPokemon.name).toBe(pokemon.name)
+      expect(clonedPokemon.ability.name).toBe(pokemon.ability.name)
+      expect(clonedPokemon.nature).toBe(pokemon.nature)
+      expect(clonedPokemon.item).toBe(pokemon.item)
+      expect(clonedPokemon.teraType).toBe(pokemon.teraType)
+      expect(clonedPokemon.hpPercentage).toBe(pokemon.hpPercentage)
+    })
+
+    it("should keep the base form ability when cloning", () => {
+      const pokemon = new Pokemon("Salamence-Mega", { baseFormAbility: "Moxie" })
+
+      expect(pokemon.clone().baseFormAbility).toBe("Moxie")
+    })
+
+    it("should override the base form ability when cloning", () => {
+      const pokemon = new Pokemon("Salamence-Mega", { baseFormAbility: "Moxie" })
+
+      expect(pokemon.clone({ baseFormAbility: "Intimidate" }).baseFormAbility).toBe("Intimidate")
+    })
+
+    it("should keep Stamina turned off when cloning", () => {
+      const pokemon = new Pokemon("Archaludon", { ability: new Ability("Stamina"), staminaOff: true })
+
+      expect(pokemon.clone().staminaOff).toBe(true)
+    })
+
+    it("should override Stamina turned off when cloning", () => {
+      const pokemon = new Pokemon("Archaludon", { ability: new Ability("Stamina"), staminaOff: true })
+
+      expect(pokemon.clone({ staminaOff: false }).staminaOff).toBe(false)
+    })
+
+    it("should keep the added type, the type adding move and the added type turned on when cloning", () => {
+      const pokemon = new Pokemon("Garchomp", { addedType: "Ghost", typeAddingMove: "Trick-or-Treat", addedTypeOn: true })
+
+      const clonedPokemon = pokemon.clone()
+
+      expect(clonedPokemon.addedType).toBe("Ghost")
+      expect(clonedPokemon.typeAddingMove).toBe("Trick-or-Treat")
+      expect(clonedPokemon.addedTypeOn).toBe(true)
+    })
+
+    it("should override the added type, the type adding move and the added type turned on when cloning", () => {
+      const pokemon = new Pokemon("Garchomp", { addedType: "Ghost", typeAddingMove: "Trick-or-Treat", addedTypeOn: true })
+
+      const clonedPokemon = pokemon.clone({ addedType: "Grass", typeAddingMove: "Forest's Curse", addedTypeOn: false })
+
+      expect(clonedPokemon.addedType).toBe("Grass")
+      expect(clonedPokemon.typeAddingMove).toBe("Forest's Curse")
+      expect(clonedPokemon.addedTypeOn).toBe(false)
+    })
+
+    it("should keep the added type when cloning into a terastalized Pokemon and back", () => {
+      const pokemon = new Pokemon("Garchomp", { addedType: "Ghost", teraType: "Steel" })
+
+      const terastalized = pokemon.clone({ teraTypeActive: true })
+
+      expect(terastalized.addedType).toBeUndefined()
+      expect(terastalized.clone({ teraTypeActive: false }).addedType).toBe("Ghost")
+    })
+
+    it("should clone without a base form ability when the Pokemon has none", () => {
+      const pokemon = new Pokemon("Salamence")
+
+      expect(pokemon.clone().baseFormAbility).toBeUndefined()
+    })
+
+    it("should clone the Pokemon object with overridden values", () => {
+      const pokemon = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", hpPercentage: 100 })
+
+      const clonedPokemon = pokemon.clone({ ability: new Ability("Volt Absorb"), teraType: "Fairy", hpPercentage: 80 })
+
+      expect(clonedPokemon.ability.name).toBe("Volt Absorb")
+      expect(clonedPokemon.teraType).toBe("Fairy")
+      expect(clonedPokemon.hpPercentage).toBe(80)
+      expect(clonedPokemon.name).toBe(pokemon.name)
+      expect(clonedPokemon.nature).toBe(pokemon.nature)
+      expect(clonedPokemon.item).toBe(pokemon.item)
+    })
+
+    it("should clone the Pokemon object with empty options and retain the original values", () => {
+      const pokemon = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", hpPercentage: 100 })
+
+      const clonedPokemon = pokemon.clone({})
+
+      expect(clonedPokemon.name).toBe(pokemon.name)
+      expect(clonedPokemon.ability.name).toBe(pokemon.ability.name)
+      expect(clonedPokemon.nature).toBe(pokemon.nature)
+      expect(clonedPokemon.item).toBe(pokemon.item)
+      expect(clonedPokemon.teraType).toBe(pokemon.teraType)
+      expect(clonedPokemon.hpPercentage).toBe(pokemon.hpPercentage)
+    })
+
+    describe("Equals", () => {
+      it("should return true if two Pokemon objects are identical", () => {
+        const pokemon1 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+        const pokemon2 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+        const result = pokemon1.equals(pokemon2)
+
+        expect(result).toBe(true)
+      })
+
+      it("should return false if two Pokemon objects have different names", () => {
+        const pokemon1 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+        const pokemon2 = new Pokemon("Charmander", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+        const result = pokemon1.equals(pokemon2)
+
+        expect(result).toBe(false)
+      })
+
+      it("should return false if two Pokemon objects have different abilities", () => {
+        const pokemon1 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+        const pokemon2 = new Pokemon("Pikachu", { ability: new Ability("Lightning Rod"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+        const result = pokemon1.equals(pokemon2)
+
+        expect(result).toBe(false)
+      })
+
+      it("should return false if two Pokemon objects have different EVs", () => {
+        const pokemon1 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+        const pokemon2 = new Pokemon("Pikachu", { ability: new Ability("Static"), nature: "Timid", item: "Light Ball", teraType: "Electric", sps: { hp: 1, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+        const result = pokemon1.equals(pokemon2)
+
+        expect(result).toBe(false)
+      })
+    })
+  })
+
+  describe("Setters", () => {
+    it("should update EVs and recalculate stats correctly", () => {
+      // Garchomp lvl 50, Neutral Nature, 31 IVs
+      // Base Speed: 102
+      // EV 0 -> 122
+      // EV 252 -> 154
+      const pokemon = new Pokemon("Garchomp", { nature: "Hardy", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+      expect(pokemon.stats.spe).toBe(122)
+
+      pokemon.setSps({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 32 })
+
+      expect(pokemon.sps.spe).toBe(32)
+      expect(pokemon.stats.spe).toBe(154)
+    })
+
+    it("should update Nature and recalculate stats correctly", () => {
+      // Garchomp lvl 50, 31 IVs, 0 EVs
+      // Base Attack: 130
+      // Neutral (Hardy) -> 150
+      // Beneficial (Adamant) -> 165
+      // Hindering (Modest) -> 135
+      const pokemon = new Pokemon("Garchomp", { nature: "Hardy", sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+      expect(pokemon.stats.atk).toBe(150)
+
+      pokemon.setNature("Adamant")
+
+      expect(pokemon.nature).toBe("Adamant")
+      expect(pokemon.stats.atk).toBe(165)
+
+      pokemon.setNature("Modest")
+
+      expect(pokemon.nature).toBe("Modest")
+      expect(pokemon.stats.atk).toBe(135)
+    })
+
+    it("should update EVs and recalculate HP correctly (Shedinja case)", () => {
+      const pokemon = new Pokemon("Shedinja")
+
+      expect(pokemon.stats.hp).toBe(1)
+
+      pokemon.setSps({ hp: 32, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+
+      expect(pokemon.stats.hp).toBe(1)
+    })
+
+    it("should update EVs and recalculate HP correctly (General case)", () => {
+      // Garchomp lvl 50, 31 IVs
+      // Base HP: 108
+      // EV 0 -> 183
+      // EV 252 -> 215
+      const pokemon = new Pokemon("Garchomp", { sps: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } })
+
+      expect(pokemon.stats.hp).toBe(183)
+
+      pokemon.setSps({ hp: 32, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+
+      expect(pokemon.stats.hp).toBe(215)
+    })
+  })
+})

@@ -1,0 +1,98 @@
+@use "shared/mobile-calc-shell/attacker-header";
+
+:host {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  height: calc(100dvh - 4em);
+  overflow: hidden;
+}
+
+.scrollable-content {
+  flex: 0 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6em;
+  display: flex;
+  flex-direction: column;
+
+  & > *:has(app-general-probability) {
+    margin-top: var(--space-md);
+  }
+
+  &.table-open {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+  }
+}
+
+.scrollable-content.table-open > .attacker-build {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.set-name-row {
+  display: flex;
+  background-color: var(--background);
+
+  app-save-set-button:has(.save-set-wrapper) {
+    display: flex;
+    padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-md);
+  }
+}
+
+.attacker-build {
+  padding-bottom: var(--space-sm);
+
+  .table-open & {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+.table-open ::ng-deep .table-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  app-pokemon-table,
+  app-moves-table,
+  app-abilities-table,
+  app-items-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+.empty-insights {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+::ng-deep {
+  app-general-probability,
+  app-combined-probability,
+  app-team-probability,
+  app-pokemon-probability,
+  app-probability-field {
+    display: block;
+    width: auto;
+    padding: 0 var(--space-md);
+  }
+}

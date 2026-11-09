@@ -1,0 +1,70 @@
+@use "variables.scss" as *;
+
+:host {
+  display: block;
+}
+
+.field-container {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  column-gap: var(--space-xl);
+  margin-top: var(--space-lg);
+}
+
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.button-group mat-button-toggle {
+  flex: 1 1 0px;
+}
+
+.max-width {
+  width: 100%;
+}
+
+.botton-space {
+  margin-bottom: var(--space-lg);
+}
+
+.rooms-section {
+  margin-top: var(--space-lg);
+}
+
+.field-subtitle {
+  margin-bottom: var(--space-xs);
+  font-weight: 500;
+  font-size: $font-size;
+}
+
+@media only screen and (max-width: 1279px) {
+  .field-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    row-gap: 0;
+    margin-top: 0;
+  }
+
+  .field-subtitle {
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-sm);
+  }
+
+  .button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .field-subtitle {
+    font-size: var(--font-size-lg);
+  }
+}
+
+@media only screen and (min-width: 1920px) {
+  .field-container {
+    margin-top: var(--space-2xl);
+  }
+}

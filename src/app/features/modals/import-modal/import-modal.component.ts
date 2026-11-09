@@ -1,0 +1,55 @@
+import { CdkScrollable } from "@angular/cdk/scrolling"
+import { Component, inject, signal } from "@angular/core"
+import { FormsModule, ReactiveFormsModule } from "@angular/forms"
+import { MatButton } from "@angular/material/button"
+import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
+import { SegmentedControlComponent, SegmentedOption } from "@shared/segmented-control/segmented-control.component"
+import { unknownPokemonList } from "@store/paste/paste-from-text"
+import { InvalidNamesError } from "@store/user-data/import-name-validation"
+import { InvalidSpsError, UnknownPokemonError } from "@store/user-data/pokepaste-import"
+import { PokePasteParserService } from "@store/user-data/poke-paste-parser.service"
+
+@Component({
+  selector: "app-import-modal",
+  templateUrl: "./import-modal.component.html",
+  styleUrls: ["./import-modal.component.scss"],
+  imports: [MatDialogTitle, CdkScrollable, MatDialogContent, ReactiveFormsModule, FormsModule, MatDialogActions, MatButton, MatDialogClose, SegmentedControlComponent]
+})
+export class ImportModalComponent {
+  data = inject(MAT_DIALOG_DATA)
+  private dialogRef = inject(MatDialogRef<ImportModalComponent>)
+  private pokePasteService = inject(PokePasteParserService)
+
+  content: string
+  placeholder: string
+  useSpsMode = true
+
+  readonly pointsModeOptions: SegmentedOption<boolean>[] = [
+    { value: true, label: "SP", dataCy: "import-points-mode-sp" },
+    { value: false, label: "EV", dataCy: "import-points-mode-ev" }
+  ]
+  errorMessage = signal("")
+
+  constructor() {
+    this.placeholder = this.data.placeholder
+  }
+
+  async import() {
+    this.errorMessage.set("")
+
+    try {
+      const { name, pokemon } = await this.pokePasteService.parseTeam(this.content, this.useSpsMode)
+      this.dialogRef.close({ name, pokemon, useSpsMode: this.useSpsMode })
+    } catch (error) {
+      if (error instanceof InvalidSpsError) {
+        this.errorMessage.set("Invalid SPs")
+      } else if (error instanceof UnknownPokemonError) {
+        this.errorMessage.set(unknownPokemonList(error))
+      } else if (error instanceof InvalidNamesError) {
+        this.errorMessage.set(error.message)
+      } else {
+        this.errorMessage.set("Could not import the Pokémon")
+      }
+    }
+  }
+}

@@ -1,0 +1,1105 @@
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { PokePasteParserService } from "@store/user-data/poke-paste-parser.service"
+import { InvalidNamesError } from "@store/user-data/import-name-validation"
+import { InvalidSpsError } from "@store/user-data/pokepaste-import"
+
+describe("PokePasteParserService", () => {
+  let service: PokePasteParserService
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [PokePasteParserService, provideZonelessChangeDetection()]
+    })
+
+    service = TestBed.inject(PokePasteParserService)
+  })
+
+  it("should parse a poke-paste with all 4 moves", async () => {
+    const randomMove1 = "Behemoth Blade"
+    const randomMove2 = "Sacred Sword"
+    const randomMove3 = "Tera Blast"
+    const randomMove4 = "Protect"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Zacian-Crowned",
+          ability: "Intrepid Sword",
+          nature: "Adamant",
+          item: "Rusted Sword",
+          teraType: "Ground",
+          moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+          evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 0, spe: 4 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Zacian-Crowned")
+    expect(result[0].move1Name).toBe(randomMove1)
+    expect(result[0].move2Name).toBe(randomMove2)
+    expect(result[0].move3Name).toBe(randomMove3)
+    expect(result[0].move4Name).toBe(randomMove4)
+  })
+
+  it("should replace missing moves with empty string when Pokémon has less than 4 moves", async () => {
+    const randomMove = "Transform"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Ditto",
+          ability: "Imposter",
+          nature: "Bold",
+          item: "Choice Scarf",
+          teraType: "Normal",
+          moves: [randomMove],
+          evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 0, spe: 4 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Ditto")
+    expect(result[0].move1Name).toBe(randomMove)
+    expect(result[0].move2Name).toBe("")
+    expect(result[0].move3Name).toBe("")
+    expect(result[0].move4Name).toBe("")
+  })
+
+  it("should replace all moves with empty string when Pokémon has no moves", async () => {
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Shedinja",
+          ability: "Wonder Guard",
+          nature: "Adamant",
+          item: "Focus Sash",
+          teraType: "Ghost",
+          moves: [],
+          evs: { hp: 0, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Shedinja")
+    expect(result[0].move1Name).toBe("")
+    expect(result[0].move2Name).toBe("")
+    expect(result[0].move3Name).toBe("")
+    expect(result[0].move4Name).toBe("")
+  })
+
+  it("should replace missing moves with empty string when Pokémon has 2 moves", async () => {
+    const randomMove1 = "Thunderbolt"
+    const randomMove2 = "Protect"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Pikachu",
+          ability: "Lightning Rod",
+          nature: "Timid",
+          item: "Light Ball",
+          teraType: "Electric",
+          moves: [randomMove1, randomMove2],
+          evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Pikachu")
+    expect(result[0].move1Name).toBe(randomMove1)
+    expect(result[0].move2Name).toBe(randomMove2)
+    expect(result[0].move3Name).toBe("")
+    expect(result[0].move4Name).toBe("")
+  })
+
+  it("should replace missing moves with empty string when Pokémon has 3 moves", async () => {
+    const randomMove1 = "Fake Out"
+    const randomMove2 = "Knock Off"
+    const randomMove3 = "Parting Shot"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Incineroar",
+          ability: "Intimidate",
+          nature: "Careful",
+          item: "Sitrus Berry",
+          teraType: "Grass",
+          moves: [randomMove1, randomMove2, randomMove3],
+          evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Incineroar")
+    expect(result[0].move1Name).toBe(randomMove1)
+    expect(result[0].move2Name).toBe(randomMove2)
+    expect(result[0].move3Name).toBe(randomMove3)
+    expect(result[0].move4Name).toBe("")
+  })
+
+  it("should use default values when Pokémon has no EVs and IVs", async () => {
+    const randomMove1 = "Close Combat"
+    const randomMove2 = "U-turn"
+    const randomMove3 = "Aqua Jet"
+    const randomMove4 = "Surging Strikes"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Urshifu-Rapid-Strike",
+          ability: "Unseen Fist",
+          nature: "Jolly",
+          item: "Focus Sash",
+          teraType: "Water",
+          moves: [randomMove1, randomMove2, randomMove3, randomMove4]
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Urshifu-Rapid-Strike")
+    expect(result[0].sps).toEqual({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+    expect(result[0].ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+  })
+
+  it("should parse from URL", async () => {
+    const randomMove1 = "Close Combat"
+    const randomMove2 = "U-turn"
+    const randomMove3 = "Aqua Jet"
+    const randomMove4 = "Surging Strikes"
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Urshifu-Rapid-Strike",
+          ability: "Unseen Fist",
+          nature: "Jolly",
+          item: "Focus Sash",
+          teraType: "Water",
+          moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+          evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify({ title: "My Team", paste: mockPaste }))))
+
+    const result = await service.parse("https://pokepast.es/12345", false)
+
+    expect(window.fetch).toHaveBeenCalledWith("https://pokepast.es/12345/json")
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("Urshifu-Rapid-Strike")
+    expect(result[0].move1Name).toBe(randomMove1)
+    expect(result[0].move2Name).toBe(randomMove2)
+    expect(result[0].move3Name).toBe(randomMove3)
+    expect(result[0].move4Name).toBe(randomMove4)
+  })
+
+  it("should treat the placeholder Untitled header as no team name", async () => {
+    const mockPaste = showdownText({
+      name: "Untitled",
+      pokemon: [
+        {
+          name: "Incineroar",
+          ability: "Intimidate",
+          nature: "Adamant",
+          item: "Sitrus Berry",
+          teraType: "Grass",
+          moves: ["Fake Out", "", "", ""],
+          evs: { hp: 252, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parseTeam(mockPaste, false)
+
+    expect(result.name).toBe("")
+  })
+
+  it("should use the team title from PokePaste json", async () => {
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Incineroar",
+          ability: "Intimidate",
+          nature: "Adamant",
+          item: "Sitrus Berry",
+          teraType: "Grass",
+          moves: ["Fake Out", "", "", ""],
+          evs: { hp: 252, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify({ title: "World Champion Team", paste: mockPaste }))))
+
+    const result = await service.parseTeam("https://pokepast.es/12345", false)
+
+    expect(window.fetch).toHaveBeenCalledWith("https://pokepast.es/12345/json")
+    expect(result.name).toBe("World Champion Team")
+    expect(result.pokemon[0].name).toBe("Incineroar")
+  })
+
+  it("should fall back to the parsed team name when PokePaste json has no title", async () => {
+    const mockPaste = showdownText({
+      name: "Team From Paste",
+      pokemon: [
+        {
+          name: "Incineroar",
+          ability: "Intimidate",
+          nature: "Adamant",
+          item: "Sitrus Berry",
+          teraType: "Grass",
+          moves: ["Fake Out", "", "", ""],
+          evs: { hp: 252, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify({ paste: mockPaste }))))
+
+    const result = await service.parseTeam("https://pokepast.es/12345", false)
+
+    expect(result.name).toBe("Team From Paste")
+  })
+
+  it("should parse multiple Pokémon with different move counts", async () => {
+    const randomMove1 = "Transform"
+    const randomMove2 = "Behemoth Blade"
+    const randomMove3 = "Sacred Sword"
+    const randomMove4 = "Tera Blast"
+    const randomMove5 = "Protect"
+
+    const mockPaste = showdownText({
+      pokemon: [
+        {
+          name: "Ditto",
+          ability: "Imposter",
+          nature: "Bold",
+          item: "Choice Scarf",
+          teraType: "Normal",
+          moves: [randomMove1],
+          evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 0, spe: 4 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        },
+        {
+          name: "Zacian-Crowned",
+          ability: "Intrepid Sword",
+          nature: "Adamant",
+          item: "Rusted Sword",
+          teraType: "Ground",
+          moves: [randomMove2, randomMove3, randomMove4, randomMove5],
+          evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 0, spe: 4 },
+          ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+        }
+      ]
+    })
+
+    const result = await service.parse(mockPaste, false)
+
+    expect(result.length).toBe(2)
+    expect(result[0].name).toBe("Ditto")
+    expect(result[0].move1Name).toBe(randomMove1)
+    expect(result[0].move2Name).toBe("")
+    expect(result[0].move3Name).toBe("")
+    expect(result[0].move4Name).toBe("")
+    expect(result[1].name).toBe("Zacian-Crowned")
+    expect(result[1].move1Name).toBe(randomMove2)
+    expect(result[1].move2Name).toBe(randomMove3)
+    expect(result[1].move3Name).toBe(randomMove4)
+    expect(result[1].move4Name).toBe(randomMove5)
+  })
+
+  describe("buildBoosts", () => {
+    it("should set atk boost to 1 for Zacian", async () => {
+      const randomMove1 = "Behemoth Blade"
+      const randomMove2 = "Sacred Sword"
+      const randomMove3 = "Tera Blast"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Zacian",
+            ability: "Intrepid Sword",
+            nature: "Adamant",
+            item: "Rusted Sword",
+            teraType: "Steel",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 0, spe: 4 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Zacian")
+      expect(result[0].boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set atk boost to 1 for Zacian-Crowned", async () => {
+      const randomMove1 = "Behemoth Blade"
+      const randomMove2 = "Sacred Sword"
+      const randomMove3 = "Tera Blast"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Zacian-Crowned",
+            ability: "Intrepid Sword",
+            nature: "Adamant",
+            item: "Rusted Sword",
+            teraType: "Ground",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 0, spe: 4 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Zacian-Crowned")
+      expect(result[0].boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set def boost to 1 for Zamazenta", async () => {
+      const randomMove1 = "Behemoth Bash"
+      const randomMove2 = "Body Press"
+      const randomMove3 = "Iron Defense"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Zamazenta",
+            ability: "Dauntless Shield",
+            nature: "Impish",
+            item: "Rusted Shield",
+            teraType: "Steel",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Zamazenta")
+      expect(result[0].boosts).toEqual({ atk: 0, def: 1, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set def boost to 1 for Zamazenta-Crowned", async () => {
+      const randomMove1 = "Behemoth Bash"
+      const randomMove2 = "Body Press"
+      const randomMove3 = "Iron Defense"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Zamazenta-Crowned",
+            ability: "Dauntless Shield",
+            nature: "Impish",
+            item: "Rusted Shield",
+            teraType: "Steel",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 0, def: 252, spa: 0, spd: 4, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Zamazenta-Crowned")
+      expect(result[0].boosts).toEqual({ atk: 0, def: 1, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set all boosts to 0 for other Pokémon", async () => {
+      const randomMove1 = "Fake Out"
+      const randomMove2 = "Knock Off"
+      const randomMove3 = "Flare Blitz"
+      const randomMove4 = "Parting Shot"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            teraType: "Grass",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Incineroar")
+      expect(result[0].boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set all boosts to 0 for Pikachu", async () => {
+      const randomMove1 = "Thunderbolt"
+      const randomMove2 = "Volt Tackle"
+      const randomMove3 = "Iron Tail"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Pikachu",
+            ability: "Lightning Rod",
+            nature: "Timid",
+            item: "Light Ball",
+            teraType: "Electric",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Pikachu")
+      expect(result[0].boosts).toEqual({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+  })
+
+  describe("parseFromVrPaste", () => {
+    function vrPasteResponse(evs: Record<string, number>) {
+      return {
+        title: "My VR Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"],
+            evs
+          }
+        ]
+      }
+    }
+
+    it("should convert SPs to EVs when SP mode is on", async () => {
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(vrPasteResponse({ hp: 32, def: 1, spd: 32 })))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", true)
+
+      expect(result.pokemon[0].sps.hp).toBe(32)
+      expect(result.pokemon[0].sps.def).toBe(1)
+      expect(result.pokemon[0].sps.spd).toBe(32)
+    })
+
+    it("should keep the raw EVs when SP mode is off", async () => {
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(vrPasteResponse({ hp: 252, def: 4, spd: 252 })))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.pokemon[0].sps.hp).toBe(32)
+      expect(result.pokemon[0].sps.def).toBe(1)
+      expect(result.pokemon[0].sps.spd).toBe(32)
+    })
+
+    it("should reject a paste with names that are not written exactly as in the data", async () => {
+      const response = vrPasteResponse({ hp: 32 })
+      response.teams[0].item = "SitrusBerry"
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(response))))
+
+      await expect(service.parseTeam("https://www.vrpastes.com/XJuCYyTS", true)).rejects.toThrow(new InvalidNamesError([{ pokemon: "Incineroar", field: "item", value: "SitrusBerry" }]))
+    })
+
+    it("should reject a paste whose SPs go over the maximum", async () => {
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(vrPasteResponse({ hp: 252, def: 4, spd: 252 })))))
+
+      await expect(service.parseTeam("https://www.vrpastes.com/XJuCYyTS", true)).rejects.toThrow(InvalidSpsError)
+    })
+
+    it("should reject a paste whose single stat goes over the maximum SPs", async () => {
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(vrPasteResponse({ hp: 40 })))))
+
+      await expect(service.parseTeam("https://www.vrpastes.com/XJuCYyTS", true)).rejects.toThrow(InvalidSpsError)
+    })
+
+    it("should parse a vrpastes.com URL fetching from the backend API", async () => {
+      const mockResponse = {
+        title: "My VR Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"],
+            evs: { hp: 252, def: 4, spd: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(window.fetch).toHaveBeenCalledWith("https://vrpaste-backend.vercel.app/api/paste/XJuCYyTS?lang=english")
+      expect(result.name).toBe("My VR Team")
+      expect(result.pokemon.length).toBe(1)
+      expect(result.pokemon[0].name).toBe("Incineroar")
+      expect(result.pokemon[0].move1Name).toBe("Fake Out")
+      expect(result.pokemon[0].move2Name).toBe("Knock Off")
+      expect(result.pokemon[0].move3Name).toBe("Flare Blitz")
+      expect(result.pokemon[0].move4Name).toBe("Parting Shot")
+      expect(result.pokemon[0].sps).toEqual({ hp: 32, atk: 0, def: 1, spa: 0, spd: 32, spe: 0 })
+      expect(result.pokemon[0].ivs).toEqual({ hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 })
+    })
+
+    it("should fall back to an empty team name when the paste has no title", async () => {
+      const mockResponse = {
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"],
+            evs: { hp: 252, def: 4, spd: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.name).toBe("")
+    })
+
+    it("should fill the missing move slots with empty moves", async () => {
+      const mockResponse = {
+        title: "Two Move Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off"],
+            evs: { hp: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.pokemon[0].move1Name).toBe("Fake Out")
+      expect(result.pokemon[0].move2Name).toBe("Knock Off")
+      expect(result.pokemon[0].move3Name).toBe("")
+      expect(result.pokemon[0].move4Name).toBe("")
+    })
+
+    it("should default to SPs mode when the caller does not pass the flag", async () => {
+      const mockResponse = {
+        title: "My VR Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"],
+            evs: { hp: 252, def: 4, spd: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parse("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Incineroar")
+    })
+
+    it("should use default zero EVs when Pokémon has no evs field", async () => {
+      const mockResponse = {
+        title: "Untitled Team",
+        teams: [
+          {
+            species: "Dragalge",
+            ability: "Poison Point",
+            nature: "Bold",
+            item: "Dragalgite",
+            moves: ["Sludge Bomb", "Icy Wind", "Dragon Tail", "Toxic"]
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/oZbJ92WN", false)
+
+      expect(result.pokemon[0].sps).toEqual({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should set atk boost to 1 for Zacian-Crowned from vrpastes", async () => {
+      const mockResponse = {
+        title: "Restricted Team",
+        teams: [
+          {
+            species: "Zacian-Crowned",
+            ability: "Intrepid Sword",
+            nature: "Adamant",
+            item: "Rusted Sword",
+            moves: ["Behemoth Blade", "Sacred Sword", "Tera Blast", "Protect"],
+            evs: { hp: 252, atk: 252, spe: 4 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/abc123", false)
+
+      expect(result.pokemon[0].boosts).toEqual({ atk: 1, def: 0, spa: 0, spd: 0, spe: 0 })
+    })
+
+    it("should default to SPs mode when parseTeam is called without the flag", async () => {
+      const mockResponse = {
+        title: "My VR Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"],
+            evs: { hp: 252, def: 4, spd: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.name).toBe("My VR Team")
+      expect(result.pokemon[0].name).toBe("Incineroar")
+    })
+
+    it("should fill every move slot with an empty move when the paste has no moves", async () => {
+      const mockResponse = {
+        title: "No Moves Team",
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: [],
+            evs: { hp: 252 }
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/XJuCYyTS", false)
+
+      expect(result.pokemon[0].move1Name).toBe("")
+      expect(result.pokemon[0].move2Name).toBe("")
+      expect(result.pokemon[0].move3Name).toBe("")
+      expect(result.pokemon[0].move4Name).toBe("")
+    })
+
+    it("should use empty name when title is not present", async () => {
+      const mockResponse = {
+        teams: [
+          {
+            species: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            moves: ["Fake Out", "Knock Off", "Flare Blitz", "Parting Shot"]
+          }
+        ]
+      }
+
+      vi.spyOn(window, "fetch").mockReturnValue(Promise.resolve(new Response(JSON.stringify(mockResponse))))
+
+      const result = await service.parseTeam("https://www.vrpastes.com/abc123", false)
+
+      expect(result.name).toBe("")
+    })
+  })
+
+  describe("adjustName", () => {
+    it("should keep suffix for Rockruff with alternative form present in movesets", async () => {
+      const randomMove1 = "Rock Throw"
+      const randomMove2 = "Stone Edge"
+      const randomMove3 = "Crunch"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Rockruff-Dusk",
+            ability: "Own Tempo",
+            nature: "Jolly",
+            item: "Focus Sash",
+            teraType: "Rock",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Rockruff-Dusk")
+    })
+
+    it("should remove suffix for Pikachu with alternative form", async () => {
+      const randomMove1 = "Thunderbolt"
+      const randomMove2 = "Volt Tackle"
+      const randomMove3 = "Iron Tail"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Pikachu-Cosplay",
+            ability: "Lightning Rod",
+            nature: "Timid",
+            item: "Light Ball",
+            teraType: "Electric",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 4, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Pikachu")
+    })
+
+    it("should keep suffix for Polteageist with alternative form present in movesets", async () => {
+      const randomMove1 = "Shadow Ball"
+      const randomMove2 = "Giga Drain"
+      const randomMove3 = "Stored Power"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Polteageist-Antique",
+            ability: "Weak Armor",
+            nature: "Modest",
+            item: "White Herb",
+            teraType: "Ghost",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Polteageist-Antique")
+    })
+
+    it("should keep suffix for Vivillon with alternative form present in movesets", async () => {
+      const randomMove1 = "Hurricane"
+      const randomMove2 = "Sleep Powder"
+      const randomMove3 = "Quiver Dance"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Vivillon-Ocean",
+            ability: "Compound Eyes",
+            nature: "Timid",
+            item: "Focus Sash",
+            teraType: "Flying",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Vivillon-Ocean")
+    })
+
+    it("should keep suffix for Maushold with alternative form present in movesets", async () => {
+      const randomMove1 = "Population Bomb"
+      const randomMove2 = "Beat Up"
+      const randomMove3 = "Super Fang"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Maushold-Four",
+            ability: "Friend Guard",
+            nature: "Jolly",
+            item: "Aguav Berry",
+            teraType: "Normal",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 4, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Maushold-Four")
+    })
+
+    it("should keep full name for Pokémon not in alternative form list", async () => {
+      const randomMove1 = "Behemoth Blade"
+      const randomMove2 = "Sacred Sword"
+      const randomMove3 = "Tera Blast"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Zacian-Crowned",
+            ability: "Intrepid Sword",
+            nature: "Adamant",
+            item: "Rusted Sword",
+            teraType: "Ground",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 252, def: 0, spa: 0, spd: 0, spe: 4 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Zacian-Crowned")
+    })
+
+    it("should accept Aegislash-Shield form from pokepaste", async () => {
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Aegislash-Shield",
+            ability: "Stance Change",
+            nature: "Quiet",
+            item: "Leftovers",
+            teraType: "Steel",
+            moves: ["Shadow Ball", "Flash Cannon", "Wide Guard", "King's Shield"],
+            evs: { hp: 32, atk: 0, def: 1, spa: 32, spd: 1, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Aegislash-Shield")
+    })
+
+    it("should keep full name for Pokémon without hyphen", async () => {
+      const randomMove1 = "Fake Out"
+      const randomMove2 = "Knock Off"
+      const randomMove3 = "Flare Blitz"
+      const randomMove4 = "Parting Shot"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Incineroar",
+            ability: "Intimidate",
+            nature: "Careful",
+            item: "Sitrus Berry",
+            teraType: "Grass",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 0, def: 4, spa: 0, spd: 252, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Incineroar")
+    })
+
+    it("should remove suffix for Gastrodon with alternative form", async () => {
+      const randomMove1 = "Earth Power"
+      const randomMove2 = "Ice Beam"
+      const randomMove3 = "Recover"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Gastrodon-East",
+            ability: "Storm Drain",
+            nature: "Calm",
+            item: "Rindo Berry",
+            teraType: "Water",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 252, atk: 0, def: 4, spa: 252, spd: 0, spe: 0 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Gastrodon")
+    })
+
+    it("should keep suffix for Tatsugiri with alternative form present in movesets", async () => {
+      const randomMove1 = "Draco Meteor"
+      const randomMove2 = "Hydro Pump"
+      const randomMove3 = "Icy Wind"
+      const randomMove4 = "Protect"
+
+      const mockPaste = showdownText({
+        pokemon: [
+          {
+            name: "Tatsugiri-Droopy",
+            ability: "Commander",
+            nature: "Modest",
+            item: "Focus Sash",
+            teraType: "Dragon",
+            moves: [randomMove1, randomMove2, randomMove3, randomMove4],
+            evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+
+      const result = await service.parse(mockPaste, false)
+
+      expect(result.length).toBe(1)
+      expect(result[0].name).toBe("Tatsugiri-Droopy")
+    })
+  })
+  describe("when SP mode is not informed", () => {
+    function singlePokemonPaste(evs: Record<string, number>) {
+      return showdownText({
+        name: "SP Team",
+        pokemon: [
+          {
+            name: "Flutter Mane",
+            ability: "Protosynthesis",
+            nature: "Timid",
+            item: "Booster Energy",
+            teraType: "Fairy",
+            moves: ["Moonblast", "Shadow Ball", "Protect", "Icy Wind"],
+            evs,
+            ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 }
+          }
+        ]
+      })
+    }
+
+    it("should treat the parsed values as SPs when parsing", async () => {
+      const mockPaste = singlePokemonPaste({ hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 })
+
+      const result = await service.parse(mockPaste)
+
+      expect(result[0].sps).toEqual({ hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 })
+    })
+
+    it("should treat the parsed values as SPs when parsing a team", async () => {
+      const mockPaste = singlePokemonPaste({ hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 })
+
+      const result = await service.parseTeam(mockPaste)
+
+      expect(result.pokemon[0].sps).toEqual({ hp: 1, atk: 0, def: 0, spa: 32, spd: 0, spe: 32 })
+    })
+  })
+
+  type PasteTeam = { name?: string; pokemon: { name: string; ability?: string; nature?: string; item?: string; teraType?: string; moves: string[]; evs?: Record<string, number>; ivs?: Record<string, number> }[] }
+
+  function showdownText(team: PasteTeam): string {
+    const header = team.name ? `=== [gen9] ${team.name} ===\n\n` : ""
+    const labels: Record<string, string> = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" }
+
+    const sets = team.pokemon.map(p => {
+      const evs = Object.entries(p.evs ?? {})
+        .filter(([, value]) => value > 0)
+        .map(([stat, value]) => `${value} ${labels[stat]}`)
+      const lines = [
+        p.item ? `${p.name} @ ${p.item}` : p.name,
+        ...(p.ability ? [`Ability: ${p.ability}`] : []),
+        ...(p.teraType ? [`Tera Type: ${p.teraType}`] : []),
+        ...(evs.length > 0 ? [`EVs: ${evs.join(" / ")}`] : []),
+        ...(p.nature ? [`${p.nature} Nature`] : []),
+        ...p.moves.filter(move => move).map(move => `- ${move}`)
+      ]
+
+      return lines.join("\n")
+    })
+
+    return header + sets.join("\n\n")
+  }
+})

@@ -1,0 +1,1759 @@
+import { Mock, vi } from "vitest"
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { ActiveFieldService } from "./active-field.service"
+import { FieldStore } from "./field-store"
+import { FIELD_CONTEXT } from "./tokens/field-context.token"
+import { Field, FieldSide } from "@multicalc/model"
+import { GameType } from "@multicalc/types"
+import { CalcStore } from "./calc-store"
+
+describe("Field Store", () => {
+  let store: FieldStore
+
+  beforeEach(() => {
+    localStorage.clear()
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        FieldStore,
+        ActiveFieldService,
+        {
+          provide: CalcStore,
+          useValue: {
+            toggleProtosynthesis: () => void 0,
+            toggleQuarkDrive: () => void 0,
+            seedItems: () => "",
+            syncTerrainSeeds: () => void 0
+          }
+        },
+        { provide: FIELD_CONTEXT, useValue: "simple" }
+      ]
+    })
+
+    store = TestBed.inject(FieldStore)
+  })
+
+  describe("Computed", () => {
+    it("should return Field", () => {
+      store.toggleSunWeather()
+      store.toggleTabletsOfRuin()
+
+      const field = store.field()
+
+      expect(field.isGravity).toBe(false)
+      expect(field.weather).toBe("Sun")
+      expect(field.isTabletsOfRuin).toBe(true)
+    })
+
+    it("should return if is Weather Sun", () => {
+      store.toggleSunWeather()
+
+      expect(store.isWeatherSun()).toBe(true)
+    })
+
+    it("should return if is automatic Weather Sun", () => {
+      store.toggleAutomaticSunWeather()
+
+      expect(store.isWeatherSun()).toBe(true)
+    })
+
+    it("should return if is Weather Rain", () => {
+      store.toggleRainWeather()
+
+      expect(store.isWeatherRain()).toBe(true)
+    })
+
+    it("should return if is automatic Weather Rain", () => {
+      store.toggleAutomaticRainWeather()
+
+      expect(store.isWeatherRain()).toBe(true)
+    })
+
+    it("should return if is Weather Sand", () => {
+      store.toggleSandWeather()
+
+      expect(store.isWeatherSand()).toBe(true)
+    })
+
+    it("should return if is automatic Weather Sand", () => {
+      store.toggleAutomaticSandWeather()
+
+      expect(store.isWeatherSand()).toBe(true)
+    })
+
+    it("should return if is Weather Snow", () => {
+      store.toggleSnowWeather()
+
+      expect(store.isWeatherSnow()).toBe(true)
+    })
+
+    it("should return if is automatic Weather Snow", () => {
+      store.toggleAutomaticSnowWeather()
+
+      expect(store.isWeatherSnow()).toBe(true)
+    })
+
+    it("should return if is Weather Sun when come back from automatic to the same previous weather", () => {
+      store.toggleSunWeather()
+
+      store.toggleAutomaticSunWeather()
+
+      store.toggleSunWeather()
+
+      expect(store.isWeatherSun()).toBe(true)
+    })
+
+    it("should return if is Weather Sun when come back from automatic to the Sun previous weather", () => {
+      store.toggleSunWeather()
+
+      store.toggleAutomaticRainWeather()
+
+      store.toggleSunWeather()
+
+      expect(store.isWeatherSun()).toBe(true)
+      expect(store.isWeatherRain()).toBe(false)
+    })
+
+    it("should return if is Electric Terrain", () => {
+      store.toggleElectricTerrain()
+
+      expect(store.isTerrainElectric()).toBe(true)
+    })
+
+    it("should return if is automatic Electric Terrain", () => {
+      store.toggleAutomaticElectricTerrain()
+
+      expect(store.isTerrainElectric()).toBe(true)
+    })
+
+    it("should return if is Grassy Terrain", () => {
+      store.toggleGrassyTerrain()
+
+      expect(store.isTerrainGrassy()).toBe(true)
+    })
+
+    it("should return if is automatic Grassy Terrain", () => {
+      store.toggleAutomaticGrassyTerrain()
+
+      expect(store.isTerrainGrassy()).toBe(true)
+    })
+
+    it("should return if is Psychic Terrain", () => {
+      store.togglePsychicTerrain()
+
+      expect(store.isTerrainPsychic()).toBe(true)
+    })
+
+    it("should return if is automatic Psychic Terrain", () => {
+      store.toggleAutomaticPsychicTerrain()
+
+      expect(store.isTerrainPsychic()).toBe(true)
+    })
+
+    it("should return if is Misty Terrain", () => {
+      store.toggleMistyTerrain()
+
+      expect(store.isTerrainMisty()).toBe(true)
+    })
+
+    it("should return if is automatic Misty Terrain", () => {
+      store.toggleAutomaticMistyTerrain()
+
+      expect(store.isTerrainMisty()).toBe(true)
+    })
+
+    it("should return if is Terrain Electric when come back from automatic to the same previous weather", () => {
+      store.toggleElectricTerrain()
+
+      store.toggleAutomaticElectricTerrain()
+
+      store.toggleElectricTerrain()
+
+      expect(store.isTerrainElectric()).toBe(true)
+    })
+
+    it("should return if is Terrain Electric when come back from automatic to the Electric previous weather", () => {
+      store.toggleElectricTerrain()
+
+      store.toggleAutomaticGrassyTerrain()
+
+      store.toggleElectricTerrain()
+
+      expect(store.isTerrainElectric()).toBe(true)
+      expect(store.isTerrainGrassy()).toBe(false)
+    })
+  })
+
+  describe("Methods", () => {
+    it("should change attacker Game Type to Singles when actual Game Type is Doubles", () => {
+      store.toggleAttackerGameType()
+
+      expect(store.field().attackerSide.gameType).toBe("Singles")
+    })
+
+    it("should change attacker Game Type to Doubles when actual Game Type is Singles", () => {
+      store.toggleAttackerGameType()
+      store.toggleAttackerGameType()
+
+      expect(store.field().attackerSide.gameType).toBe("Doubles")
+    })
+
+    it("should change defender Game Type to Singles when actual Game Type is Doubles", () => {
+      store.toggleDefenderGameType()
+
+      expect(store.field().defenderSide.gameType).toBe("Singles")
+    })
+
+    it("should change defender Game Type to Doubles when actual Game Type is Singles", () => {
+      store.toggleDefenderGameType()
+      store.toggleDefenderGameType()
+
+      expect(store.field().defenderSide.gameType).toBe("Doubles")
+    })
+
+    it("should change weather to Sun when weather is null", () => {
+      store.toggleSunWeather()
+
+      expect(store.field().weather).toBe("Sun")
+    })
+
+    it("should change weather to Sun when weather is Rain", () => {
+      store.toggleRainWeather()
+      store.toggleSunWeather()
+
+      expect(store.field().weather).toBe("Sun")
+    })
+
+    it("should change weather to null when weather is Sun", () => {
+      store.toggleSunWeather()
+      store.toggleSunWeather()
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should change weather to Rain when weather is null", () => {
+      store.toggleRainWeather()
+
+      expect(store.field().weather).toBe("Rain")
+    })
+
+    it("should change weather to Rain when weather is Sun", () => {
+      store.toggleSunWeather()
+      store.toggleRainWeather()
+
+      expect(store.field().weather).toBe("Rain")
+    })
+
+    it("should change weather to null when weather is Rain", () => {
+      store.toggleRainWeather()
+      store.toggleRainWeather()
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should change weather to Sand when weather is null", () => {
+      store.toggleSandWeather()
+
+      expect(store.field().weather).toBe("Sand")
+    })
+
+    it("should change weather to Sand when weather is Snow", () => {
+      store.toggleSnowWeather()
+      store.toggleSandWeather()
+
+      expect(store.field().weather).toBe("Sand")
+    })
+
+    it("should change weather to null when weather is Sand", () => {
+      store.toggleSandWeather()
+      store.toggleSandWeather()
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should change weather to Snow when weather is null", () => {
+      store.toggleSnowWeather()
+
+      expect(store.field().weather).toBe("Snow")
+    })
+
+    it("should change weather to Snow when weather is Sand", () => {
+      store.toggleSandWeather()
+      store.toggleSnowWeather()
+
+      expect(store.field().weather).toBe("Snow")
+    })
+
+    it("should change weather to null when weather is Snow", () => {
+      store.toggleSnowWeather()
+      store.toggleSnowWeather()
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should change terrain to Electric when terrain is null", () => {
+      store.toggleElectricTerrain()
+
+      expect(store.field().terrain).toBe("Electric")
+    })
+
+    it("should change terrain to Electric when terrain is Grassy", () => {
+      store.toggleGrassyTerrain()
+      store.toggleElectricTerrain()
+
+      expect(store.field().terrain).toBe("Electric")
+    })
+
+    it("should change terrain to null when terrain is Electric", () => {
+      store.toggleElectricTerrain()
+      store.toggleElectricTerrain()
+
+      expect(store.field().terrain).toBeNull()
+    })
+
+    it("should change terrain to Grassy when terrain is null", () => {
+      store.toggleGrassyTerrain()
+
+      expect(store.field().terrain).toBe("Grassy")
+    })
+
+    it("should change terrain to Grassy when terrain is Psychic", () => {
+      store.togglePsychicTerrain()
+      store.toggleGrassyTerrain()
+
+      expect(store.field().terrain).toBe("Grassy")
+    })
+
+    it("should change terrain to null when terrain is Grassy", () => {
+      store.toggleGrassyTerrain()
+      store.toggleGrassyTerrain()
+
+      expect(store.field().terrain).toBeNull()
+    })
+
+    it("should change terrain to Psychic when terrain is null", () => {
+      store.togglePsychicTerrain()
+
+      expect(store.field().terrain).toBe("Psychic")
+    })
+
+    it("should change terrain to Psychic when terrain is Misty", () => {
+      store.toggleMistyTerrain()
+      store.togglePsychicTerrain()
+
+      expect(store.field().terrain).toBe("Psychic")
+    })
+
+    it("should change terrain to null when terrain is Psychic", () => {
+      store.togglePsychicTerrain()
+      store.togglePsychicTerrain()
+
+      expect(store.field().terrain).toBeNull()
+    })
+
+    it("should change terrain to Misty when terrain is null", () => {
+      store.toggleMistyTerrain()
+
+      expect(store.field().terrain).toBe("Misty")
+    })
+
+    it("should change terrain to Misty when terrain is Electric", () => {
+      store.toggleElectricTerrain()
+      store.toggleMistyTerrain()
+
+      expect(store.field().terrain).toBe("Misty")
+    })
+
+    it("should change terrain to null when terrain is Misty", () => {
+      store.toggleMistyTerrain()
+      store.toggleMistyTerrain()
+
+      expect(store.field().terrain).toBeNull()
+    })
+
+    it("should change Beads Of Ruin to true when it is false", () => {
+      store.toggleBeadsOfRuin()
+
+      expect(store.field().isBeadsOfRuin).toBe(true)
+    })
+
+    it("should change Beads Of Ruin to false when it is true", () => {
+      store.toggleBeadsOfRuin()
+      store.toggleBeadsOfRuin()
+
+      expect(store.field().isBeadsOfRuin).toBe(false)
+    })
+
+    it("should turn Sword Of Ruin off and clear the automatic flag when both were active", () => {
+      store.toggleSwordOfRuin()
+
+      store.toggleAutomaticSwordOfRuin()
+
+      store.toggleSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(false)
+    })
+
+    it("should turn Sword Of Ruin on through the automatic toggle", () => {
+      store.toggleAutomaticSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(true)
+    })
+
+    it("should turn Tablets Of Ruin off and clear the automatic flag when both were active", () => {
+      store.toggleTabletsOfRuin()
+
+      store.toggleAutomaticTabletsOfRuin()
+
+      store.toggleTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(false)
+    })
+
+    it("should turn Tablets Of Ruin on through the automatic toggle", () => {
+      store.toggleAutomaticTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(true)
+    })
+
+    it("should turn Vessel Of Ruin off and clear the automatic flag when both were active", () => {
+      store.toggleVesselOfRuin()
+
+      store.toggleAutomaticVesselOfRuin()
+
+      store.toggleVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(false)
+    })
+
+    it("should turn Vessel Of Ruin on through the automatic toggle", () => {
+      store.toggleAutomaticVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(true)
+    })
+
+    it("should turn Neutralizing Gas off and clear the automatic flag when both were active", () => {
+      store.toggleNeutralizingGas()
+
+      store.toggleAutomaticNeutralizingGas()
+
+      store.toggleNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(false)
+    })
+
+    it("should turn Neutralizing Gas on through the automatic toggle", () => {
+      store.toggleAutomaticNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(true)
+    })
+
+    it("should turn Fairy Aura off and clear the automatic flag when both were active", () => {
+      store.toggleFairyAura()
+
+      store.toggleAutomaticFairyAura()
+
+      store.toggleFairyAura()
+
+      expect(store.field().isFairyAura).toBe(false)
+    })
+
+    it("should turn Fairy Aura on through the automatic toggle", () => {
+      store.toggleAutomaticFairyAura()
+
+      expect(store.field().isFairyAura).toBe(true)
+    })
+
+    it("should turn attacker Steely Spirit off and clear the automatic flag when both were active", () => {
+      store.toggleAttackerSteelySpirit()
+
+      store.toggleAutomaticAttackerSteelySpirit()
+
+      store.toggleAttackerSteelySpirit()
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should only clear the automatic flag for attacker Steely Spirit when the value is already off", () => {
+      store.toggleAutomaticAttackerSteelySpirit()
+
+      store.toggleAttackerSteelySpirit()
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should turn defender Steely Spirit off and clear the automatic flag when both were active", () => {
+      store.toggleDefenderSteelySpirit()
+
+      store.toggleAutomaticDefenderSteelySpirit()
+
+      store.toggleDefenderSteelySpirit()
+
+      expect(store.field().defenderSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should only clear the automatic flag for defender Steely Spirit when the value is already off", () => {
+      store.toggleAutomaticDefenderSteelySpirit()
+
+      store.toggleDefenderSteelySpirit()
+
+      expect(store.field().defenderSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should turn attacker Steely Spirit on through the automatic toggle", () => {
+      store.toggleAutomaticAttackerSteelySpirit()
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(true)
+    })
+
+    it("should turn defender Steely Spirit on through the automatic toggle", () => {
+      store.toggleAutomaticDefenderSteelySpirit()
+
+      expect(store.field().defenderSide.isSteelySpirit).toBe(true)
+    })
+
+    it("should not turn on the defender Steely Spirit when only the attacker one is active", () => {
+      store.toggleAttackerSteelySpirit()
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(true)
+      expect(store.field().defenderSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should change attacker Steely Spirit to false when it is true", () => {
+      store.toggleAttackerSteelySpirit()
+      store.toggleAttackerSteelySpirit()
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should change defender Steely Spirit to false when it is true", () => {
+      store.toggleDefenderSteelySpirit()
+      store.toggleDefenderSteelySpirit()
+
+      expect(store.field().defenderSide.isSteelySpirit).toBe(false)
+    })
+
+    it("should toggle the attacker protected flag", () => {
+      store.toggleAttackerProtected()
+
+      expect(store.field().attackerSide.isProtected).toBe(true)
+    })
+
+    it("should toggle the defender protected flag", () => {
+      store.toggleDefenderProtected()
+
+      expect(store.field().defenderSide.isProtected).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Beads Of Ruin when the value is already off", () => {
+      store.toggleAutomaticBeadsOfRuin()
+      store.toggleBeadsOfRuin()
+
+      store.toggleBeadsOfRuin()
+
+      expect(store.field().isBeadsOfRuin).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Sword Of Ruin when the value is already off", () => {
+      store.toggleAutomaticSwordOfRuin()
+      store.toggleSwordOfRuin()
+
+      store.toggleSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Tablets Of Ruin when the value is already off", () => {
+      store.toggleAutomaticTabletsOfRuin()
+      store.toggleTabletsOfRuin()
+
+      store.toggleTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Vessel Of Ruin when the value is already off", () => {
+      store.toggleAutomaticVesselOfRuin()
+      store.toggleVesselOfRuin()
+
+      store.toggleVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Neutralizing Gas when the value is already off", () => {
+      store.toggleAutomaticNeutralizingGas()
+      store.toggleNeutralizingGas()
+
+      store.toggleNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(true)
+    })
+
+    it("should only clear the automatic flag for Fairy Aura when the value is already off", () => {
+      store.toggleAutomaticFairyAura()
+      store.toggleFairyAura()
+
+      store.toggleFairyAura()
+
+      expect(store.field().isFairyAura).toBe(true)
+    })
+
+    it("should change automatic Beads Of Ruin to true when it is false", () => {
+      store.toggleAutomaticBeadsOfRuin()
+
+      expect(store.field().isBeadsOfRuin).toBe(true)
+    })
+
+    it("should change Beads Of Ruin to false when it is true in automatic and normal value", () => {
+      store.toggleBeadsOfRuin()
+
+      store.toggleAutomaticBeadsOfRuin()
+
+      store.toggleBeadsOfRuin()
+
+      expect(store.field().isBeadsOfRuin).toBe(false)
+    })
+
+    it("should change Sword Of Ruin to true when it is false", () => {
+      store.toggleSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(true)
+    })
+
+    it("should change Sword Of Ruin to false when it is true", () => {
+      store.toggleSwordOfRuin()
+      store.toggleSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(false)
+    })
+
+    it("should change automatic Sword Of Ruin to true when it is false", () => {
+      store.toggleAutomaticSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(true)
+    })
+
+    it("should change Sword Of Ruin to false when it is true in automatic and normal value", () => {
+      store.toggleSwordOfRuin()
+
+      store.toggleAutomaticSwordOfRuin()
+
+      store.toggleSwordOfRuin()
+
+      expect(store.field().isSwordOfRuin).toBe(false)
+    })
+
+    it("should change Tablets Of Ruin to true when it is false", () => {
+      store.toggleTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(true)
+    })
+
+    it("should change Tablets Of Ruin to false when it is true", () => {
+      store.toggleTabletsOfRuin()
+      store.toggleTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(false)
+    })
+
+    it("should change automatic Tablets Of Ruin to true when it is false", () => {
+      store.toggleAutomaticTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(true)
+    })
+
+    it("should change Tablets Of Ruin to false when it is true in automatic and normal value", () => {
+      store.toggleTabletsOfRuin()
+
+      store.toggleAutomaticTabletsOfRuin()
+
+      store.toggleTabletsOfRuin()
+
+      expect(store.field().isTabletsOfRuin).toBe(false)
+    })
+
+    it("should change Vessel Of Ruin to true when it is false", () => {
+      store.toggleVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(true)
+    })
+
+    it("should change Vessel Of Ruin to false when it is true", () => {
+      store.toggleVesselOfRuin()
+      store.toggleVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(false)
+    })
+
+    it("should change automatic Vessel Of Ruin to true when it is false", () => {
+      store.toggleAutomaticVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(true)
+    })
+
+    it("should change Vessel Of Ruin to false when it is true in automatic and normal value", () => {
+      store.toggleVesselOfRuin()
+
+      store.toggleAutomaticVesselOfRuin()
+
+      store.toggleVesselOfRuin()
+
+      expect(store.field().isVesselOfRuin).toBe(false)
+    })
+
+    it("should change Magic Room to true when it is false", () => {
+      store.toggleMagicRoom()
+
+      expect(store.field().isMagicRoom).toBe(true)
+    })
+
+    it("should change Magic Room to false when it is true", () => {
+      store.toggleMagicRoom()
+      store.toggleMagicRoom()
+
+      expect(store.field().isMagicRoom).toBe(false)
+    })
+
+    it("should change Wonder Room to true when it is false", () => {
+      store.toggleWonderRoom()
+
+      expect(store.field().isWonderRoom).toBe(true)
+    })
+
+    it("should change Wonder Room to false when it is true", () => {
+      store.toggleWonderRoom()
+      store.toggleWonderRoom()
+
+      expect(store.field().isWonderRoom).toBe(false)
+    })
+
+    it("should change Gravity to true when it is false", () => {
+      store.toggleGravity()
+
+      expect(store.field().isGravity).toBe(true)
+    })
+
+    it("should change Gravity to false when it is true", () => {
+      store.toggleGravity()
+      store.toggleGravity()
+
+      expect(store.field().isGravity).toBe(false)
+    })
+
+    it("should change Trick Room to true when it is false", () => {
+      store.toggleTrickRoom()
+
+      expect(store.field().isTrickRoom).toBe(true)
+    })
+
+    it("should change Trick Room to false when it is true", () => {
+      store.toggleTrickRoom()
+      store.toggleTrickRoom()
+
+      expect(store.field().isTrickRoom).toBe(false)
+    })
+
+    it("should change attacker Critical Hit to true when it is false", () => {
+      store.toggleAttackerCriticalHit()
+
+      expect(store.field().attackerSide.isCriticalHit).toBe(true)
+    })
+
+    it("should change attacker Critical Hit to false when it is true", () => {
+      store.toggleAttackerCriticalHit()
+      store.toggleAttackerCriticalHit()
+
+      expect(store.field().attackerSide.isCriticalHit).toBe(false)
+    })
+
+    it("should change defender Critical Hit to true when it is false", () => {
+      store.toggleDefenderCriticalHit()
+
+      expect(store.field().defenderSide.isCriticalHit).toBe(true)
+    })
+
+    it("should change defender Critical Hit to false when it is true", () => {
+      store.toggleDefenderCriticalHit()
+      store.toggleDefenderCriticalHit()
+
+      expect(store.field().defenderSide.isCriticalHit).toBe(false)
+    })
+
+    it("should change Neutralizing Gas to true when it is false", () => {
+      store.toggleNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(true)
+    })
+
+    it("should change Neutralizing Gas to false when it is true", () => {
+      store.toggleNeutralizingGas()
+      store.toggleNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(false)
+    })
+
+    it("should change Automatic Neutralizing Gas to true when it is false", () => {
+      store.toggleAutomaticNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(true)
+    })
+
+    it("should change Neutralizing Gas to false when it is true in automatic and normal value", () => {
+      store.toggleNeutralizingGas()
+
+      store.toggleAutomaticNeutralizingGas()
+
+      store.toggleNeutralizingGas()
+
+      expect(store.field().isNeutralizingGas).toBe(false)
+    })
+
+    it("should change Unnerve to true when it is false", () => {
+      store.toggleUnnerve()
+
+      expect(store.field().isUnnerve).toBe(true)
+    })
+
+    it("should change Unnerve to false when it is true", () => {
+      store.toggleUnnerve()
+      store.toggleUnnerve()
+
+      expect(store.field().isUnnerve).toBe(false)
+    })
+
+    it("should change Fairy Aura to true when it is false", () => {
+      store.toggleFairyAura()
+
+      expect(store.field().isFairyAura).toBe(true)
+    })
+
+    it("should change Fairy Aura to false when it is true", () => {
+      store.toggleFairyAura()
+      store.toggleFairyAura()
+
+      expect(store.field().isFairyAura).toBe(false)
+    })
+
+    it("should change attacker Helping Hand to true when it is false", () => {
+      store.toggleAttackerHelpingHand()
+
+      expect(store.field().attackerSide.isHelpingHand).toBe(true)
+    })
+
+    it("should change attacker Helping Hand to false when it is true", () => {
+      store.toggleAttackerHelpingHand()
+      store.toggleAttackerHelpingHand()
+
+      expect(store.field().attackerSide.isHelpingHand).toBe(false)
+    })
+
+    it("should change defender Helping Hand to true when it is false", () => {
+      store.toggleDefenderHelpingHand()
+
+      expect(store.field().defenderSide.isHelpingHand).toBe(true)
+    })
+
+    it("should change defender Helping Hand to false when it is true", () => {
+      store.toggleDefenderHelpingHand()
+      store.toggleDefenderHelpingHand()
+
+      expect(store.field().defenderSide.isHelpingHand).toBe(false)
+    })
+
+    it("should change attacker Battery to true when it is false", () => {
+      store.toggleAttackerBattery()
+
+      expect(store.field().attackerSide.isBattery).toBe(true)
+    })
+
+    it("should change attacker Battery to false when it is true", () => {
+      store.toggleAttackerBattery()
+      store.toggleAttackerBattery()
+
+      expect(store.field().attackerSide.isBattery).toBe(false)
+    })
+
+    it("should change defender Battery to true when it is false", () => {
+      store.toggleDefenderBattery()
+
+      expect(store.field().defenderSide.isBattery).toBe(true)
+    })
+
+    it("should change defender Battery to false when it is true", () => {
+      store.toggleDefenderBattery()
+      store.toggleDefenderBattery()
+
+      expect(store.field().defenderSide.isBattery).toBe(false)
+    })
+
+    it("should change attacker Power Spot to true when it is false", () => {
+      store.toggleAttackerPowerSpot()
+
+      expect(store.field().attackerSide.isPowerSpot).toBe(true)
+    })
+
+    it("should change attacker Power Spot to false when it is true", () => {
+      store.toggleAttackerPowerSpot()
+      store.toggleAttackerPowerSpot()
+
+      expect(store.field().attackerSide.isPowerSpot).toBe(false)
+    })
+
+    it("should change defender Power Spot to true when it is false", () => {
+      store.toggleDefenderPowerSpot()
+
+      expect(store.field().defenderSide.isPowerSpot).toBe(true)
+    })
+
+    it("should change defender Power Spot to false when it is true", () => {
+      store.toggleDefenderPowerSpot()
+      store.toggleDefenderPowerSpot()
+
+      expect(store.field().defenderSide.isPowerSpot).toBe(false)
+    })
+
+    it("should change Attacker Tailwind to true when it is false", () => {
+      store.toggleAttackerTailwind()
+
+      expect(store.field().attackerSide.isTailwind).toBe(true)
+    })
+
+    it("should change Attacker Tailwind to false when it is true", () => {
+      store.toggleAttackerTailwind()
+      store.toggleAttackerTailwind()
+
+      expect(store.field().attackerSide.isTailwind).toBe(false)
+    })
+
+    it("should change Defender Tailwind to true when it is false", () => {
+      store.toggleDefenderTailwind()
+
+      expect(store.field().defenderSide.isTailwind).toBe(true)
+    })
+
+    it("should change Defender Tailwind to false when it is true", () => {
+      store.toggleDefenderTailwind()
+      store.toggleDefenderTailwind()
+
+      expect(store.field().defenderSide.isTailwind).toBe(false)
+    })
+
+    it("should change attacker Reflect to true when it is false", () => {
+      store.toggleAttackerReflect()
+
+      expect(store.field().attackerSide.isReflect).toBe(true)
+    })
+
+    it("should change attacker Reflect to false when it is true", () => {
+      store.toggleAttackerReflect()
+      store.toggleAttackerReflect()
+
+      expect(store.field().attackerSide.isReflect).toBe(false)
+    })
+
+    it("should change defender Reflect to true when it is false", () => {
+      store.toggleDefenderReflect()
+
+      expect(store.field().defenderSide.isReflect).toBe(true)
+    })
+
+    it("should change defender Reflect to false when it is true", () => {
+      store.toggleDefenderReflect()
+      store.toggleDefenderReflect()
+
+      expect(store.field().defenderSide.isReflect).toBe(false)
+    })
+
+    it("should change attacker Light Screen to true when it is false", () => {
+      store.toggleAttackerLightScreen()
+
+      expect(store.field().attackerSide.isLightScreen).toBe(true)
+    })
+
+    it("should change attacker Light Screen to false when it is true", () => {
+      store.toggleAttackerLightScreen()
+      store.toggleAttackerLightScreen()
+
+      expect(store.field().attackerSide.isLightScreen).toBe(false)
+    })
+
+    it("should change defender Light Screen to true when it is false", () => {
+      store.toggleDefenderLightScreen()
+
+      expect(store.field().defenderSide.isLightScreen).toBe(true)
+    })
+
+    it("should change defender Light Screen to false when it is true", () => {
+      store.toggleDefenderLightScreen()
+      store.toggleDefenderLightScreen()
+
+      expect(store.field().defenderSide.isLightScreen).toBe(false)
+    })
+
+    it("should change attacker Aurora Veil to true when it is false", () => {
+      store.toggleAttackerAuroraVeil()
+
+      expect(store.field().attackerSide.isAuroraVeil).toBe(true)
+    })
+
+    it("should change attacker Aurora Veil to false when it is true", () => {
+      store.toggleAttackerAuroraVeil()
+      store.toggleAttackerAuroraVeil()
+
+      expect(store.field().attackerSide.isAuroraVeil).toBe(false)
+    })
+
+    it("should change defender Aurora Veil to true when it is false", () => {
+      store.toggleDefenderAuroraVeil()
+
+      expect(store.field().defenderSide.isAuroraVeil).toBe(true)
+    })
+
+    it("should change defender Aurora Veil to false when it is true", () => {
+      store.toggleDefenderAuroraVeil()
+      store.toggleDefenderAuroraVeil()
+
+      expect(store.field().defenderSide.isAuroraVeil).toBe(false)
+    })
+
+    it("should change attacker Friend Guard to true when it is false", () => {
+      store.toggleAttackerFriendGuard()
+
+      expect(store.field().attackerSide.isFriendGuard).toBe(true)
+    })
+
+    it("should change attacker Friend Guard to false when it is true", () => {
+      store.toggleAttackerFriendGuard()
+      store.toggleAttackerFriendGuard()
+
+      expect(store.field().attackerSide.isFriendGuard).toBe(false)
+    })
+
+    it("should change Defender Friend Guard to true when it is false", () => {
+      store.toggleDefenderFriendGuard()
+
+      expect(store.field().defenderSide.isFriendGuard).toBe(true)
+    })
+
+    it("should change Defender Friend Guard to false when it is true", () => {
+      store.toggleDefenderFriendGuard()
+      store.toggleDefenderFriendGuard()
+
+      expect(store.field().defenderSide.isFriendGuard).toBe(false)
+    })
+
+    it("should change attacker Spikes to 0", () => {
+      store.toggleAttackerSpikes0()
+
+      expect(store.field().attackerSide.spikes).toBe(0)
+    })
+
+    it("should change attacker Spikes to 1", () => {
+      store.toggleAttackerSpikes1()
+
+      expect(store.field().attackerSide.spikes).toBe(1)
+    })
+
+    it("should change attacker Spikes to 2", () => {
+      store.toggleAttackerSpikes2()
+
+      expect(store.field().attackerSide.spikes).toBe(2)
+    })
+
+    it("should change attacker Spikes to 3", () => {
+      store.toggleAttackerSpikes3()
+
+      expect(store.field().attackerSide.spikes).toBe(3)
+    })
+
+    it("should change defender Spikes to 0", () => {
+      store.toggleDefenderSpikes0()
+
+      expect(store.field().defenderSide.spikes).toBe(0)
+    })
+
+    it("should change defender Spikes to 1", () => {
+      store.toggleDefenderSpikes1()
+
+      expect(store.field().defenderSide.spikes).toBe(1)
+    })
+
+    it("should change defender Spikes to 2", () => {
+      store.toggleDefenderSpikes2()
+
+      expect(store.field().defenderSide.spikes).toBe(2)
+    })
+
+    it("should change defender Spikes to 3", () => {
+      store.toggleDefenderSpikes3()
+
+      expect(store.field().defenderSide.spikes).toBe(3)
+    })
+
+    it("should change attacker Seeded to true when it is false", () => {
+      store.toggleAttackerSeeded()
+
+      expect(store.field().attackerSide.isSeeded).toBe(true)
+    })
+
+    it("should change attacker Seeded to false when it is true", () => {
+      store.toggleAttackerSeeded()
+      store.toggleAttackerSeeded()
+
+      expect(store.field().attackerSide.isSeeded).toBe(false)
+    })
+
+    it("should change defender Seeded to true when it is false", () => {
+      store.toggleDefenderSeeded()
+
+      expect(store.field().defenderSide.isSeeded).toBe(true)
+    })
+
+    it("should change defender Seeded to false when it is true", () => {
+      store.toggleDefenderSeeded()
+      store.toggleDefenderSeeded()
+
+      expect(store.field().defenderSide.isSeeded).toBe(false)
+    })
+
+    it("should change attacker Stealth Rock to true when it is false", () => {
+      store.toggleAttackerStealthRock()
+
+      expect(store.field().attackerSide.isSR).toBe(true)
+    })
+
+    it("should change attacker Stealth Rock to false when it is true", () => {
+      store.toggleAttackerStealthRock()
+      store.toggleAttackerStealthRock()
+
+      expect(store.field().attackerSide.isSR).toBe(false)
+    })
+
+    it("should change defender Stealth Rock to true when it is false", () => {
+      store.toggleDefenderStealthRock()
+
+      expect(store.field().defenderSide.isSR).toBe(true)
+    })
+
+    it("should change defender Stealth Rock to false when it is true", () => {
+      store.toggleDefenderStealthRock()
+      store.toggleDefenderStealthRock()
+
+      expect(store.field().defenderSide.isSR).toBe(false)
+    })
+
+    it("should clean automatic options", () => {
+      store.toggleAutomaticSunWeather()
+      store.toggleAutomaticElectricTerrain()
+      store.toggleAutomaticBeadsOfRuin()
+      store.toggleAutomaticSwordOfRuin()
+      store.toggleAutomaticTabletsOfRuin()
+      store.toggleAutomaticVesselOfRuin()
+      store.toggleAutomaticNeutralizingGas()
+
+      store.cleanAutomaticOptions()
+
+      expect(store.field().weather == "Sun").toBe(false)
+      expect(store.field().terrain == "Electric").toBe(false)
+      expect(store.field().isBeadsOfRuin).toBe(false)
+      expect(store.field().isSwordOfRuin).toBe(false)
+      expect(store.field().isTabletsOfRuin).toBe(false)
+      expect(store.field().isVesselOfRuin).toBe(false)
+      expect(store.field().isNeutralizingGas).toBe(false)
+    })
+
+    it("should not clean automatic options with exceptions", () => {
+      store.toggleAutomaticSunWeather()
+      store.toggleAutomaticElectricTerrain()
+      store.toggleAutomaticBeadsOfRuin()
+      store.toggleAutomaticSwordOfRuin()
+      store.toggleAutomaticTabletsOfRuin()
+      store.toggleAutomaticVesselOfRuin()
+      store.toggleAutomaticNeutralizingGas()
+
+      store.cleanAutomaticOptions(["automaticWeather", "automaticTerrain", "automaticBeadsOfRuinActivated", "automaticSwordOfRuinActivated", "automaticTabletsOfRuinActivated", "automaticVesselOfRuinActivated", "automaticNeutralizingGasActivated"])
+
+      expect(store.field().weather == "Sun").toBe(true)
+      expect(store.field().terrain == "Electric").toBe(true)
+      expect(store.field().isBeadsOfRuin).toBe(true)
+      expect(store.field().isSwordOfRuin).toBe(true)
+      expect(store.field().isTabletsOfRuin).toBe(true)
+      expect(store.field().isVesselOfRuin).toBe(true)
+      expect(store.field().isNeutralizingGas).toBe(true)
+    })
+
+    it("should keep the automatic Fairy Aura when it is listed as an exception", () => {
+      store.toggleAutomaticFairyAura()
+      store.toggleAutomaticSunWeather()
+
+      store.cleanAutomaticOptions(["automaticFairyAuraActivated"])
+
+      expect(store.field().isFairyAura).toBe(true)
+      expect(store.field().weather == "Sun").toBe(false)
+    })
+
+    it("should keep the automatic attacker Steely Spirit when it is listed as an exception", () => {
+      store.toggleAutomaticAttackerSteelySpirit()
+      store.toggleAutomaticSunWeather()
+
+      store.cleanAutomaticOptions(["automaticAttackerSteelySpirit"])
+
+      expect(store.field().attackerSide.isSteelySpirit).toBe(true)
+      expect(store.field().weather == "Sun").toBe(false)
+    })
+
+    it("should keep the automatic defender Steely Spirit when it is listed as an exception", () => {
+      store.toggleAutomaticDefenderSteelySpirit()
+      store.toggleAutomaticSunWeather()
+
+      store.cleanAutomaticOptions(["automaticDefenderSteelySpirit"])
+
+      expect(store.field().defenderSide.isSteelySpirit).toBe(true)
+      expect(store.field().weather == "Sun").toBe(false)
+    })
+  })
+
+  describe("Strong weathers", () => {
+    it("should set Heavy Rain as the effective weather when set automatically", () => {
+      store.toggleRainWeather()
+      store.toggleAutomaticHeavyRainWeather()
+
+      expect(store.field().weather).toBe("Heavy Rain")
+      expect(store.isWeatherHeavyRain()).toBe(true)
+      expect(store.isWeatherRain()).toBe(false)
+    })
+
+    it("should set Harsh Sunshine and Strong Winds as the effective weather when set automatically", () => {
+      store.toggleAutomaticHarshSunshineWeather()
+
+      expect(store.isWeatherHarshSunshine()).toBe(true)
+
+      store.toggleAutomaticStrongWindsWeather()
+
+      expect(store.isWeatherStrongWinds()).toBe(true)
+    })
+
+    it("should restore the manual weather when the strong weather is toggled off", () => {
+      store.toggleRainWeather()
+      store.toggleAutomaticHeavyRainWeather()
+
+      store.toggleHeavyRainWeather()
+
+      expect(store.field().weather).toBe("Rain")
+    })
+
+    it("should turn the strong weather back on without touching the manual weather", () => {
+      store.toggleSunWeather()
+      store.toggleAutomaticHarshSunshineWeather()
+      store.toggleHarshSunshineWeather()
+
+      store.toggleHarshSunshineWeather()
+
+      expect(store.field().weather).toBe("Harsh Sunshine")
+      expect(store.weather()).toBe("Sun")
+    })
+
+    it("should replace the strong weather with a regular weather chosen by the user", () => {
+      store.toggleAutomaticStrongWindsWeather()
+
+      store.toggleSnowWeather()
+
+      expect(store.field().weather).toBe("Snow")
+    })
+
+    it("should toggle Strong Winds off", () => {
+      store.toggleAutomaticStrongWindsWeather()
+
+      store.toggleStrongWindsWeather()
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should list which strong weathers are available", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain", "Strong Winds"])
+
+      expect(store.isHeavyRainAvailable()).toBe(true)
+      expect(store.isStrongWindsAvailable()).toBe(true)
+      expect(store.isHarshSunshineAvailable()).toBe(false)
+    })
+
+    it("should move to the remaining strong weather when the Pokemon of the current one leaves", () => {
+      store.toggleAutomaticHarshSunshineWeather()
+
+      store.updateAvailableStrongWeathers(["Heavy Rain"])
+
+      expect(store.field().weather).toBe("Heavy Rain")
+    })
+
+    it("should restore the manual weather when no strong weather is available anymore", () => {
+      store.toggleSandWeather()
+      store.toggleAutomaticHeavyRainWeather()
+
+      store.updateAvailableStrongWeathers([])
+
+      expect(store.field().weather).toBe("Sand")
+    })
+
+    it("should keep a strong weather that is still available", () => {
+      store.toggleAutomaticHeavyRainWeather()
+
+      store.updateAvailableStrongWeathers(["Harsh Sunshine", "Heavy Rain"])
+
+      expect(store.field().weather).toBe("Heavy Rain")
+    })
+
+    it("should keep a regular automatic weather when the strong weathers change", () => {
+      store.toggleAutomaticRainWeather()
+
+      store.updateAvailableStrongWeathers([])
+
+      expect(store.field().weather).toBe("Rain")
+    })
+
+    it("should not report a strong weather when only a regular weather is set", () => {
+      store.toggleRainWeather()
+
+      expect(store.isWeatherHeavyRain()).toBe(false)
+      expect(store.isWeatherHarshSunshine()).toBe(false)
+      expect(store.isWeatherStrongWinds()).toBe(false)
+    })
+
+    it("should mark the strong weather as turned off when the user toggles it off", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain"])
+      store.toggleAutomaticHeavyRainWeather()
+
+      store.toggleHeavyRainWeather()
+
+      expect(store.disabledStrongWeathers()).toEqual(["Heavy Rain"])
+    })
+
+    it("should turn the strong weather back on when the user toggles it on again", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain"])
+      store.toggleAutomaticHeavyRainWeather()
+      store.toggleHeavyRainWeather()
+
+      store.toggleHeavyRainWeather()
+
+      expect(store.field().weather).toBe("Heavy Rain")
+      expect(store.disabledStrongWeathers()).toEqual([])
+    })
+
+    it("should turn the strong weather back on when its Pokemon enters the field again", () => {
+      store.updateAvailableStrongWeathers(["Harsh Sunshine"])
+      store.toggleAutomaticHarshSunshineWeather()
+      store.toggleHarshSunshineWeather()
+
+      store.toggleAutomaticHarshSunshineWeather()
+
+      expect(store.field().weather).toBe("Harsh Sunshine")
+      expect(store.disabledStrongWeathers()).toEqual([])
+    })
+
+    it("should mark the strong weather as turned off when the user picks a regular weather", () => {
+      store.updateAvailableStrongWeathers(["Strong Winds"])
+      store.toggleAutomaticStrongWindsWeather()
+
+      store.toggleSunWeather()
+
+      expect(store.field().weather).toBe("Sun")
+      expect(store.disabledStrongWeathers()).toEqual(["Strong Winds"])
+    })
+
+    it("should forget a turned off strong weather when its Pokemon leaves the field", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain"])
+      store.toggleAutomaticHeavyRainWeather()
+      store.toggleHeavyRainWeather()
+
+      store.updateAvailableStrongWeathers([])
+
+      expect(store.disabledStrongWeathers()).toEqual([])
+    })
+
+    it("should not move to a strong weather turned off by the user when the current one leaves", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain", "Harsh Sunshine"])
+      store.toggleAutomaticHeavyRainWeather()
+      store.toggleHeavyRainWeather()
+      store.toggleAutomaticHarshSunshineWeather()
+
+      store.updateAvailableStrongWeathers(["Heavy Rain"])
+
+      expect(store.field().weather).toBeNull()
+    })
+
+    it("should hand the strong weathers it controls to the calc", () => {
+      store.updateAvailableStrongWeathers(["Heavy Rain", "Harsh Sunshine"])
+
+      expect(store.field().strongWeathersInField).toEqual(["Heavy Rain", "Harsh Sunshine"])
+    })
+
+    it("should consider Harsh Sunshine as sun for Protosynthesis", () => {
+      store.toggleAutomaticHarshSunshineWeather()
+
+      expect(store.isSunActive()).toBe(true)
+    })
+  })
+
+  describe("User Data", () => {
+    beforeEach(() => {
+      const store: Record<string, string | null> = {}
+
+      vi.spyOn(localStorage, "getItem").mockImplementation((key: string): string | null => {
+        return store[key] || null
+      })
+
+      vi.spyOn(localStorage, "setItem").mockImplementation((key: string, value: string): void => {
+        store[key] = value
+      })
+    })
+
+    it("should update state locking local storage", () => {
+      const state = {
+        updateLocalStorage: true,
+        weather: null,
+        terrain: null,
+        isBeadsOfRuin: true,
+        isSwordOfRuin: false,
+        isTabletsOfRuin: false,
+        isVesselOfRuin: false,
+        isMagicRoom: false,
+        isWonderRoom: false,
+        isGravity: false,
+        isTrickRoom: false,
+        isNeutralizingGas: false,
+        isUnnerve: false,
+        isFairyAura: false,
+        attackerSide: new FieldSide({ gameType: "Doubles" as GameType, isHelpingHand: false, isBattery: false, isPowerSpot: false, isTailwind: false, isCriticalHit: false }),
+        defenderSide: new FieldSide({ gameType: "Singles" as GameType, isTailwind: false, isReflect: false, isLightScreen: false, isAuroraVeil: false, isFriendGuard: false, spikes: 0, isSR: false, isSeeded: false, isCriticalHit: true })
+      }
+
+      store.updateStateLockingLocalStorage(state)
+
+      expect(store.field().isBeadsOfRuin).toBe(true)
+      expect(store.updateLocalStorage()).toBe(false)
+    })
+
+    it("should update local storage when state changes", () => {
+      store.toggleSunWeather()
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.champions.fields.simple.weather).toBe("Sun")
+    })
+
+    it("should persist the attacker Protected flag", () => {
+      store.toggleAttackerProtected()
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.champions.fields.simple.isAttackerProtected).toBe(true)
+    })
+
+    it("should persist the defender Protected flag", () => {
+      store.toggleDefenderProtected()
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.champions.fields.simple.isDefenderProtected).toBe(true)
+    })
+
+    it("should update local storage when state changes mantaining existent data", () => {
+      store.toggleSunWeather()
+
+      TestBed.tick()
+
+      const actualStorage = JSON.parse(localStorage.getItem("userData")!)
+      expect(actualStorage.champions.fields.simple.isBeadsOfRuin).toBe(false)
+    })
+  })
+
+  describe("Restoring a previously saved field", () => {
+    const buildStoreWith = (initialData: Record<string, any>) => {
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          provideZonelessChangeDetection(),
+          FieldStore,
+          ActiveFieldService,
+          { provide: CalcStore, useValue: { toggleProtosynthesis: () => void 0, toggleQuarkDrive: () => void 0, seedItems: () => "", syncTerrainSeeds: () => void 0 } },
+          { provide: FIELD_CONTEXT, useValue: "simple" }
+        ]
+      })
+
+      TestBed.inject(ActiveFieldService).initialFieldData.set({ simple: initialData })
+
+      return TestBed.inject(FieldStore)
+    }
+
+    it("should restore the saved field without writing it back to local storage", () => {
+      localStorage.clear()
+
+      const restored = buildStoreWith({ weather: "Rain", isGravity: true })
+
+      TestBed.tick()
+
+      expect(restored.weather()).toBe("Rain")
+      expect(restored.isGravity()).toBe(true)
+      expect(restored.updateLocalStorage()).toBe(false)
+      expect(localStorage.getItem("userData")).toBeNull()
+    })
+
+    it("should restore the Protected flags of both sides", () => {
+      localStorage.clear()
+
+      const restored = buildStoreWith({ isAttackerProtected: true, isDefenderProtected: true })
+
+      TestBed.tick()
+
+      expect(restored.isAttackerProtected()).toBe(true)
+      expect(restored.isDefenderProtected()).toBe(true)
+      expect(restored.field().attackerSide.isProtected).toBe(true)
+      expect(restored.field().defenderSide.isProtected).toBe(true)
+    })
+
+    it("should keep local storage untouched when the restored field is changed afterwards", () => {
+      localStorage.clear()
+
+      const restored = buildStoreWith({ weather: "Rain" })
+      restored.toggleSunWeather()
+
+      TestBed.tick()
+
+      expect(restored.weather()).toBe("Sun")
+      expect(localStorage.getItem("userData")).toBeNull()
+    })
+  })
+
+  describe("Paradox abilities follow the effective field", () => {
+    let calcStoreMock: { toggleProtosynthesis: Mock; toggleQuarkDrive: Mock; seedItems: () => string; syncTerrainSeeds: Mock }
+    let paradoxStore: FieldStore
+
+    beforeEach(() => {
+      localStorage.clear()
+      calcStoreMock = { toggleProtosynthesis: vi.fn(), toggleQuarkDrive: vi.fn(), seedItems: () => "", syncTerrainSeeds: vi.fn() }
+
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection(), FieldStore, ActiveFieldService, { provide: CalcStore, useValue: calcStoreMock }, { provide: FIELD_CONTEXT, useValue: "simple" }]
+      })
+
+      paradoxStore = TestBed.inject(FieldStore)
+
+      TestBed.tick()
+      calcStoreMock.toggleProtosynthesis.mockClear()
+      calcStoreMock.toggleQuarkDrive.mockClear()
+    })
+
+    it("should enable Quark Drive when Electric Terrain is set automatically by an ability", () => {
+      paradoxStore.toggleAutomaticElectricTerrain()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isTerrainElectric()).toBe(true)
+      expect(calcStoreMock.toggleQuarkDrive).toHaveBeenCalledWith(true)
+    })
+
+    it("should disable Quark Drive when the automatic Electric Terrain is cleaned", () => {
+      paradoxStore.toggleAutomaticElectricTerrain()
+      TestBed.tick()
+      calcStoreMock.toggleQuarkDrive.mockClear()
+
+      paradoxStore.cleanAutomaticOptions()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isTerrainElectric()).toBe(false)
+      expect(calcStoreMock.toggleQuarkDrive).toHaveBeenCalledWith(false)
+    })
+
+    it("should enable Protosynthesis when Sun is set automatically by an ability", () => {
+      paradoxStore.toggleAutomaticSunWeather()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isWeatherSun()).toBe(true)
+      expect(calcStoreMock.toggleProtosynthesis).toHaveBeenCalledWith(true)
+    })
+
+    it("should disable Protosynthesis when the automatic Sun is cleaned", () => {
+      paradoxStore.toggleAutomaticSunWeather()
+      TestBed.tick()
+      calcStoreMock.toggleProtosynthesis.mockClear()
+
+      paradoxStore.cleanAutomaticOptions()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isWeatherSun()).toBe(false)
+      expect(calcStoreMock.toggleProtosynthesis).toHaveBeenCalledWith(false)
+    })
+
+    it("should disable Quark Drive when the automatic Electric Terrain is replaced by another terrain", () => {
+      paradoxStore.toggleAutomaticElectricTerrain()
+      TestBed.tick()
+      calcStoreMock.toggleQuarkDrive.mockClear()
+
+      paradoxStore.toggleAutomaticGrassyTerrain()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isTerrainElectric()).toBe(false)
+      expect(calcStoreMock.toggleQuarkDrive).toHaveBeenCalledWith(false)
+    })
+
+    it("should keep Quark Drive enabled when the manual Electric Terrain survives an automatic clean", () => {
+      paradoxStore.toggleElectricTerrain()
+      TestBed.tick()
+      calcStoreMock.toggleQuarkDrive.mockClear()
+
+      paradoxStore.cleanAutomaticOptions()
+
+      TestBed.tick()
+
+      expect(paradoxStore.isTerrainElectric()).toBe(true)
+      expect(calcStoreMock.toggleQuarkDrive).not.toHaveBeenCalledWith(false)
+    })
+
+    it("should enable Quark Drive when a restored field already has Electric Terrain", () => {
+      paradoxStore.updateStateLockingLocalStorage(new Field({ terrain: "Electric" }))
+
+      TestBed.tick()
+
+      expect(paradoxStore.isTerrainElectric()).toBe(true)
+      expect(calcStoreMock.toggleQuarkDrive).toHaveBeenCalledWith(true)
+    })
+  })
+
+  describe("Paradox abilities and the effective field", () => {
+    let integratedField: FieldStore
+    let integratedCalc: CalcStore
+
+    beforeEach(() => {
+      localStorage.clear()
+
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection(), CalcStore, FieldStore, ActiveFieldService, { provide: FIELD_CONTEXT, useValue: "simple" }]
+      })
+
+      integratedCalc = TestBed.inject(CalcStore)
+      integratedField = TestBed.inject(FieldStore)
+
+      TestBed.tick()
+    })
+
+    it("should activate Protosynthesis on the damage calc when Sun comes from an ability", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.name(pokemonId, "Flutter Mane")
+      integratedCalc.ability(pokemonId, "Protosynthesis")
+
+      integratedField.toggleAutomaticSunWeather()
+
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().ability.on).toBe(true)
+    })
+
+    it("should keep a manually enabled Protosynthesis when the automatic Sun goes away", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.name(pokemonId, "Flutter Mane")
+      integratedCalc.ability(pokemonId, "Protosynthesis")
+      integratedCalc.abilityOn(pokemonId, true)
+
+      integratedField.toggleAutomaticSunWeather()
+      TestBed.tick()
+
+      integratedField.cleanAutomaticOptions()
+      TestBed.tick()
+
+      expect(integratedField.isWeatherSun()).toBe(false)
+      expect(integratedCalc.leftPokemon().ability.on).toBe(true)
+    })
+
+    it("should deactivate Protosynthesis when the automatic Sun goes away and it was not enabled manually", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.name(pokemonId, "Flutter Mane")
+      integratedCalc.ability(pokemonId, "Protosynthesis")
+
+      integratedField.toggleAutomaticSunWeather()
+      TestBed.tick()
+
+      integratedField.cleanAutomaticOptions()
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().ability.on).toBe(false)
+    })
+
+    it("should apply the Psychic Seed boost when Psychic Terrain is toggled on", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.item(pokemonId, "Psychic Seed")
+      TestBed.tick()
+
+      integratedField.togglePsychicTerrain()
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.spd).toBe(1)
+    })
+
+    it("should release the Psychic Seed boost when Psychic Terrain is toggled off", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.item(pokemonId, "Psychic Seed")
+      integratedField.togglePsychicTerrain()
+      TestBed.tick()
+
+      integratedField.togglePsychicTerrain()
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.spd).toBe(0)
+    })
+
+    it("should apply the Electric Seed boost when Electric Terrain comes from an ability", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.item(pokemonId, "Electric Seed")
+      TestBed.tick()
+
+      integratedField.toggleAutomaticElectricTerrain()
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.def).toBe(1)
+    })
+
+    it("should release the Electric Seed boost when the automatic terrain is cleaned", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.item(pokemonId, "Electric Seed")
+      integratedField.toggleAutomaticElectricTerrain()
+      TestBed.tick()
+
+      integratedField.cleanAutomaticOptions()
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.def).toBe(0)
+    })
+
+    it("should apply the Grassy Seed boost when the seed is equipped while Grassy Terrain is already active", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedField.toggleGrassyTerrain()
+      TestBed.tick()
+
+      integratedCalc.item(pokemonId, "Grassy Seed")
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.def).toBe(1)
+    })
+
+    it("should apply the Misty Seed boost when a restored field already has Misty Terrain", () => {
+      const pokemonId = integratedCalc.leftPokemonState().id
+      integratedCalc.item(pokemonId, "Misty Seed")
+      TestBed.tick()
+
+      integratedField.updateStateLockingLocalStorage(new Field({ terrain: "Misty" }))
+      TestBed.tick()
+
+      expect(integratedCalc.leftPokemon().boosts.spd).toBe(1)
+    })
+  })
+})

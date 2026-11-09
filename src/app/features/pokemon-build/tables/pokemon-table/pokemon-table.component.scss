@@ -1,0 +1,183 @@
+.custom-set-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  height: 65px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-lg);
+  border-bottom: 1px solid var(--filterable-table-bottom-line);
+  cursor: pointer;
+  background-color: var(--surface-stripe);
+  font-size: var(--font-size-sm);
+  transition:
+    box-shadow 0.3s ease,
+    background-color 0.3s ease;
+
+  &:hover {
+    background-color: var(--filterable-table-active-line);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &.entry-active {
+    background-color: var(--filterable-table-selected-line);
+    box-shadow: var(--shadow-sm);
+
+    &:hover {
+      background-color: var(--filterable-table-selected-line);
+    }
+  }
+
+  .custom-set-indent {
+    flex: 0 0 4em;
+    min-width: 4em;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .custom-set-sprite {
+    width: 3em;
+    height: 3em;
+    margin-right: var(--space-sm);
+  }
+
+  .custom-set-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-sm);
+    flex: 1;
+    min-width: 0;
+    padding-left: var(--space-md);
+  }
+
+  .custom-set-name {
+    font-weight: 500;
+    flex: 0 0 9.4em;
+    min-width: 9.4em;
+    margin-left: -0.25em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .custom-set-details {
+    display: flex;
+    gap: var(--space-sm);
+    flex: 1;
+    min-width: 0;
+
+    span:not(:empty):not(.no-separator)::after {
+      content: "–";
+      margin-left: var(--space-sm);
+      opacity: 0.4;
+    }
+  }
+
+  .custom-set-sps {
+    display: flex;
+    gap: var(--space-sm);
+
+    span:not(:empty):not(:last-child)::after {
+      content: "–";
+      margin-left: var(--space-sm);
+      opacity: 0.4;
+    }
+  }
+
+  .custom-set-actions {
+    display: none;
+    gap: var(--space-lg);
+    flex-shrink: 0;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover .custom-set-actions {
+      display: flex;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding-left: 0;
+    width: max-content;
+    min-width: 100%;
+
+    .custom-set-indent {
+      flex-basis: 4.5em;
+      min-width: 4.5em;
+      padding-left: var(--space-sm);
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background-color: var(--widget-background);
+    }
+
+    &:hover .custom-set-indent {
+      background-color: var(--filterable-table-active-line);
+    }
+
+    &.entry-active .custom-set-indent {
+      background-color: var(--filterable-table-selected-line);
+    }
+
+    .custom-set-name {
+      width: 7em;
+    }
+
+    .custom-set-body {
+      flex: 0 0 auto;
+    }
+
+    .custom-set-details,
+    .custom-set-sps {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    .custom-set-actions {
+      display: flex;
+    }
+  }
+
+  @media (min-width: 769px) {
+    .custom-set-name {
+      margin-left: var(--space-2xl);
+    }
+
+    .custom-set-body {
+      margin-left: -0.8em;
+    }
+
+    .custom-set-actions {
+      padding-right: var(--space-sm);
+    }
+  }
+
+  .action-btn {
+    background: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-md);
+    line-height: 1.4;
+
+    &:hover {
+      background-color: var(--primary);
+      color: var(--primary-contrast);
+      border-color: var(--primary);
+    }
+
+    &.delete-btn:hover {
+      background-color: var(--error);
+      border-color: var(--error);
+    }
+
+    @media (min-width: 769px) {
+      padding: var(--space-sm) var(--space-md);
+      font-size: var(--font-size-2xl);
+      line-height: 1;
+    }
+  }
+}

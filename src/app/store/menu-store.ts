@@ -1,0 +1,125 @@
+import { effect, Injectable } from "@angular/core"
+import { initialMenuState, MultiCalcLayout, MultiCalcView } from "./utils/initial-menu-state"
+import { readUserData } from "./utils/user-data-storage"
+import { patchState, signalStore, withHooks, withState } from "@ngrx/signals"
+
+type MenuState = {
+  oneVsOneActivated: boolean
+  oneVsManyActivated: boolean
+  manyVsOneActivated: boolean
+  speedCalcActivated: boolean
+  probabilityCalcActivated: boolean
+  typeCalcActivated: boolean
+  communityTeamsActivated: boolean
+  howToUseActivated: boolean
+  oneVsManyBestMoveActivated: boolean
+  manyVsOneBestMoveActivated: boolean
+  orderByDamage: boolean
+  multiCalcLayout: MultiCalcLayout
+  multiCalcView: MultiCalcView
+  multiCalcMobileView: MultiCalcView
+}
+
+const navigationState = {
+  oneVsOneActivated: true,
+  oneVsManyActivated: false,
+  manyVsOneActivated: false,
+  speedCalcActivated: false,
+  probabilityCalcActivated: false,
+  typeCalcActivated: false,
+  communityTeamsActivated: false,
+  howToUseActivated: false
+}
+
+const initialState: MenuState = {
+  ...navigationState,
+  ...initialMenuState()
+}
+
+@Injectable({ providedIn: "root" })
+export class MenuStore extends signalStore(
+  { protectedState: false },
+  withState(initialState),
+  withHooks(store => ({
+    onInit() {
+      effect(() => {
+        if (typeof localStorage === "undefined") return
+        const userData = readUserData() ?? {}
+        const menuData = {
+          orderByDamage: store.orderByDamage(),
+          oneVsManyBestMoveActivated: store.oneVsManyBestMoveActivated(),
+          manyVsOneBestMoveActivated: store.manyVsOneBestMoveActivated(),
+          multiCalcLayout: store.multiCalcLayout(),
+          multiCalcView: store.multiCalcView(),
+          multiCalcMobileView: store.multiCalcMobileView()
+        }
+
+        localStorage.setItem("userData", JSON.stringify({ ...userData, menuData }))
+      })
+    }
+  }))
+) {
+  enableOneVsOne() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), oneVsOneActivated: true }))
+  }
+
+  enableOneVsMany() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), oneVsManyActivated: true }))
+  }
+
+  enableManyVsOne() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), manyVsOneActivated: true }))
+  }
+
+  enableSpeedCalc() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), speedCalcActivated: true }))
+  }
+
+  enableProbabilityCalc() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), probabilityCalcActivated: true }))
+  }
+
+  enableTypeCalc() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), typeCalcActivated: true }))
+  }
+
+  enableCommunityTeams() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), communityTeamsActivated: true }))
+  }
+
+  enableHowToUse() {
+    patchState(this, () => ({ ...this.allOptionsTurnedOff(), howToUseActivated: true }))
+  }
+
+  clearNavigation() {
+    patchState(this, () => this.allOptionsTurnedOff())
+  }
+
+  toggleOneVsManyBestMove() {
+    patchState(this, state => ({ oneVsManyBestMoveActivated: !state.oneVsManyBestMoveActivated }))
+  }
+
+  toggleManyVsOneBestMove() {
+    patchState(this, state => ({ manyVsOneBestMoveActivated: !state.manyVsOneBestMoveActivated }))
+  }
+
+  toggleOrderByDamage() {
+    patchState(this, state => ({ orderByDamage: !state.orderByDamage }))
+  }
+
+  setMultiCalcLayout(multiCalcLayout: MultiCalcLayout) {
+    patchState(this, () => ({ multiCalcLayout }))
+  }
+
+  setMultiCalcView(multiCalcView: MultiCalcView) {
+    patchState(this, () => ({ multiCalcView }))
+  }
+
+  setMultiCalcMobileView(multiCalcMobileView: MultiCalcView) {
+    patchState(this, () => ({ multiCalcMobileView }))
+  }
+
+  private allOptionsTurnedOff() {
+    return Object.fromEntries(Object.keys(navigationState).map(key => [key, false])) as typeof navigationState
+  }
+}

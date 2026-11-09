@@ -1,0 +1,110 @@
+.team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: var(--radius-sm);
+  background-color: var(--highlight);
+  height: 100%;
+  padding-top: var(--space-xs);
+  border: 3px solid transparent;
+  box-sizing: border-box;
+  &:has(.drag-handle:active) {
+    animation: drag-ready 0.4s ease 0.15s forwards;
+  }
+}
+
+@keyframes drag-ready {
+  0% {
+    border-color: transparent;
+  }
+  100% {
+    border-color: var(--primary);
+  }
+}
+
+.team-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.team-name-label {
+  font-weight: 500;
+}
+
+.team-pokemon-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.pokemon-image app-pokemon-sprite {
+  --sprite-size: var(--sprite-sm);
+}
+
+.active-team {
+  border-color: var(--primary);
+}
+
+.second-team {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--background));
+  background-color: color-mix(in srgb, var(--highlight) 50%, var(--background));
+}
+
+.has-second-team {
+  justify-content: flex-start;
+  padding: var(--space-sm) 0;
+  gap: var(--space-xs);
+}
+
+.team-divider {
+  width: 90%;
+  height: 1px;
+  background-color: var(--text);
+  opacity: 0.2;
+  flex-shrink: 0;
+}
+
+.pair-position {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.row-pair-position {
+  position: absolute;
+  top: 0;
+  right: var(--space-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: grab;
+  color: var(--text);
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  padding: var(--space-xs) var(--space-sm);
+
+  mat-icon {
+    font-size: var(--font-size-2xl);
+    width: 1.6em;
+    height: 1.6em;
+  }
+}

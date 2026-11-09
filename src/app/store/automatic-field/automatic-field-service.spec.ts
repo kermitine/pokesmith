@@ -1,0 +1,429 @@
+import { provideZonelessChangeDetection } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { FieldState, FieldStore } from "@store/field-store"
+import { AutomaticFieldService } from "./automatic-field-service"
+import { Ability, Pokemon } from "@multicalc/model"
+
+class MockFieldStore {
+  state: Partial<FieldState> = {}
+
+  cleanAutomaticOptions = vi.fn()
+  neutralizingGasActivated = vi.fn().mockReturnValue(false)
+
+  toggleAutomaticSunWeather = vi.fn()
+  toggleAutomaticRainWeather = vi.fn()
+  toggleAutomaticSnowWeather = vi.fn()
+  toggleAutomaticSandWeather = vi.fn()
+  toggleAutomaticHeavyRainWeather = vi.fn()
+  toggleAutomaticHarshSunshineWeather = vi.fn()
+  toggleAutomaticStrongWindsWeather = vi.fn()
+  updateAvailableStrongWeathers = vi.fn()
+
+  toggleAutomaticElectricTerrain = vi.fn()
+  toggleAutomaticGrassyTerrain = vi.fn()
+  toggleAutomaticPsychicTerrain = vi.fn()
+  toggleAutomaticMistyTerrain = vi.fn()
+
+  toggleAutomaticBeadsOfRuin = vi.fn()
+  toggleAutomaticSwordOfRuin = vi.fn()
+  toggleAutomaticTabletsOfRuin = vi.fn()
+  toggleAutomaticVesselOfRuin = vi.fn()
+
+  toggleAutomaticNeutralizingGas = vi.fn()
+  toggleAutomaticFairyAura = vi.fn()
+
+  toggleAutomaticAttackerSteelySpirit = vi.fn()
+  toggleAutomaticDefenderSteelySpirit = vi.fn()
+}
+
+describe("AutomaticFieldService", () => {
+  let service: AutomaticFieldService
+  let store: MockFieldStore
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), AutomaticFieldService, { provide: FieldStore, useClass: MockFieldStore }]
+    })
+    service = TestBed.inject(AutomaticFieldService)
+    store = TestBed.inject(FieldStore) as unknown as MockFieldStore
+  })
+
+  it("should activate Drought and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalled()
+  })
+
+  it("should activate Orichalcum Pulse and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Koraidon", { ability: new Ability("Orichalcum Pulse") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalled()
+  })
+
+  it("should activate Drizzle and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Politoed", { ability: new Ability("Drizzle") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticRainWeather).toHaveBeenCalled()
+  })
+
+  it("should activate Snow Warning and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Ninetales", { ability: new Ability("Snow Warning") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSnowWeather).toHaveBeenCalled()
+  })
+
+  it("should activate Sand Stream and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Tyranitar", { ability: new Ability("Sand Stream") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSandWeather).toHaveBeenCalled()
+  })
+
+  it("should activate Hadron Engine and preserve automaticTerrain", () => {
+    const pokemon = new Pokemon("Miraidon", { ability: new Ability("Hadron Engine") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain"])
+    expect(store.toggleAutomaticElectricTerrain).toHaveBeenCalled()
+  })
+
+  it("should activate Electric Surge and preserve automaticTerrain", () => {
+    const pokemon = new Pokemon("Pincurchin", { ability: new Ability("Electric Surge") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain"])
+    expect(store.toggleAutomaticElectricTerrain).toHaveBeenCalled()
+  })
+
+  it("should activate Grassy Surge and preserve automaticTerrain", () => {
+    const pokemon = new Pokemon("Rillaboom", { ability: new Ability("Grassy Surge") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain"])
+    expect(store.toggleAutomaticGrassyTerrain).toHaveBeenCalled()
+  })
+
+  it("should activate Psychic Surge and preserve automaticTerrain", () => {
+    const pokemon = new Pokemon("Indeedee-F", { ability: new Ability("Psychic Surge") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain"])
+    expect(store.toggleAutomaticPsychicTerrain).toHaveBeenCalled()
+  })
+
+  it("should activate Misty Surge and preserve automaticTerrain", () => {
+    const pokemon = new Pokemon("Weezing-Galar", { ability: new Ability("Misty Surge") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain"])
+    expect(store.toggleAutomaticMistyTerrain).toHaveBeenCalled()
+  })
+
+  it("should activate Beads of Ruin and preserve automaticBeadsOfRuinActivated", () => {
+    const pokemon = new Pokemon("Chi-yu", { ability: new Ability("Beads of Ruin") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticBeadsOfRuinActivated"])
+    expect(store.toggleAutomaticBeadsOfRuin).toHaveBeenCalled()
+  })
+
+  it("should activate Sword of Ruin and preserve automaticSwordOfRuinActivated", () => {
+    const pokemon = new Pokemon("Chien-Pao", { ability: new Ability("Sword of Ruin") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticSwordOfRuinActivated"])
+    expect(store.toggleAutomaticSwordOfRuin).toHaveBeenCalled()
+  })
+
+  it("should activate Tablets of Ruin and preserve automaticTabletsOfRuinActivated", () => {
+    const pokemon = new Pokemon("Wo-Chien", { ability: new Ability("Tablets of Ruin") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTabletsOfRuinActivated"])
+    expect(store.toggleAutomaticTabletsOfRuin).toHaveBeenCalled()
+  })
+
+  it("should activate Vessel of Ruin and preserve automaticVesselOfRuinActivated", () => {
+    const pokemon = new Pokemon("Ting-Lu", { ability: new Ability("Vessel of Ruin") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticVesselOfRuinActivated"])
+    expect(store.toggleAutomaticVesselOfRuin).toHaveBeenCalled()
+  })
+
+  it("should activate Neutralizing Gas and preserve automaticNeutralizingGasActivated", () => {
+    const pokemon = new Pokemon("Weezing-Galar", { ability: new Ability("Neutralizing Gas") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticNeutralizingGasActivated"])
+    expect(store.toggleAutomaticNeutralizingGas).toHaveBeenCalled()
+  })
+
+  it("should activate Fairy Aura and preserve automaticFairyAuraActivated", () => {
+    const pokemon = new Pokemon("Floette-Mega", { ability: new Ability("Fairy Aura") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticFairyAuraActivated"])
+    expect(store.toggleAutomaticFairyAura).toHaveBeenCalled()
+  })
+
+  it("should activate Steely Spirit on the attacker side and preserve automaticAttackerSteelySpirit", () => {
+    const pokemon = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+
+    service.checkAutomaticField(pokemon, true, null, false, "attacker")
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticAttackerSteelySpirit"])
+    expect(store.toggleAutomaticAttackerSteelySpirit).toHaveBeenCalled()
+    expect(store.toggleAutomaticDefenderSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should activate Steely Spirit on the defender side and preserve automaticDefenderSteelySpirit", () => {
+    const pokemon = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+
+    service.checkAutomaticField(pokemon, true, null, false, "defender")
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticDefenderSteelySpirit"])
+    expect(store.toggleAutomaticDefenderSteelySpirit).toHaveBeenCalled()
+    expect(store.toggleAutomaticAttackerSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should activate Steely Spirit on the defender side when the Pokemon on the right side has the ability", () => {
+    const left = new Pokemon("Incineroar", { ability: new Ability("Intimidate") })
+    const right = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+
+    service.handlePokemonChange(left, right, "attacker", "defender")
+
+    expect(store.toggleAutomaticDefenderSteelySpirit).toHaveBeenCalled()
+    expect(store.toggleAutomaticAttackerSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should activate Steely Spirit on the attacker side when the Pokemon on the left side has the ability", () => {
+    const left = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+    const right = new Pokemon("Incineroar", { ability: new Ability("Intimidate") })
+
+    service.handlePokemonChange(left, right, "attacker", "defender")
+
+    expect(store.toggleAutomaticAttackerSteelySpirit).toHaveBeenCalled()
+    expect(store.toggleAutomaticDefenderSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should activate Steely Spirit on the attacker side for both slots when the allies share the side", () => {
+    const attacker = new Pokemon("Incineroar", { ability: new Ability("Intimidate") })
+    const secondAttacker = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+
+    service.handlePokemonChange(attacker, secondAttacker)
+
+    expect(store.toggleAutomaticAttackerSteelySpirit).toHaveBeenCalled()
+    expect(store.toggleAutomaticDefenderSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should not activate Steely Spirit when Neutralizing Gas is already active", () => {
+    store.neutralizingGasActivated.mockReturnValue(true)
+
+    const pokemon = new Pokemon("Perrserker", { ability: new Ability("Steely Spirit") })
+
+    service.checkAutomaticField(pokemon, true, null, false, "attacker")
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticAttackerSteelySpirit"])
+    expect(store.toggleAutomaticAttackerSteelySpirit).not.toHaveBeenCalled()
+  })
+
+  it("should not activate ability if Neutralizing Gas is active", () => {
+    store.neutralizingGasActivated.mockReturnValue(true)
+
+    const pokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).not.toHaveBeenCalled()
+  })
+
+  it("should execute first Pokemon ability and skip second if second is affected by Neutralizing Gas", () => {
+    store.neutralizingGasActivated.mockReturnValue(true)
+
+    const firstPokemon = new Pokemon("Torkoal", { item: "Ability Shield", ability: new Ability("Drought") })
+    const secondPokemon = new Pokemon("Pincurchin", { ability: new Ability("Electric Surge") })
+
+    service.checkAutomaticField(firstPokemon, true, secondPokemon, true)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain", "automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalled()
+    expect(store.toggleAutomaticElectricTerrain).not.toHaveBeenCalled()
+  })
+
+  it("should skip the second Pokémon ability when only it changed and Neutralizing Gas blocks it", () => {
+    store.neutralizingGasActivated.mockReturnValue(true)
+
+    const pokemon = new Pokemon("Torkoal", { item: "Ability Shield", ability: new Ability("Drought") })
+    const secondPokemon = new Pokemon("Pincurchin", { ability: new Ability("Electric Surge") })
+
+    service.checkAutomaticField(pokemon, false, secondPokemon, true)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather", "automaticTerrain"])
+    expect(store.toggleAutomaticElectricTerrain).not.toHaveBeenCalled()
+  })
+
+  it("should activate ability after Neutralizing Gas was previously active and then left", () => {
+    const gasPokemon = new Pokemon("Weezing-Galar", { ability: new Ability("Neutralizing Gas") })
+    const droughtPokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+
+    service.checkAutomaticField(gasPokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticNeutralizingGasActivated"])
+    expect(store.toggleAutomaticNeutralizingGas).toHaveBeenCalled()
+
+    store.neutralizingGasActivated.mockReturnValue(false)
+
+    service.checkAutomaticField(droughtPokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalled()
+  })
+
+  it("should execute abilities of two pokémons together and preserve both fields", () => {
+    const firstPokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+    const secondPokemon = new Pokemon("Miraidon", { ability: new Ability("Hadron Engine") })
+
+    service.checkAutomaticField(firstPokemon, true, secondPokemon, true)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticTerrain", "automaticWeather"])
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalled()
+    expect(store.toggleAutomaticElectricTerrain).toHaveBeenCalled()
+  })
+
+  it("should only activate ability of secondPokemon when first did not change and second did", () => {
+    const firstPokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+    const secondPokemon = new Pokemon("Miraidon", { ability: new Ability("Hadron Engine") })
+
+    service.checkAutomaticField(firstPokemon, false, secondPokemon, true)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather", "automaticTerrain"])
+    expect(store.toggleAutomaticSunWeather).not.toHaveBeenCalled()
+
+    expect(store.toggleAutomaticElectricTerrain).toHaveBeenCalled()
+  })
+
+  it("should handle null parameters for first/second", () => {
+    service.checkAutomaticField(null as any, false, null as any, false)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith([])
+    expect(store.toggleAutomaticSunWeather).not.toHaveBeenCalled()
+    expect(store.toggleAutomaticNeutralizingGas).not.toHaveBeenCalled()
+  })
+
+  it("should apply the automatic field and report firstChanged on the first handlePokemonChange", () => {
+    const pokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+
+    const result = service.handlePokemonChange(pokemon)
+
+    expect(result).toEqual({ firstChanged: true, secondChanged: false })
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalledTimes(1)
+  })
+
+  it("should not reapply the automatic field when handlePokemonChange receives the same pokemon", () => {
+    const pokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+
+    service.handlePokemonChange(pokemon)
+    const result = service.handlePokemonChange(pokemon)
+
+    expect(result).toEqual({ firstChanged: false, secondChanged: false })
+    expect(store.toggleAutomaticSunWeather).toHaveBeenCalledTimes(1)
+  })
+
+  it("should report firstChanged when only the ability changes", () => {
+    const pokemon = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+    const sameNameDifferentAbility = new Pokemon("Torkoal", { ability: new Ability("Drizzle") })
+
+    service.handlePokemonChange(pokemon)
+    const result = service.handlePokemonChange(sameNameDifferentAbility)
+
+    expect(result).toEqual({ firstChanged: true, secondChanged: false })
+    expect(store.toggleAutomaticRainWeather).toHaveBeenCalledTimes(1)
+  })
+
+  it("should report secondChanged when only the second pokemon changes between calls", () => {
+    const first = new Pokemon("Torkoal", { ability: new Ability("Drought") })
+    const second = new Pokemon("Miraidon", { ability: new Ability("Hadron Engine") })
+
+    service.handlePokemonChange(first)
+    const result = service.handlePokemonChange(first, second)
+
+    expect(result).toEqual({ firstChanged: false, secondChanged: true })
+    expect(store.toggleAutomaticElectricTerrain).toHaveBeenCalledTimes(1)
+  })
+
+  it("should activate Primordial Sea and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Kyogre-Primal")
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticHeavyRainWeather).toHaveBeenCalled()
+    expect(store.updateAvailableStrongWeathers).toHaveBeenCalledWith(["Heavy Rain"])
+  })
+
+  it("should activate Desolate Land and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Groudon-Primal")
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticHarshSunshineWeather).toHaveBeenCalled()
+    expect(store.updateAvailableStrongWeathers).toHaveBeenCalledWith(["Harsh Sunshine"])
+  })
+
+  it("should activate Delta Stream and preserve automaticWeather", () => {
+    const pokemon = new Pokemon("Rayquaza-Mega")
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.cleanAutomaticOptions).toHaveBeenCalledWith(["automaticWeather"])
+    expect(store.toggleAutomaticStrongWindsWeather).toHaveBeenCalled()
+    expect(store.updateAvailableStrongWeathers).toHaveBeenCalledWith(["Strong Winds"])
+  })
+
+  it("should make the strong weathers of both Pokemon available", () => {
+    const first = new Pokemon("Kyogre-Primal")
+    const second = new Pokemon("Groudon-Primal")
+
+    service.checkAutomaticField(first, false, second, true)
+
+    expect(store.toggleAutomaticHeavyRainWeather).not.toHaveBeenCalled()
+    expect(store.toggleAutomaticHarshSunshineWeather).toHaveBeenCalled()
+    expect(store.updateAvailableStrongWeathers).toHaveBeenCalledWith(["Heavy Rain", "Harsh Sunshine"])
+  })
+
+  it("should make no strong weather available without a strong weather ability", () => {
+    const pokemon = new Pokemon("Pelipper", { ability: new Ability("Drizzle") })
+
+    service.checkAutomaticField(pokemon)
+
+    expect(store.updateAvailableStrongWeathers).toHaveBeenCalledWith([])
+  })
+})

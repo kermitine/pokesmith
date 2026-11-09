@@ -1,0 +1,213 @@
+import { Move as MoveCalc } from "@calc"
+import { PokemonType, Stats } from "@multicalc/types"
+import { getMoveData } from "@data/move-data"
+import { TypeName } from "@data/types"
+
+export type Category = "Physical" | "Special" | "Status"
+
+export type SecondaryEffect = {
+  chance: number
+  status?: string
+  volatileStatus?: string
+  boosts?: Partial<Record<keyof Stats | "accuracy", number>>
+}
+
+interface MoveOptions {
+  alliesFainted?: string
+  hits?: string
+  hitsTaken?: string
+  lastMoveFailed?: boolean
+  roundUsedBefore?: boolean
+  targetDamaged?: boolean
+  targetAlreadyMoved?: boolean
+  allyPledge?: string
+  damagedByTarget?: boolean
+  timesUsed?: string
+}
+
+interface MoveDetailsResolved {
+  bp: number
+  category: Category
+  type: PokemonType
+  accuracy: number
+  secondary: SecondaryEffect | null
+  target: string
+}
+
+const PLEDGES = ["Fire Pledge", "Water Pledge", "Grass Pledge"]
+const LAST_MOVE_FAILED_MOVES = ["Stomping Tantrum", "Temper Flare"]
+const TARGET_ALREADY_MOVED_MOVES = ["Payback", "Bolt Beak", "Fishious Rend"]
+const DAMAGED_BY_TARGET_MOVES = ["Avalanche", "Revenge"]
+const TYPE_ADDING_MOVES: Record<string, TypeName> = { "Trick-or-Treat": "Ghost", "Forest's Curse": "Grass" }
+
+const EMPTY_MOVE_DEFAULTS: MoveDetailsResolved = {
+  bp: 0,
+  category: "Status",
+  type: "Normal",
+  accuracy: 100,
+  secondary: null,
+  target: "normal"
+}
+
+export class Move {
+  readonly name: string
+  readonly possibleHits: string[]
+  readonly multiaccuracy: boolean
+  readonly hits: string
+  readonly possibleHitsTaken: string[]
+  readonly hitsTaken: string
+  readonly alliesFainted: string
+  readonly lastMoveFailed: boolean
+  readonly roundUsedBefore: boolean
+  readonly targetDamaged: boolean
+  readonly targetAlreadyMoved: boolean
+  readonly allyPledge: string
+  readonly damagedByTarget: boolean
+  readonly timesUsed: string
+  readonly bp: number
+  readonly accuracy: number
+  readonly secondary: SecondaryEffect | null
+  readonly target: string
+  readonly category: Category
+  readonly type: PokemonType
+
+  constructor(name: string, options: MoveOptions = {}) {
+    this.name = name ?? ""
+    this.possibleHits = this.moveHits(name)
+    this.multiaccuracy = getMoveData(name)?.multiaccuracy ?? false
+    this.hits = this.hitsValue(name, options)
+    this.possibleHitsTaken = this.moveHitsTaken(name)
+    this.hitsTaken = options.hitsTaken ?? this.possibleHitsTaken[this.possibleHitsTaken.length - 1] ?? "0"
+    this.alliesFainted = options.alliesFainted ?? "0"
+    this.lastMoveFailed = options.lastMoveFailed ?? false
+    this.roundUsedBefore = options.roundUsedBefore ?? false
+    this.targetDamaged = options.targetDamaged ?? false
+    this.targetAlreadyMoved = options.targetAlreadyMoved ?? false
+    this.allyPledge = options.allyPledge ?? ""
+    this.damagedByTarget = options.damagedByTarget ?? false
+    this.timesUsed = options.timesUsed ?? "1"
+
+    const resolved = this.resolveDetails(name)
+
+    this.bp = resolved.bp
+    this.category = resolved.category
+    this.type = resolved.type
+    this.accuracy = resolved.accuracy
+    this.secondary = resolved.secondary
+    this.target = resolved.target
+  }
+
+  hasType(type: PokemonType): boolean {
+    return this.type === type
+  }
+
+  dependsOnLastMoveFailed(): boolean {
+    return LAST_MOVE_FAILED_MOVES.includes(this.name)
+  }
+
+  dependsOnRoundUsedBefore(): boolean {
+    return this.name === "Round"
+  }
+
+  dependsOnTargetAlreadyMoved(): boolean {
+    return TARGET_ALREADY_MOVED_MOVES.includes(this.name)
+  }
+
+  dependsOnDamagedByTarget(): boolean {
+    return DAMAGED_BY_TARGET_MOVES.includes(this.name)
+  }
+
+  addedTypeOnTarget(): TypeName | undefined {
+    return TYPE_ADDING_MOVES[this.name]
+  }
+
+  changesStatsOverUses(): boolean {
+    return this.name !== "" && new MoveCalc(this.name).changesStatsOverUses()
+  }
+
+  isPledge(): boolean {
+    return PLEDGES.includes(this.name)
+  }
+
+  pledgePartners(): string[] {
+    if (!this.isPledge()) return []
+
+    return PLEDGES.filter(pledge => pledge !== this.name)
+  }
+
+  combinesPledgeWith(other: Move): boolean {
+    return this.pledgePartners().includes(other.name)
+  }
+
+  private resolveDetails(name: string): MoveDetailsResolved {
+    const moveDetails = getMoveData(name)
+
+    if (!moveDetails) {
+      return { ...EMPTY_MOVE_DEFAULTS }
+    }
+
+    return {
+      bp: moveDetails.basePower,
+      category: moveDetails.category as Category,
+      type: moveDetails.type as PokemonType,
+      accuracy: !moveDetails.accuracy || moveDetails.accuracy === true ? 100 : moveDetails.accuracy,
+      secondary: (moveDetails.secondary as SecondaryEffect | null) ?? null,
+      target: moveDetails.target ?? "normal"
+    }
+  }
+
+  private hitsValue(name: string, options: MoveOptions): string {
+    if (name == "Dragon Darts") {
+      return options.hits ?? this.possibleHits[0]
+    }
+
+    if (this.possibleHits.length > 0) return options.hits ?? this.possibleHits[this.possibleHits.length - 1]
+
+    const multihit = getMoveData(name)?.multihit
+
+    if (Array.isArray(multihit)) return multihit[multihit.length - 1].toString()
+
+    return options.hits ?? "1"
+  }
+
+  private moveHitsTaken(move: string): string[] {
+    if (move !== "Rage Fist") return []
+
+    return ["6", "5", "4", "3", "2", "1", "0"]
+  }
+
+  private moveHits(move: string): string[] {
+    if (move === "Population Bomb") {
+      return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    }
+
+    const moveData = getMoveData(move)
+    const multihit = moveData?.multihit
+
+    if (!multihit) return []
+
+    if (Array.isArray(multihit)) {
+      if (multihit[0] === 1 && move !== "Dragon Darts") return []
+
+      const result: string[] = []
+
+      for (let index = multihit[0]; index <= multihit[multihit.length - 1]; index++) {
+        result.push(index.toString())
+      }
+
+      return result
+    }
+
+    if (moveData?.multiaccuracy) {
+      const result: string[] = []
+
+      for (let index = 1; index <= multihit; index++) {
+        result.push(index.toString())
+      }
+
+      return result
+    }
+
+    return []
+  }
+}

@@ -1,0 +1,160 @@
+import { Injectable } from "@angular/core"
+import { ActiveFilter, ColumnConfig, TableData } from "./filtered-table-types"
+
+@Injectable({
+  providedIn: "root"
+})
+export class TableDataFilterService<T extends Record<string, any>> {
+  filterDataByInput(data: TableData<T>[], selectedValues: string[], dataFilter: string): TableData<T>[] {
+    let flattenedData = this.flattenedData(data)
+    flattenedData = this.filter(dataFilter, flattenedData)
+
+    const processedData = this.markSelectedAndActive(flattenedData, selectedValues)
+
+    return [
+      {
+        group: "",
+        data: processedData
+      }
+    ]
+  }
+
+  processAndOrderData(data: TableData<T>[], activeFilters: ActiveFilter[], columns: ColumnConfig<T>[], selectedValues: string[], sortColumn: keyof T | null, sortDirection: "asc" | "desc" | null): TableData<T>[] {
+    const flattenedData = this.applyFilters(this.flattenedData(data), activeFilters, columns)
+    const processedData = this.markSelectedAndActive(flattenedData, selectedValues)
+
+    this.orderData(processedData, sortColumn, sortDirection)
+
+    return [
+      {
+        group: "",
+        data: processedData
+      }
+    ]
+  }
+
+  filterDataAndGrouping(data: TableData<T>[], activeFilters: ActiveFilter[], columns: ColumnConfig<T>[], selectedValues: string[]): TableData<T>[] {
+    const result: TableData<T>[] = []
+
+    for (const group of data) {
+      const dataToProcess = this.applyFilters(group.data, activeFilters, columns)
+      const processedGroup = this.markSelectedAndActive(dataToProcess, selectedValues)
+
+      result.push({
+        group: group.group,
+        data: processedGroup
+      })
+    }
+
+    return result
+  }
+
+  private applyFilters(data: T[], activeFilters: ActiveFilter[], columns: ColumnConfig<T>[]): T[] {
+    let dataToProcess = [...data]
+
+    activeFilters.forEach(filter => {
+      const columnConfig = columns.find(col => String(col.field) === filter.field)
+      if (columnConfig) {
+        dataToProcess = dataToProcess.filter(item => {
+          const fieldValue = item[columnConfig.field]
+
+          if (Array.isArray(fieldValue)) return fieldValue.includes(filter.value)
+
+          return fieldValue === filter.value
+        })
+      }
+    })
+
+    return dataToProcess
+  }
+
+  private markSelectedAndActive(data: T[], selectedValues: string[]) {
+    const processedGroup = data.map(item => {
+      return {
+        ...item,
+        selected: selectedValues.includes(item["name"])
+      }
+    }) as T[]
+
+    return processedGroup
+  }
+
+  private flattenedData(data: TableData<T>[]): T[] {
+    return data.flatMap(group => group.data)
+  }
+
+  private filter(value: string, values: T[]): T[] {
+    const filterValue = this.normalizeValue(value)
+
+    if (!filterValue) return values
+
+    const priority = values.filter(v => this.matchesStartsWith(v["name"], filterValue))
+    const secondary = values.filter(v => !this.matchesStartsWith(v["name"], filterValue) && this.matchesContains(v["name"], filterValue))
+
+    return [...this.orderByRelevance(priority), ...this.orderByRelevance(secondary)]
+  }
+
+  private orderByRelevance(values: T[]): T[] {
+    return [...values].sort((a, b) => this.normalizeValue(a["name"]).localeCompare(this.normalizeValue(b["name"])))
+  }
+
+  private matchesStartsWith(name: string, filterValue: string): boolean {
+    const normalizedName = this.normalizeValue(name)
+
+    if (normalizedName.startsWith(filterValue)) return true
+
+    if (normalizedName.includes("-mega")) {
+      const baseName = normalizedName.replace(/-mega.*$/, "")
+      const megaAliases = this.buildMegaAliases(normalizedName, baseName)
+
+      if (megaAliases.some(alias => alias.startsWith(filterValue))) return true
+    }
+
+    return false
+  }
+
+  private matchesContains(name: string, filterValue: string): boolean {
+    const normalizedName = this.normalizeValue(name)
+
+    return normalizedName.includes(filterValue)
+  }
+
+  private buildMegaAliases(normalizedName: string, baseName: string): string[] {
+    const afterBase = normalizedName.slice(baseName.length + 1)
+    const variant = afterBase.replace(/^mega-?/, "")
+
+    const megaBase = "mega-" + baseName
+    const nameBase = baseName + "-mega"
+
+    if (!variant) return [megaBase, nameBase]
+
+    return [megaBase + "-" + variant, nameBase + "-" + variant, megaBase, nameBase]
+  }
+
+  private normalizeValue(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, "-")
+  }
+
+  private orderData(dataToProcess: T[], column: keyof T | null, direction: "asc" | "desc" | null) {
+    if (column && direction) {
+      dataToProcess.sort((a, b) => {
+        let valueA: any = a[column]
+        let valueB: any = b[column]
+
+        if (typeof valueA === "string" && typeof valueB === "string") {
+          valueA = valueA.toLowerCase()
+          valueB = valueB.toLowerCase()
+        }
+
+        if (valueA < valueB) {
+          return direction === "asc" ? -1 : 1
+        }
+        if (valueA > valueB) {
+          return direction === "asc" ? 1 : -1
+        }
+
+        return 0
+      })
+    }
+  }
+}

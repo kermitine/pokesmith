@@ -1,0 +1,530 @@
+@use "@angular/material" as mat;
+
+@use "variables.scss" as *;
+
+:root {
+  --space-2xs: 0.125em;
+  --space-xs: 0.25em;
+  --space-sm: 0.5em;
+  --space-md: 0.75em;
+  --space-lg: 1em;
+  --space-xl: 1.5em;
+  --space-2xl: 2em;
+  --space-3xl: 3em;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+  --radius-round: 50%;
+
+  --font-size-xs: 0.75em;
+  --font-size-sm: 0.875em;
+  --font-size-md: 1em;
+  --font-size-lg: 1.125em;
+  --font-size-xl: 1.25em;
+  --font-size-2xl: 1.5em;
+  --font-size-3xl: 1.75em;
+  --font-size-title: clamp(12px, 2vh, 18px);
+  --font-size-dense: clamp(0.625em, 0.7vw, 0.875em);
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-sheet: 0 -4px 24px rgba(0, 0, 0, 0.4);
+
+  --sprite-xs: 3.5em;
+  --sprite-sm: 4em;
+  --sprite-md: 5em;
+  --sprite-lg: 7em;
+  --sprite-xl: 10em;
+}
+
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("assets/fonts/roboto-v51-latin-300.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/roboto-v51-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/roboto-v51-latin-500.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/material-icons-v145-latin-regular.woff2") format("woff2");
+}
+
+.material-icons {
+  font-family: "Material Icons";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  @include mat.theme(
+    (
+      density: -5
+    )
+  );
+}
+
+.warn {
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--warn)
+    )
+  );
+}
+
+body {
+  @include mat.button-overrides(
+    (
+      filled-container-shape: 4px,
+      filled-container-height: 2.5em,
+      filled-horizontal-padding: 1.5rem,
+      filled-label-text-color: var(--primary-contrast)
+    )
+  );
+
+  @include mat.button-toggle-overrides(
+    (
+      height: 3em,
+      shape: 4px,
+      divider-color: #dfdfe2,
+      selected-state-background-color: #dfdfe2,
+      text-color: var(--text),
+      label-text-size: $font-size
+    )
+  );
+
+  @include mat.form-field-overrides(
+    (
+      container-text-size: $font-size,
+      outlined-outline-color: var(--input-border),
+      outlined-input-text-color: var(--text),
+      container-height: 2.5em,
+      container-vertical-padding: 0.7em
+    )
+  );
+
+  @include mat.autocomplete-overrides(
+    (
+      background-color: var(--widget-background)
+    )
+  );
+
+  @include mat.select-overrides(
+    (
+      panel-background-color: var(--widget-background),
+      trigger-text-size: $font-size,
+      trigger-text-weight: 400
+    )
+  );
+
+  @include mat.slider-overrides(
+    (
+      handle-height: 1.5em,
+      handle-width: 1.5em,
+      inactive-track-color: var(--primary)
+    )
+  );
+
+  @include mat.chips-overrides(
+    (
+      container-height: 2em,
+      container-shape-radius: 20px,
+      elevated-selected-container-color: var(--primary),
+      elevated-container-color: var(--chip-color),
+      selected-label-text-color: var(--primary-contrast),
+      outline-color: white,
+      focus-outline-color: white
+    )
+  );
+
+  @include mat.checkbox-overrides(
+    (
+      disabled-selected-icon-color: var(--primary),
+      unselected-icon-color: var(--text),
+      disabled-selected-checkmark-color: var(--checkmark-color),
+      selected-checkmark-color: var(--checkmark-color)
+    )
+  );
+
+  @include mat.dialog-overrides(
+    (
+      container-shape: square,
+      container-color: var(--highlight),
+      subhead-color: var(--text),
+      subhead-size: 1.2rem,
+      subhead-weight: 500
+    )
+  );
+
+  @include mat.card-overrides(
+    (
+      title-text-size: 1.3em,
+      title-text-weight: 500,
+      title-text-line-height: 1.7em,
+      subtitle-text-line-height: 1.7em,
+      subtitle-text-weight: 400
+    )
+  );
+
+  @include mat.menu-overrides(
+    (
+      container-color: var(--widget-background),
+      item-spacing: 2px,
+      divider-top-spacing: 2em,
+      divider-bottom-spacing: 1em
+    )
+  );
+
+  @include mat.button-toggle-overrides(
+    (
+      height: 2.5em
+    )
+  );
+
+  @include mat.slide-toggle-overrides(
+    (
+      track-height: 2em,
+      label-text-color: var(--text),
+      handle-surface-color: var(--primary),
+      selected-hover-handle-color: white,
+      selected-handle-color: white,
+      selected-focus-handle-color: white,
+      selected-pressed-handle-color: white,
+      unselected-hover-handle-color: var(--highlight),
+      unselected-handle-color: var(--highlight),
+      unselected-focus-handle-color: var(--highlight),
+      unselected-pressed-handle-color: var(--highlight)
+    )
+  );
+
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--highlight),
+      supporting-text-color: var(--text-strong)
+    )
+  );
+
+  @include mat.tooltip-overrides(
+    (
+      container-color: var(--highlight),
+      supporting-text-color: var(--text-strong)
+    )
+  );
+}
+
+.multiline-tooltip .mdc-tooltip__surface {
+  white-space: pre-line;
+  text-align: left;
+  line-height: 1.6;
+}
+
+app-header,
+app-team-import-modal,
+app-team-export-modal,
+app-paste-page .secondary-action {
+  @include mat.button-overrides(
+    (
+      filled-container-shape: square,
+      filled-container-color: white,
+      filled-label-text-color: black,
+      filled-state-layer-color: grey,
+      filled-label-text-weight: 500
+    )
+  );
+}
+
+app-damage-result {
+  @include mat.button-toggle-overrides(
+    (
+      height: 2em
+    )
+  );
+}
+
+app-speed-calculator,
+app-speed-calculator-mobile,
+app-sp-slider {
+  .mat-mdc-text-field-wrapper {
+    height: 2.5em;
+  }
+
+  .mat-mdc-select {
+    margin-top: -0.6em;
+  }
+}
+
+app-nature-combo-box,
+app-tera-combo-box,
+app-status-combo-box,
+app-ability-combo-box,
+app-pokemon-build-mobile .item-mobile-trigger {
+  .mat-mdc-select-arrow {
+    display: none;
+  }
+}
+
+.mat-mdc-select-disabled,
+.mat-mdc-select-disabled .mat-mdc-select,
+.mat-mdc-select-disabled .mat-mdc-select-trigger,
+.mat-mdc-select-disabled .mdc-select {
+  cursor: not-allowed !important;
+  pointer-events: auto !important;
+}
+
+.input-column input:disabled,
+.input-row input:disabled {
+  cursor: not-allowed;
+}
+
+.mat-icon {
+  font-size: var(--font-size-3xl);
+}
+
+.mat-mdc-checkbox-disabled .mdc-checkbox {
+  opacity: 0.7;
+}
+
+.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-disabled) {
+  opacity: 0.5;
+}
+
+.cdk-drag-preview {
+  z-index: 1000 !important;
+}
+
+.team-tab.cdk-drag-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--primary);
+  background-color: var(--background);
+  box-shadow: var(--shadow-md);
+  opacity: 1;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background-color: var(--background);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: $font-size;
+  color: var(--text);
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+body:has(app-multi-calc.side-by-side) {
+  overflow-x: clip;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.center {
+  text-align: center;
+}
+
+.cdk-overlay-pane:has(.not-clickable),
+.not-clickable {
+  pointer-events: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@font-face {
+  font-family: "Proba Pro";
+  src: url("assets/fonts/ProbaPro-Regular.otf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@media only screen and (max-width: 1279px) {
+  :root {
+    --font-size-dense: var(--font-size-md);
+  }
+
+  body {
+    @include mat.form-field-overrides(
+      (
+        container-text-size: $font-size-mobile
+      )
+    );
+
+    @include mat.button-toggle-overrides(
+      (
+        label-text-size: $font-size-mobile
+      )
+    );
+  }
+
+  body {
+    font-size: $font-size-mobile;
+  }
+}
+
+.menu-open {
+  overflow: hidden !important;
+}
+
+.widget-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mobile-widget-spacing {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--space-md) !important;
+  padding: var(--space-md) !important;
+  padding-bottom: 0 !important;
+
+  > * {
+    display: block !important;
+    width: auto !important;
+  }
+}
+
+.bottom-nav {
+  transition: transform 0.3s ease-in-out !important;
+
+  &.hidden {
+    transform: translateY(100%) !important;
+  }
+}
+
+.no-pokemon-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 55dvh;
+  padding: 0 var(--space-lg);
+  text-align: center;
+  color: var(--text);
+
+  app-pokemon-sprite {
+    width: 7em;
+    height: 7em;
+  }
+
+  span {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    opacity: 0.7;
+  }
+
+  small {
+    opacity: 0.6;
+  }
+}
+
+html:has(.export-paste-dialog) {
+  overflow: hidden;
+}
+
+.cdk-global-overlay-wrapper:has(> .export-paste-dialog) {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.export-paste-dialog {
+  margin-bottom: 2em;
+
+  .mat-mdc-dialog-content {
+    max-height: none;
+  }
+}
+
+html:has(.create-paste-overlay) {
+  overflow: hidden;
+}
+
+.create-paste-overlay {
+  .mat-mdc-dialog-container {
+    --mat-dialog-container-color: var(--background);
+  }
+
+  .mat-mdc-dialog-surface {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+body[data-theme="dark"] .light-image,
+body[data-theme="light"] .dark-image {
+  display: none !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not([data-theme="light"]) .light-image {
+    display: none !important;
+  }
+}
+
+@media not (prefers-color-scheme: dark) {
+  body:not([data-theme="dark"]) .dark-image {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1279px) {
+  .desktop-image,
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .mobile-image,
+  .mobile-only {
+    display: none !important;
+  }
+}
