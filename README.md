@@ -26,6 +26,15 @@ docker compose logs -f pokesmith
 
 Stop it with `docker compose down`. Teams remain in the browser's local storage, so no container data volume is required. Accessing the app through a different hostname or port uses a different browser storage origin.
 
+If Windows Docker Compose reports `failed to evaluate path "https://github.com/..."`, its Bake builder is treating the Git URL as a local Windows path. Build from the GitHub URL directly, then let Compose start the resulting image:
+
+```sh
+docker build -t pokesmith:latest https://github.com/kermitine/pokesmith.git#main
+docker compose up -d --no-build --pull never
+```
+
+This workaround still builds the application from GitHub and uses the same Compose runtime settings.
+
 The multi-stage image runs the tests and production build with Node 24, then includes only the built frontend, the dependency-free Node server, and license notices. The runtime uses the `node` user and exposes port 3000 internally. `/healthz` checks the app without depending on MunchStats availability. The source repository must contain the application and Docker files for a remote build to work.
 
 For a direct build without Compose:
